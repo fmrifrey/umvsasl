@@ -1,0 +1,2784 @@
+
+
+    if (ampslice(_a_gzrf1.fixedflag ? (_temp493_a_gzrf1=a_gzrf1,&_temp493_a_gzrf1) : &a_gzrf1,(long)(4000000*cyc_rf1/
+        pw_rf1),
+        (float)thk_rf1,(float)gscale_rf1,
+        (int)1) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1a.fixedflag ? (_temp494_pw_gzrf1a=pw_gzrf1a,&_temp494_pw_gzrf1a) : &pw_gzrf1a,a_gzrf1,loggrd.tz,
+                loggrd.zrt,1) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1d.fixedflag ? (_temp495_pw_gzrf1d=pw_gzrf1d,&_temp495_pw_gzrf1d) : &pw_gzrf1d,a_gzrf1,loggrd.tz,
+                loggrd.zft,1)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf1  = _ia_gzrf1.fixedflag ?    ((void)((int)(a_gzrf1*MAX_PG_IAMP/loggrd.tz)), ia_gzrf1) : (int)(a_gzrf1*MAX_PG_IAMP/loggrd.tz);
+
+    ia_rf1  = _ia_rf1.fixedflag ?    ((void)((int)(a_rf1*MAX_PG_IAMP)), ia_rf1) : (int)(a_rf1*MAX_PG_IAMP);
+    if (res_rf1 == 0)
+    {
+        res_rf1  = _res_rf1.fixedflag ?  ((void)(pw_rf1/(RF_UPDATE_TIME)), res_rf1) : pw_rf1/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1, &loggrd);
+        if (1 == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1, &loggrd);
+            if (amppwgrad((float)((int)(-0.5*a_gzrf1*(pw_rf1+pw_gzrf1d))),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1.fixedflag ? (_temp496_a_gz1=a_gz1,&_temp496_a_gz1) : &a_gz1, _pw_gz1a.fixedflag ? (_temp497_pw_gz1a=pw_gz1a,&_temp497_pw_gz1a) : &pw_gz1a, _pw_gz1.fixedflag ? (_temp498_pw_gz1=pw_gz1,&_temp498_pw_gz1) : &pw_gz1,
+                          _pw_gz1d.fixedflag ? (_temp499_pw_gz1d=pw_gz1d,&_temp499_pw_gz1d) : &pw_gz1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1  = _ia_gz1.fixedflag ?     ((void)((int)((a_gz1/target)*MAX_PG_IAMP)), ia_gz1) : (int)((a_gz1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxw, &loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxw, &loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxw.fixedflag ? (_temp500_a_gxw=a_gxw,&_temp500_a_gxw) : &a_gxw, _pw_gxwa.fixedflag ? (_temp501_pw_gxwa=pw_gxwa,&_temp501_pw_gxwa) : &pw_gxwa, _pw_gxw.fixedflag ? (_temp502_pw_gxw=pw_gxw,&_temp502_pw_gxw) : &pw_gxw,
+                          _pw_gxwd.fixedflag ? (_temp503_pw_gxwd=pw_gxwd,&_temp503_pw_gxwd) : &pw_gxwd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxw  = _ia_gxw.fixedflag ?     ((void)((int)((a_gxw/target)*MAX_PG_IAMP)), ia_gxw) : (int)((a_gxw/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1, &loggrd);
+        if (1 == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1, &loggrd);
+            if (amppwgrad((float)((int)(-0.5*a_gxw*(pw_gxw+pw_gxwa))),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1.fixedflag ? (_temp504_a_gx1=a_gx1,&_temp504_a_gx1) : &a_gx1, _pw_gx1a.fixedflag ? (_temp505_pw_gx1a=pw_gx1a,&_temp505_pw_gx1a) : &pw_gx1a, _pw_gx1.fixedflag ? (_temp506_pw_gx1=pw_gx1,&_temp506_pw_gx1) : &pw_gx1,
+                          _pw_gx1d.fixedflag ? (_temp507_pw_gx1d=pw_gx1d,&_temp507_pw_gx1d) : &pw_gx1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1  = _ia_gx1.fixedflag ?     ((void)((int)((a_gx1/target)*MAX_PG_IAMP)), ia_gx1) : (int)((a_gx1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1,&loggrd);
+        ia_gy1  = _ia_gy1.fixedflag ?      
+            ((void)((int)((endview_scale*a_gy1/target)*MAX_PG_IAMP)), ia_gy1) : (int)((endview_scale*a_gy1/target)*MAX_PG_IAMP);
+        ia_gy1wa  = _ia_gy1wa.fixedflag ?      
+            ((void)((int)((endview_scale*a_gy1a/target)*MAX_PG_IAMP)), ia_gy1wa) : (int)((endview_scale*a_gy1a/target)*MAX_PG_IAMP);
+        ia_gy1wb  = _ia_gy1wb.fixedflag ?      
+            ((void)((int)((endview_scale*a_gy1b/target)*MAX_PG_IAMP)), ia_gy1wb) : (int)((endview_scale*a_gy1b/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gyr1,&loggrd);
+        ia_gyr1  = _ia_gyr1.fixedflag ?      
+            ((void)((int)((endview_scale*a_gyr1/target)*MAX_PG_IAMP)), ia_gyr1) : (int)((endview_scale*a_gyr1/target)*MAX_PG_IAMP);
+        ia_gyr1wa  = _ia_gyr1wa.fixedflag ?      
+            ((void)((int)((endview_scale*a_gyr1a/target)*MAX_PG_IAMP)), ia_gyr1wa) : (int)((endview_scale*a_gyr1a/target)*MAX_PG_IAMP);
+        ia_gyr1wb  = _ia_gyr1wb.fixedflag ?      
+            ((void)((int)((endview_scale*a_gyr1b/target)*MAX_PG_IAMP)), ia_gyr1wb) : (int)((endview_scale*a_gyr1b/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzk, &loggrd);
+        if (1 == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzk, &loggrd);
+            if (amppwgrad((float)(980),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzk.fixedflag ? (_temp508_a_gzk=a_gzk,&_temp508_a_gzk) : &a_gzk, _pw_gzka.fixedflag ? (_temp509_pw_gzka=pw_gzka,&_temp509_pw_gzka) : &pw_gzka, _pw_gzk.fixedflag ? (_temp510_pw_gzk=pw_gzk,&_temp510_pw_gzk) : &pw_gzk,
+                          _pw_gzkd.fixedflag ? (_temp511_pw_gzkd=pw_gzkd,&_temp511_pw_gzkd) : &pw_gzkd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzk  = _ia_gzk.fixedflag ?     ((void)((int)((a_gzk/target)*MAX_PG_IAMP)), ia_gzk) : (int)((a_gzk/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxk, &loggrd);
+        if (1 == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxk, &loggrd);
+            if (amppwgrad((float)(980),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxk.fixedflag ? (_temp512_a_gxk=a_gxk,&_temp512_a_gxk) : &a_gxk, _pw_gxka.fixedflag ? (_temp513_pw_gxka=pw_gxka,&_temp513_pw_gxka) : &pw_gxka, _pw_gxk.fixedflag ? (_temp514_pw_gxk=pw_gxk,&_temp514_pw_gxk) : &pw_gxk,
+                          _pw_gxkd.fixedflag ? (_temp515_pw_gxkd=pw_gxkd,&_temp515_pw_gxkd) : &pw_gxkd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxk  = _ia_gxk.fixedflag ?     ((void)((int)((a_gxk/target)*MAX_PG_IAMP)), ia_gxk) : (int)((a_gxk/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+{
+  float target;
+  gettarget(&target,(WF_PROCESSOR)wg_rf1mps1,&ps1loggrd);
+  if ((wg_rf1mps1==TYPRHO1)||(wg_rf1mps1==TYPRHO2)
+        ||(wg_rf1mps1==TYPOMEGA)||(wg_rf1mps1==TYPTHETA))
+    {
+      if (res_rf1mps1 == 0)
+        {
+          res_rf1mps1  = _res_rf1mps1.fixedflag ?  ((void)(pw_rf1mps1/(RF_UPDATE_TIME)), res_rf1mps1) : pw_rf1mps1/(RF_UPDATE_TIME);
+        }
+      ia_rf1mps1  = _ia_rf1mps1.fixedflag ?    ((void)((int)(a_rf1mps1*MAX_PG_IAMP)), ia_rf1mps1) : (int)(a_rf1mps1*MAX_PG_IAMP);
+    }    
+  else
+    {
+      if (res_rf1mps1 == 0)
+        {
+          res_rf1mps1  = _res_rf1mps1.fixedflag ?  ((void)(pw_rf1mps1/(GRAD_UPDATE_TIME)), res_rf1mps1) : pw_rf1mps1/(GRAD_UPDATE_TIME);
+        }
+      ia_rf1mps1  = _ia_rf1mps1.fixedflag ?     ((void)((int)((a_rf1mps1/target)*MAX_PG_IAMP)), ia_rf1mps1) : (int)((a_rf1mps1/target)*MAX_PG_IAMP);
+    }    
+}
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gyrf1mps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gyrf1mps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gyrf1mps1.fixedflag ? (_temp516_a_gyrf1mps1=a_gyrf1mps1,&_temp516_a_gyrf1mps1) : &a_gyrf1mps1, _pw_gyrf1mps1a.fixedflag ? (_temp517_pw_gyrf1mps1a=pw_gyrf1mps1a,&_temp517_pw_gyrf1mps1a) : &pw_gyrf1mps1a, _pw_gyrf1mps1.fixedflag ? (_temp518_pw_gyrf1mps1=pw_gyrf1mps1,&_temp518_pw_gyrf1mps1) : &pw_gyrf1mps1,
+                          _pw_gyrf1mps1d.fixedflag ? (_temp519_pw_gyrf1mps1d=pw_gyrf1mps1d,&_temp519_pw_gyrf1mps1d) : &pw_gyrf1mps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gyrf1mps1  = _ia_gyrf1mps1.fixedflag ?     ((void)((int)((a_gyrf1mps1/target)*MAX_PG_IAMP)), ia_gyrf1mps1) : (int)((a_gyrf1mps1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gy1mps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gy1mps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gy1mps1.fixedflag ? (_temp520_a_gy1mps1=a_gy1mps1,&_temp520_a_gy1mps1) : &a_gy1mps1, _pw_gy1mps1a.fixedflag ? (_temp521_pw_gy1mps1a=pw_gy1mps1a,&_temp521_pw_gy1mps1a) : &pw_gy1mps1a, _pw_gy1mps1.fixedflag ? (_temp522_pw_gy1mps1=pw_gy1mps1,&_temp522_pw_gy1mps1) : &pw_gy1mps1,
+                          _pw_gy1mps1d.fixedflag ? (_temp523_pw_gy1mps1d=pw_gy1mps1d,&_temp523_pw_gy1mps1d) : &pw_gy1mps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gy1mps1  = _ia_gy1mps1.fixedflag ?     ((void)((int)((a_gy1mps1/target)*MAX_PG_IAMP)), ia_gy1mps1) : (int)((a_gy1mps1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf1mps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf1mps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf1mps1.fixedflag ? (_temp524_a_gzrf1mps1=a_gzrf1mps1,&_temp524_a_gzrf1mps1) : &a_gzrf1mps1, _pw_gzrf1mps1a.fixedflag ? (_temp525_pw_gzrf1mps1a=pw_gzrf1mps1a,&_temp525_pw_gzrf1mps1a) : &pw_gzrf1mps1a, _pw_gzrf1mps1.fixedflag ? (_temp526_pw_gzrf1mps1=pw_gzrf1mps1,&_temp526_pw_gzrf1mps1) : &pw_gzrf1mps1,
+                          _pw_gzrf1mps1d.fixedflag ? (_temp527_pw_gzrf1mps1d=pw_gzrf1mps1d,&_temp527_pw_gzrf1mps1d) : &pw_gzrf1mps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf1mps1  = _ia_gzrf1mps1.fixedflag ?     ((void)((int)((a_gzrf1mps1/target)*MAX_PG_IAMP)), ia_gzrf1mps1) : (int)((a_gzrf1mps1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1mps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1mps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1mps1.fixedflag ? (_temp528_a_gz1mps1=a_gz1mps1,&_temp528_a_gz1mps1) : &a_gz1mps1, _pw_gz1mps1a.fixedflag ? (_temp529_pw_gz1mps1a=pw_gz1mps1a,&_temp529_pw_gz1mps1a) : &pw_gz1mps1a, _pw_gz1mps1.fixedflag ? (_temp530_pw_gz1mps1=pw_gz1mps1,&_temp530_pw_gz1mps1) : &pw_gz1mps1,
+                          _pw_gz1mps1d.fixedflag ? (_temp531_pw_gz1mps1d=pw_gz1mps1d,&_temp531_pw_gz1mps1d) : &pw_gz1mps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1mps1  = _ia_gz1mps1.fixedflag ?     ((void)((int)((a_gz1mps1/target)*MAX_PG_IAMP)), ia_gz1mps1) : (int)((a_gz1mps1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1mps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1mps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1mps1.fixedflag ? (_temp532_a_gx1mps1=a_gx1mps1,&_temp532_a_gx1mps1) : &a_gx1mps1, _pw_gx1mps1a.fixedflag ? (_temp533_pw_gx1mps1a=pw_gx1mps1a,&_temp533_pw_gx1mps1a) : &pw_gx1mps1a, _pw_gx1mps1.fixedflag ? (_temp534_pw_gx1mps1=pw_gx1mps1,&_temp534_pw_gx1mps1) : &pw_gx1mps1,
+                          _pw_gx1mps1d.fixedflag ? (_temp535_pw_gx1mps1d=pw_gx1mps1d,&_temp535_pw_gx1mps1d) : &pw_gx1mps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1mps1  = _ia_gx1mps1.fixedflag ?     ((void)((int)((a_gx1mps1/target)*MAX_PG_IAMP)), ia_gx1mps1) : (int)((a_gx1mps1/target)*MAX_PG_IAMP);
+    }
+
+
+    if (ampslice(_a_gzrf2mps1.fixedflag ? (_temp536_a_gzrf2mps1=a_gzrf2mps1,&_temp536_a_gzrf2mps1) : &a_gzrf2mps1,(LONG)(4000000*cyc_rf2mps1/
+        pw_rf2mps1),
+        (float)thk_rf2mps1,(float)gscale_rf2mps1,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf2mps1a.fixedflag ? (_temp537_pw_gzrf2mps1a=pw_gzrf2mps1a,&_temp537_pw_gzrf2mps1a) : &pw_gzrf2mps1a,a_gzrf2mps1,ps1loggrd.tz,
+                ps1loggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf2mps1d.fixedflag ? (_temp538_pw_gzrf2mps1d=pw_gzrf2mps1d,&_temp538_pw_gzrf2mps1d) : &pw_gzrf2mps1d,a_gzrf2mps1,ps1loggrd.tz,
+                ps1loggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf2mps1  = _ia_gzrf2mps1.fixedflag ?    ((void)((int)(a_gzrf2mps1*MAX_PG_IAMP/ps1loggrd.tz)), ia_gzrf2mps1) : (int)(a_gzrf2mps1*MAX_PG_IAMP/ps1loggrd.tz);
+
+    ia_rf2mps1  = _ia_rf2mps1.fixedflag ?    ((void)((int)(a_rf2mps1*MAX_PG_IAMP)), ia_rf2mps1) : (int)(a_rf2mps1*MAX_PG_IAMP);
+    if (res_rf2mps1 == 0)
+    {
+        res_rf2mps1  = _res_rf2mps1.fixedflag ?  ((void)(pw_rf2mps1/(RF_UPDATE_TIME)), res_rf2mps1) : pw_rf2mps1/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf2lmps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf2lmps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf2lmps1.fixedflag ? (_temp539_a_gzrf2lmps1=a_gzrf2lmps1,&_temp539_a_gzrf2lmps1) : &a_gzrf2lmps1, _pw_gzrf2lmps1a.fixedflag ? (_temp540_pw_gzrf2lmps1a=pw_gzrf2lmps1a,&_temp540_pw_gzrf2lmps1a) : &pw_gzrf2lmps1a, _pw_gzrf2lmps1.fixedflag ? (_temp541_pw_gzrf2lmps1=pw_gzrf2lmps1,&_temp541_pw_gzrf2lmps1) : &pw_gzrf2lmps1,
+                          _pw_gzrf2lmps1d.fixedflag ? (_temp542_pw_gzrf2lmps1d=pw_gzrf2lmps1d,&_temp542_pw_gzrf2lmps1d) : &pw_gzrf2lmps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf2lmps1  = _ia_gzrf2lmps1.fixedflag ?     ((void)((int)((a_gzrf2lmps1/target)*MAX_PG_IAMP)), ia_gzrf2lmps1) : (int)((a_gzrf2lmps1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf2rmps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf2rmps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf2rmps1.fixedflag ? (_temp543_a_gzrf2rmps1=a_gzrf2rmps1,&_temp543_a_gzrf2rmps1) : &a_gzrf2rmps1, _pw_gzrf2rmps1a.fixedflag ? (_temp544_pw_gzrf2rmps1a=pw_gzrf2rmps1a,&_temp544_pw_gzrf2rmps1a) : &pw_gzrf2rmps1a, _pw_gzrf2rmps1.fixedflag ? (_temp545_pw_gzrf2rmps1=pw_gzrf2rmps1,&_temp545_pw_gzrf2rmps1) : &pw_gzrf2rmps1,
+                          _pw_gzrf2rmps1d.fixedflag ? (_temp546_pw_gzrf2rmps1d=pw_gzrf2rmps1d,&_temp546_pw_gzrf2rmps1d) : &pw_gzrf2rmps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf2rmps1  = _ia_gzrf2rmps1.fixedflag ?     ((void)((int)((a_gzrf2rmps1/target)*MAX_PG_IAMP)), ia_gzrf2rmps1) : (int)((a_gzrf2rmps1/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxwmps1, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxwmps1, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxwmps1.fixedflag ? (_temp547_a_gxwmps1=a_gxwmps1,&_temp547_a_gxwmps1) : &a_gxwmps1, _pw_gxwmps1a.fixedflag ? (_temp548_pw_gxwmps1a=pw_gxwmps1a,&_temp548_pw_gxwmps1a) : &pw_gxwmps1a, _pw_gxwmps1.fixedflag ? (_temp549_pw_gxwmps1=pw_gxwmps1,&_temp549_pw_gxwmps1) : &pw_gxwmps1,
+                          _pw_gxwmps1d.fixedflag ? (_temp550_pw_gxwmps1d=pw_gxwmps1d,&_temp550_pw_gxwmps1d) : &pw_gxwmps1d) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxwmps1  = _ia_gxwmps1.fixedflag ?     ((void)((int)((a_gxwmps1/target)*MAX_PG_IAMP)), ia_gxwmps1) : (int)((a_gxwmps1/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+    if (ampslice(_a_gzrf1cfl.fixedflag ? (_temp551_a_gzrf1cfl=a_gzrf1cfl,&_temp551_a_gzrf1cfl) : &a_gzrf1cfl,(LONG)(4000000*cyc_rf1cfl/
+        pw_rf1cfl),
+        (float)thk_rf1cfl,(float)gscale_rf1cfl,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1cfla.fixedflag ? (_temp552_pw_gzrf1cfla=pw_gzrf1cfla,&_temp552_pw_gzrf1cfla) : &pw_gzrf1cfla,a_gzrf1cfl,cflloggrd.tz,
+                cflloggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1cfld.fixedflag ? (_temp553_pw_gzrf1cfld=pw_gzrf1cfld,&_temp553_pw_gzrf1cfld) : &pw_gzrf1cfld,a_gzrf1cfl,cflloggrd.tz,
+                cflloggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf1cfl  = _ia_gzrf1cfl.fixedflag ?    ((void)((int)(a_gzrf1cfl*MAX_PG_IAMP/cflloggrd.tz)), ia_gzrf1cfl) : (int)(a_gzrf1cfl*MAX_PG_IAMP/cflloggrd.tz);
+
+    ia_rf1cfl  = _ia_rf1cfl.fixedflag ?    ((void)((int)(a_rf1cfl*MAX_PG_IAMP)), ia_rf1cfl) : (int)(a_rf1cfl*MAX_PG_IAMP);
+    if (res_rf1cfl == 0)
+    {
+        res_rf1cfl  = _res_rf1cfl.fixedflag ?  ((void)(pw_rf1cfl/(RF_UPDATE_TIME)), res_rf1cfl) : pw_rf1cfl/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1cfl, &cflloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1cfl, &cflloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1cfl.fixedflag ? (_temp554_a_gz1cfl=a_gz1cfl,&_temp554_a_gz1cfl) : &a_gz1cfl, _pw_gz1cfla.fixedflag ? (_temp555_pw_gz1cfla=pw_gz1cfla,&_temp555_pw_gz1cfla) : &pw_gz1cfla, _pw_gz1cfl.fixedflag ? (_temp556_pw_gz1cfl=pw_gz1cfl,&_temp556_pw_gz1cfl) : &pw_gz1cfl,
+                          _pw_gz1cfld.fixedflag ? (_temp557_pw_gz1cfld=pw_gz1cfld,&_temp557_pw_gz1cfld) : &pw_gz1cfld) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1cfl  = _ia_gz1cfl.fixedflag ?     ((void)((int)((a_gz1cfl/target)*MAX_PG_IAMP)), ia_gz1cfl) : (int)((a_gz1cfl/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gykcfl, &cflloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gykcfl, &cflloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gykcfl.fixedflag ? (_temp558_a_gykcfl=a_gykcfl,&_temp558_a_gykcfl) : &a_gykcfl, _pw_gykcfla.fixedflag ? (_temp559_pw_gykcfla=pw_gykcfla,&_temp559_pw_gykcfla) : &pw_gykcfla, _pw_gykcfl.fixedflag ? (_temp560_pw_gykcfl=pw_gykcfl,&_temp560_pw_gykcfl) : &pw_gykcfl,
+                          _pw_gykcfld.fixedflag ? (_temp561_pw_gykcfld=pw_gykcfld,&_temp561_pw_gykcfld) : &pw_gykcfld) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gykcfl  = _ia_gykcfl.fixedflag ?     ((void)((int)((a_gykcfl/target)*MAX_PG_IAMP)), ia_gykcfl) : (int)((a_gykcfl/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxkrcvn, &rcvnloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxkrcvn, &rcvnloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxkrcvn.fixedflag ? (_temp562_a_gxkrcvn=a_gxkrcvn,&_temp562_a_gxkrcvn) : &a_gxkrcvn, _pw_gxkrcvna.fixedflag ? (_temp563_pw_gxkrcvna=pw_gxkrcvna,&_temp563_pw_gxkrcvna) : &pw_gxkrcvna, _pw_gxkrcvn.fixedflag ? (_temp564_pw_gxkrcvn=pw_gxkrcvn,&_temp564_pw_gxkrcvn) : &pw_gxkrcvn,
+                          _pw_gxkrcvnd.fixedflag ? (_temp565_pw_gxkrcvnd=pw_gxkrcvnd,&_temp565_pw_gxkrcvnd) : &pw_gxkrcvnd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxkrcvn  = _ia_gxkrcvn.fixedflag ?     ((void)((int)((a_gxkrcvn/target)*MAX_PG_IAMP)), ia_gxkrcvn) : (int)((a_gxkrcvn/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gykrcvn, &rcvnloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gykrcvn, &rcvnloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gykrcvn.fixedflag ? (_temp566_a_gykrcvn=a_gykrcvn,&_temp566_a_gykrcvn) : &a_gykrcvn, _pw_gykrcvna.fixedflag ? (_temp567_pw_gykrcvna=pw_gykrcvna,&_temp567_pw_gykrcvna) : &pw_gykrcvna, _pw_gykrcvn.fixedflag ? (_temp568_pw_gykrcvn=pw_gykrcvn,&_temp568_pw_gykrcvn) : &pw_gykrcvn,
+                          _pw_gykrcvnd.fixedflag ? (_temp569_pw_gykrcvnd=pw_gykrcvnd,&_temp569_pw_gykrcvnd) : &pw_gykrcvnd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gykrcvn  = _ia_gykrcvn.fixedflag ?     ((void)((int)((a_gykrcvn/target)*MAX_PG_IAMP)), ia_gykrcvn) : (int)((a_gykrcvn/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzkrcvn, &rcvnloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzkrcvn, &rcvnloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzkrcvn.fixedflag ? (_temp570_a_gzkrcvn=a_gzkrcvn,&_temp570_a_gzkrcvn) : &a_gzkrcvn, _pw_gzkrcvna.fixedflag ? (_temp571_pw_gzkrcvna=pw_gzkrcvna,&_temp571_pw_gzkrcvna) : &pw_gzkrcvna, _pw_gzkrcvn.fixedflag ? (_temp572_pw_gzkrcvn=pw_gzkrcvn,&_temp572_pw_gzkrcvn) : &pw_gzkrcvn,
+                          _pw_gzkrcvnd.fixedflag ? (_temp573_pw_gzkrcvnd=pw_gzkrcvnd,&_temp573_pw_gzkrcvnd) : &pw_gzkrcvnd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzkrcvn  = _ia_gzkrcvn.fixedflag ?     ((void)((int)((a_gzkrcvn/target)*MAX_PG_IAMP)), ia_gzkrcvn) : (int)((a_gzkrcvn/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxk2rcvn, &rcvnloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxk2rcvn, &rcvnloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxk2rcvn.fixedflag ? (_temp574_a_gxk2rcvn=a_gxk2rcvn,&_temp574_a_gxk2rcvn) : &a_gxk2rcvn, _pw_gxk2rcvna.fixedflag ? (_temp575_pw_gxk2rcvna=pw_gxk2rcvna,&_temp575_pw_gxk2rcvna) : &pw_gxk2rcvna, _pw_gxk2rcvn.fixedflag ? (_temp576_pw_gxk2rcvn=pw_gxk2rcvn,&_temp576_pw_gxk2rcvn) : &pw_gxk2rcvn,
+                          _pw_gxk2rcvnd.fixedflag ? (_temp577_pw_gxk2rcvnd=pw_gxk2rcvnd,&_temp577_pw_gxk2rcvnd) : &pw_gxk2rcvnd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxk2rcvn  = _ia_gxk2rcvn.fixedflag ?     ((void)((int)((a_gxk2rcvn/target)*MAX_PG_IAMP)), ia_gxk2rcvn) : (int)((a_gxk2rcvn/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gyk2rcvn, &rcvnloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gyk2rcvn, &rcvnloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gyk2rcvn.fixedflag ? (_temp578_a_gyk2rcvn=a_gyk2rcvn,&_temp578_a_gyk2rcvn) : &a_gyk2rcvn, _pw_gyk2rcvna.fixedflag ? (_temp579_pw_gyk2rcvna=pw_gyk2rcvna,&_temp579_pw_gyk2rcvna) : &pw_gyk2rcvna, _pw_gyk2rcvn.fixedflag ? (_temp580_pw_gyk2rcvn=pw_gyk2rcvn,&_temp580_pw_gyk2rcvn) : &pw_gyk2rcvn,
+                          _pw_gyk2rcvnd.fixedflag ? (_temp581_pw_gyk2rcvnd=pw_gyk2rcvnd,&_temp581_pw_gyk2rcvnd) : &pw_gyk2rcvnd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gyk2rcvn  = _ia_gyk2rcvn.fixedflag ?     ((void)((int)((a_gyk2rcvn/target)*MAX_PG_IAMP)), ia_gyk2rcvn) : (int)((a_gyk2rcvn/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzk2rcvn, &rcvnloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzk2rcvn, &rcvnloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzk2rcvn.fixedflag ? (_temp582_a_gzk2rcvn=a_gzk2rcvn,&_temp582_a_gzk2rcvn) : &a_gzk2rcvn, _pw_gzk2rcvna.fixedflag ? (_temp583_pw_gzk2rcvna=pw_gzk2rcvna,&_temp583_pw_gzk2rcvna) : &pw_gzk2rcvna, _pw_gzk2rcvn.fixedflag ? (_temp584_pw_gzk2rcvn=pw_gzk2rcvn,&_temp584_pw_gzk2rcvn) : &pw_gzk2rcvn,
+                          _pw_gzk2rcvnd.fixedflag ? (_temp585_pw_gzk2rcvnd=pw_gzk2rcvnd,&_temp585_pw_gzk2rcvnd) : &pw_gzk2rcvnd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzk2rcvn  = _ia_gzk2rcvn.fixedflag ?     ((void)((int)((a_gzk2rcvn/target)*MAX_PG_IAMP)), ia_gzk2rcvn) : (int)((a_gzk2rcvn/target)*MAX_PG_IAMP);
+    }
+
+
+
+  ia_rcvrbl  = _ia_rcvrbl.fixedflag ?  ((void)(0), ia_rcvrbl) : 0;
+
+
+  ia_rcvrbl2  = _ia_rcvrbl2.fixedflag ?  ((void)(0), ia_rcvrbl2) : 0;
+
+
+  if (ampslice(_a_gzrf0cfh.fixedflag ? (_temp586_a_gzrf0cfh=a_gzrf0cfh,&_temp586_a_gzrf0cfh) : &a_gzrf0cfh,(LONG)(4000000*cyc_rf0cfh/
+					 pw_rf0cfh),
+	       (float)thk_rf0cfh,(float)gscale_rf0cfh,
+	       (int)TYPNDEF) == FAILURE) return FAILURE;
+  if (optramp(_pw_gzrf0cfha.fixedflag ? (_temp587_pw_gzrf0cfha=pw_gzrf0cfha,&_temp587_pw_gzrf0cfha) : &pw_gzrf0cfha,a_gzrf0cfh,cfhloggrd.tz,
+	      cfhloggrd.zrt,(int)TYPNDEF) 
+      == FAILURE) return FAILURE;
+  if (optramp(_pw_gzrf0cfhd.fixedflag ? (_temp588_pw_gzrf0cfhd=pw_gzrf0cfhd,&_temp588_pw_gzrf0cfhd) : &pw_gzrf0cfhd,a_gzrf0cfh,cfhloggrd.tz,
+	      cfhloggrd.zft,(int)TYPNDEF) 
+      == FAILURE) return FAILURE;
+ 
+  ia_gzrf0cfh  = _ia_gzrf0cfh.fixedflag ?    ((void)((int)(a_gzrf0cfh*MAX_PG_IAMP/cfhloggrd.tz)), ia_gzrf0cfh) : (int)(a_gzrf0cfh*MAX_PG_IAMP/cfhloggrd.tz);
+  ia_rf0cfh  = _ia_rf0cfh.fixedflag ?    ((void)((int)(a_rf0cfh*MAX_PG_IAMP)), ia_rf0cfh) : (int)(a_rf0cfh*MAX_PG_IAMP);
+
+
+    {
+        ia_omegarf0cfh    = _ia_omegarf0cfh.fixedflag ?    ((void)((int)(a_omegarf0cfh*MAX_PG_IAMP)), ia_omegarf0cfh) : (int)(a_omegarf0cfh*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gyrf0kcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gyrf0kcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gyrf0kcfh.fixedflag ? (_temp589_a_gyrf0kcfh=a_gyrf0kcfh,&_temp589_a_gyrf0kcfh) : &a_gyrf0kcfh, _pw_gyrf0kcfha.fixedflag ? (_temp590_pw_gyrf0kcfha=pw_gyrf0kcfha,&_temp590_pw_gyrf0kcfha) : &pw_gyrf0kcfha, _pw_gyrf0kcfh.fixedflag ? (_temp591_pw_gyrf0kcfh=pw_gyrf0kcfh,&_temp591_pw_gyrf0kcfh) : &pw_gyrf0kcfh,
+                          _pw_gyrf0kcfhd.fixedflag ? (_temp592_pw_gyrf0kcfhd=pw_gyrf0kcfhd,&_temp592_pw_gyrf0kcfhd) : &pw_gyrf0kcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gyrf0kcfh  = _ia_gyrf0kcfh.fixedflag ?     ((void)((int)((a_gyrf0kcfh/target)*MAX_PG_IAMP)), ia_gyrf0kcfh) : (int)((a_gyrf0kcfh/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+
+
+
+    if (ampslice(_a_gzrf1cfh.fixedflag ? (_temp593_a_gzrf1cfh=a_gzrf1cfh,&_temp593_a_gzrf1cfh) : &a_gzrf1cfh,(LONG)(4000000*cyc_rf1cfh/
+        pw_rf1cfh),
+        (float)thk_rf1cfh,(float)gscale_rf1cfh,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1cfha.fixedflag ? (_temp594_pw_gzrf1cfha=pw_gzrf1cfha,&_temp594_pw_gzrf1cfha) : &pw_gzrf1cfha,a_gzrf1cfh,cfhloggrd.tz,
+                cfhloggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1cfhd.fixedflag ? (_temp595_pw_gzrf1cfhd=pw_gzrf1cfhd,&_temp595_pw_gzrf1cfhd) : &pw_gzrf1cfhd,a_gzrf1cfh,cfhloggrd.tz,
+                cfhloggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf1cfh  = _ia_gzrf1cfh.fixedflag ?    ((void)((int)(a_gzrf1cfh*MAX_PG_IAMP/cfhloggrd.tz)), ia_gzrf1cfh) : (int)(a_gzrf1cfh*MAX_PG_IAMP/cfhloggrd.tz);
+
+    ia_rf1cfh  = _ia_rf1cfh.fixedflag ?    ((void)((int)(a_rf1cfh*MAX_PG_IAMP)), ia_rf1cfh) : (int)(a_rf1cfh*MAX_PG_IAMP);
+    if (res_rf1cfh == 0)
+    {
+        res_rf1cfh  = _res_rf1cfh.fixedflag ?  ((void)(pw_rf1cfh/(RF_UPDATE_TIME)), res_rf1cfh) : pw_rf1cfh/(RF_UPDATE_TIME);
+    }
+
+
+{
+  float target;
+  gettarget(&target,(WF_PROCESSOR)wg_rf2cfh,&cfhloggrd);
+  if ((wg_rf2cfh==TYPRHO1)||(wg_rf2cfh==TYPRHO2)
+        ||(wg_rf2cfh==TYPOMEGA)||(wg_rf2cfh==TYPTHETA))
+    {
+      if (res_rf2cfh == 0)
+        {
+          res_rf2cfh  = _res_rf2cfh.fixedflag ?  ((void)(pw_rf2cfh/(RF_UPDATE_TIME)), res_rf2cfh) : pw_rf2cfh/(RF_UPDATE_TIME);
+        }
+      ia_rf2cfh  = _ia_rf2cfh.fixedflag ?    ((void)((int)(a_rf2cfh*MAX_PG_IAMP)), ia_rf2cfh) : (int)(a_rf2cfh*MAX_PG_IAMP);
+    }    
+  else
+    {
+      if (res_rf2cfh == 0)
+        {
+          res_rf2cfh  = _res_rf2cfh.fixedflag ?  ((void)(pw_rf2cfh/(GRAD_UPDATE_TIME)), res_rf2cfh) : pw_rf2cfh/(GRAD_UPDATE_TIME);
+        }
+      ia_rf2cfh  = _ia_rf2cfh.fixedflag ?     ((void)((int)((a_rf2cfh/target)*MAX_PG_IAMP)), ia_rf2cfh) : (int)((a_rf2cfh/target)*MAX_PG_IAMP);
+    }    
+}
+
+{
+  float target;
+  gettarget(&target,(WF_PROCESSOR)wg_rf3cfh,&cfhloggrd);
+  if ((wg_rf3cfh==TYPRHO1)||(wg_rf3cfh==TYPRHO2)
+        ||(wg_rf3cfh==TYPOMEGA)||(wg_rf3cfh==TYPTHETA))
+    {
+      if (res_rf3cfh == 0)
+        {
+          res_rf3cfh  = _res_rf3cfh.fixedflag ?  ((void)(pw_rf3cfh/(RF_UPDATE_TIME)), res_rf3cfh) : pw_rf3cfh/(RF_UPDATE_TIME);
+        }
+      ia_rf3cfh  = _ia_rf3cfh.fixedflag ?    ((void)((int)(a_rf3cfh*MAX_PG_IAMP)), ia_rf3cfh) : (int)(a_rf3cfh*MAX_PG_IAMP);
+    }    
+  else
+    {
+      if (res_rf3cfh == 0)
+        {
+          res_rf3cfh  = _res_rf3cfh.fixedflag ?  ((void)(pw_rf3cfh/(GRAD_UPDATE_TIME)), res_rf3cfh) : pw_rf3cfh/(GRAD_UPDATE_TIME);
+        }
+      ia_rf3cfh  = _ia_rf3cfh.fixedflag ?     ((void)((int)((a_rf3cfh/target)*MAX_PG_IAMP)), ia_rf3cfh) : (int)((a_rf3cfh/target)*MAX_PG_IAMP);
+    }    
+}
+
+{
+  float target;
+  gettarget(&target,(WF_PROCESSOR)wg_rf4cfh,&loggrd);
+  if ((wg_rf4cfh==TYPRHO1)||(wg_rf4cfh==TYPRHO2)
+        ||(wg_rf4cfh==TYPOMEGA)||(wg_rf4cfh==TYPTHETA))
+    {
+      if (res_rf4cfh == 0)
+        {
+          res_rf4cfh  = _res_rf4cfh.fixedflag ?  ((void)(pw_rf4cfh/(RF_UPDATE_TIME)), res_rf4cfh) : pw_rf4cfh/(RF_UPDATE_TIME);
+        }
+      ia_rf4cfh  = _ia_rf4cfh.fixedflag ?    ((void)((int)(a_rf4cfh*MAX_PG_IAMP)), ia_rf4cfh) : (int)(a_rf4cfh*MAX_PG_IAMP);
+    }    
+  else
+    {
+      if (res_rf4cfh == 0)
+        {
+          res_rf4cfh  = _res_rf4cfh.fixedflag ?  ((void)(pw_rf4cfh/(GRAD_UPDATE_TIME)), res_rf4cfh) : pw_rf4cfh/(GRAD_UPDATE_TIME);
+        }
+      ia_rf4cfh  = _ia_rf4cfh.fixedflag ?     ((void)((int)((a_rf4cfh/target)*MAX_PG_IAMP)), ia_rf4cfh) : (int)((a_rf4cfh/target)*MAX_PG_IAMP);
+    }    
+}
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxrf2cfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxrf2cfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxrf2cfh.fixedflag ? (_temp596_a_gxrf2cfh=a_gxrf2cfh,&_temp596_a_gxrf2cfh) : &a_gxrf2cfh, _pw_gxrf2cfha.fixedflag ? (_temp597_pw_gxrf2cfha=pw_gxrf2cfha,&_temp597_pw_gxrf2cfha) : &pw_gxrf2cfha, _pw_gxrf2cfh.fixedflag ? (_temp598_pw_gxrf2cfh=pw_gxrf2cfh,&_temp598_pw_gxrf2cfh) : &pw_gxrf2cfh,
+                          _pw_gxrf2cfhd.fixedflag ? (_temp599_pw_gxrf2cfhd=pw_gxrf2cfhd,&_temp599_pw_gxrf2cfhd) : &pw_gxrf2cfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxrf2cfh  = _ia_gxrf2cfh.fixedflag ?     ((void)((int)((a_gxrf2cfh/target)*MAX_PG_IAMP)), ia_gxrf2cfh) : (int)((a_gxrf2cfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gyrf2cfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gyrf2cfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gyrf2cfh.fixedflag ? (_temp600_a_gyrf2cfh=a_gyrf2cfh,&_temp600_a_gyrf2cfh) : &a_gyrf2cfh, _pw_gyrf2cfha.fixedflag ? (_temp601_pw_gyrf2cfha=pw_gyrf2cfha,&_temp601_pw_gyrf2cfha) : &pw_gyrf2cfha, _pw_gyrf2cfh.fixedflag ? (_temp602_pw_gyrf2cfh=pw_gyrf2cfh,&_temp602_pw_gyrf2cfh) : &pw_gyrf2cfh,
+                          _pw_gyrf2cfhd.fixedflag ? (_temp603_pw_gyrf2cfhd=pw_gyrf2cfhd,&_temp603_pw_gyrf2cfhd) : &pw_gyrf2cfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gyrf2cfh  = _ia_gyrf2cfh.fixedflag ?     ((void)((int)((a_gyrf2cfh/target)*MAX_PG_IAMP)), ia_gyrf2cfh) : (int)((a_gyrf2cfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf2lcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf2lcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf2lcfh.fixedflag ? (_temp604_a_gzrf2lcfh=a_gzrf2lcfh,&_temp604_a_gzrf2lcfh) : &a_gzrf2lcfh, _pw_gzrf2lcfha.fixedflag ? (_temp605_pw_gzrf2lcfha=pw_gzrf2lcfha,&_temp605_pw_gzrf2lcfha) : &pw_gzrf2lcfha, _pw_gzrf2lcfh.fixedflag ? (_temp606_pw_gzrf2lcfh=pw_gzrf2lcfh,&_temp606_pw_gzrf2lcfh) : &pw_gzrf2lcfh,
+                          _pw_gzrf2lcfhd.fixedflag ? (_temp607_pw_gzrf2lcfhd=pw_gzrf2lcfhd,&_temp607_pw_gzrf2lcfhd) : &pw_gzrf2lcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf2lcfh  = _ia_gzrf2lcfh.fixedflag ?     ((void)((int)((a_gzrf2lcfh/target)*MAX_PG_IAMP)), ia_gzrf2lcfh) : (int)((a_gzrf2lcfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf2rcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf2rcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf2rcfh.fixedflag ? (_temp608_a_gzrf2rcfh=a_gzrf2rcfh,&_temp608_a_gzrf2rcfh) : &a_gzrf2rcfh, _pw_gzrf2rcfha.fixedflag ? (_temp609_pw_gzrf2rcfha=pw_gzrf2rcfha,&_temp609_pw_gzrf2rcfha) : &pw_gzrf2rcfha, _pw_gzrf2rcfh.fixedflag ? (_temp610_pw_gzrf2rcfh=pw_gzrf2rcfh,&_temp610_pw_gzrf2rcfh) : &pw_gzrf2rcfh,
+                          _pw_gzrf2rcfhd.fixedflag ? (_temp611_pw_gzrf2rcfhd=pw_gzrf2rcfhd,&_temp611_pw_gzrf2rcfhd) : &pw_gzrf2rcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf2rcfh  = _ia_gzrf2rcfh.fixedflag ?     ((void)((int)((a_gzrf2rcfh/target)*MAX_PG_IAMP)), ia_gzrf2rcfh) : (int)((a_gzrf2rcfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gyrf3cfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gyrf3cfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gyrf3cfh.fixedflag ? (_temp612_a_gyrf3cfh=a_gyrf3cfh,&_temp612_a_gyrf3cfh) : &a_gyrf3cfh, _pw_gyrf3cfha.fixedflag ? (_temp613_pw_gyrf3cfha=pw_gyrf3cfha,&_temp613_pw_gyrf3cfha) : &pw_gyrf3cfha, _pw_gyrf3cfh.fixedflag ? (_temp614_pw_gyrf3cfh=pw_gyrf3cfh,&_temp614_pw_gyrf3cfh) : &pw_gyrf3cfh,
+                          _pw_gyrf3cfhd.fixedflag ? (_temp615_pw_gyrf3cfhd=pw_gyrf3cfhd,&_temp615_pw_gyrf3cfhd) : &pw_gyrf3cfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gyrf3cfh  = _ia_gyrf3cfh.fixedflag ?     ((void)((int)((a_gyrf3cfh/target)*MAX_PG_IAMP)), ia_gyrf3cfh) : (int)((a_gyrf3cfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf3lcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf3lcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf3lcfh.fixedflag ? (_temp616_a_gzrf3lcfh=a_gzrf3lcfh,&_temp616_a_gzrf3lcfh) : &a_gzrf3lcfh, _pw_gzrf3lcfha.fixedflag ? (_temp617_pw_gzrf3lcfha=pw_gzrf3lcfha,&_temp617_pw_gzrf3lcfha) : &pw_gzrf3lcfha, _pw_gzrf3lcfh.fixedflag ? (_temp618_pw_gzrf3lcfh=pw_gzrf3lcfh,&_temp618_pw_gzrf3lcfh) : &pw_gzrf3lcfh,
+                          _pw_gzrf3lcfhd.fixedflag ? (_temp619_pw_gzrf3lcfhd=pw_gzrf3lcfhd,&_temp619_pw_gzrf3lcfhd) : &pw_gzrf3lcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf3lcfh  = _ia_gzrf3lcfh.fixedflag ?     ((void)((int)((a_gzrf3lcfh/target)*MAX_PG_IAMP)), ia_gzrf3lcfh) : (int)((a_gzrf3lcfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf3rcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf3rcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf3rcfh.fixedflag ? (_temp620_a_gzrf3rcfh=a_gzrf3rcfh,&_temp620_a_gzrf3rcfh) : &a_gzrf3rcfh, _pw_gzrf3rcfha.fixedflag ? (_temp621_pw_gzrf3rcfha=pw_gzrf3rcfha,&_temp621_pw_gzrf3rcfha) : &pw_gzrf3rcfha, _pw_gzrf3rcfh.fixedflag ? (_temp622_pw_gzrf3rcfh=pw_gzrf3rcfh,&_temp622_pw_gzrf3rcfh) : &pw_gzrf3rcfh,
+                          _pw_gzrf3rcfhd.fixedflag ? (_temp623_pw_gzrf3rcfhd=pw_gzrf3rcfhd,&_temp623_pw_gzrf3rcfhd) : &pw_gzrf3rcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf3rcfh  = _ia_gzrf3rcfh.fixedflag ?     ((void)((int)((a_gzrf3rcfh/target)*MAX_PG_IAMP)), ia_gzrf3rcfh) : (int)((a_gzrf3rcfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gy1cfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gy1cfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gy1cfh.fixedflag ? (_temp624_a_gy1cfh=a_gy1cfh,&_temp624_a_gy1cfh) : &a_gy1cfh, _pw_gy1cfha.fixedflag ? (_temp625_pw_gy1cfha=pw_gy1cfha,&_temp625_pw_gy1cfha) : &pw_gy1cfha, _pw_gy1cfh.fixedflag ? (_temp626_pw_gy1cfh=pw_gy1cfh,&_temp626_pw_gy1cfh) : &pw_gy1cfh,
+                          _pw_gy1cfhd.fixedflag ? (_temp627_pw_gy1cfhd=pw_gy1cfhd,&_temp627_pw_gy1cfhd) : &pw_gy1cfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gy1cfh  = _ia_gy1cfh.fixedflag ?     ((void)((int)((a_gy1cfh/target)*MAX_PG_IAMP)), ia_gy1cfh) : (int)((a_gy1cfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1cfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1cfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1cfh.fixedflag ? (_temp628_a_gx1cfh=a_gx1cfh,&_temp628_a_gx1cfh) : &a_gx1cfh, _pw_gx1cfha.fixedflag ? (_temp629_pw_gx1cfha=pw_gx1cfha,&_temp629_pw_gx1cfha) : &pw_gx1cfha, _pw_gx1cfh.fixedflag ? (_temp630_pw_gx1cfh=pw_gx1cfh,&_temp630_pw_gx1cfh) : &pw_gx1cfh,
+                          _pw_gx1cfhd.fixedflag ? (_temp631_pw_gx1cfhd=pw_gx1cfhd,&_temp631_pw_gx1cfhd) : &pw_gx1cfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1cfh  = _ia_gx1cfh.fixedflag ?     ((void)((int)((a_gx1cfh/target)*MAX_PG_IAMP)), ia_gx1cfh) : (int)((a_gx1cfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf4cfh, &loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf4cfh, &loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf4cfh.fixedflag ? (_temp632_a_gzrf4cfh=a_gzrf4cfh,&_temp632_a_gzrf4cfh) : &a_gzrf4cfh, _pw_gzrf4cfha.fixedflag ? (_temp633_pw_gzrf4cfha=pw_gzrf4cfha,&_temp633_pw_gzrf4cfha) : &pw_gzrf4cfha, _pw_gzrf4cfh.fixedflag ? (_temp634_pw_gzrf4cfh=pw_gzrf4cfh,&_temp634_pw_gzrf4cfh) : &pw_gzrf4cfh,
+                          _pw_gzrf4cfhd.fixedflag ? (_temp635_pw_gzrf4cfhd=pw_gzrf4cfhd,&_temp635_pw_gzrf4cfhd) : &pw_gzrf4cfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf4cfh  = _ia_gzrf4cfh.fixedflag ?     ((void)((int)((a_gzrf4cfh/target)*MAX_PG_IAMP)), ia_gzrf4cfh) : (int)((a_gzrf4cfh/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf4lcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf4lcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf4lcfh.fixedflag ? (_temp636_a_gzrf4lcfh=a_gzrf4lcfh,&_temp636_a_gzrf4lcfh) : &a_gzrf4lcfh, _pw_gzrf4lcfha.fixedflag ? (_temp637_pw_gzrf4lcfha=pw_gzrf4lcfha,&_temp637_pw_gzrf4lcfha) : &pw_gzrf4lcfha, _pw_gzrf4lcfh.fixedflag ? (_temp638_pw_gzrf4lcfh=pw_gzrf4lcfh,&_temp638_pw_gzrf4lcfh) : &pw_gzrf4lcfh,
+                          _pw_gzrf4lcfhd.fixedflag ? (_temp639_pw_gzrf4lcfhd=pw_gzrf4lcfhd,&_temp639_pw_gzrf4lcfhd) : &pw_gzrf4lcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf4lcfh  = _ia_gzrf4lcfh.fixedflag ?     ((void)((int)((a_gzrf4lcfh/target)*MAX_PG_IAMP)), ia_gzrf4lcfh) : (int)((a_gzrf4lcfh/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf4rcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf4rcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf4rcfh.fixedflag ? (_temp640_a_gzrf4rcfh=a_gzrf4rcfh,&_temp640_a_gzrf4rcfh) : &a_gzrf4rcfh, _pw_gzrf4rcfha.fixedflag ? (_temp641_pw_gzrf4rcfha=pw_gzrf4rcfha,&_temp641_pw_gzrf4rcfha) : &pw_gzrf4rcfha, _pw_gzrf4rcfh.fixedflag ? (_temp642_pw_gzrf4rcfh=pw_gzrf4rcfh,&_temp642_pw_gzrf4rcfh) : &pw_gzrf4rcfh,
+                          _pw_gzrf4rcfhd.fixedflag ? (_temp643_pw_gzrf4rcfhd=pw_gzrf4rcfhd,&_temp643_pw_gzrf4rcfhd) : &pw_gzrf4rcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf4rcfh  = _ia_gzrf4rcfh.fixedflag ?     ((void)((int)((a_gzrf4rcfh/target)*MAX_PG_IAMP)), ia_gzrf4rcfh) : (int)((a_gzrf4rcfh/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gykcfh, &cfhloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gykcfh, &cfhloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gykcfh.fixedflag ? (_temp644_a_gykcfh=a_gykcfh,&_temp644_a_gykcfh) : &a_gykcfh, _pw_gykcfha.fixedflag ? (_temp645_pw_gykcfha=pw_gykcfha,&_temp645_pw_gykcfha) : &pw_gykcfha, _pw_gykcfh.fixedflag ? (_temp646_pw_gykcfh=pw_gykcfh,&_temp646_pw_gykcfh) : &pw_gykcfh,
+                          _pw_gykcfhd.fixedflag ? (_temp647_pw_gykcfhd=pw_gykcfhd,&_temp647_pw_gykcfhd) : &pw_gykcfhd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gykcfh  = _ia_gykcfh.fixedflag ?     ((void)((int)((a_gykcfh/target)*MAX_PG_IAMP)), ia_gykcfh) : (int)((a_gykcfh/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+
+
+
+
+
+    if (ampslice(_a_gzrf1ftg.fixedflag ? (_temp648_a_gzrf1ftg=a_gzrf1ftg,&_temp648_a_gzrf1ftg) : &a_gzrf1ftg,(LONG)(4000000*cyc_rf1ftg/
+        pw_rf1ftg),
+        (float)thk_rf1ftg,(float)gscale_rf1ftg,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1ftga.fixedflag ? (_temp649_pw_gzrf1ftga=pw_gzrf1ftga,&_temp649_pw_gzrf1ftga) : &pw_gzrf1ftga,a_gzrf1ftg,ps1loggrd.tz,
+                ps1loggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1ftgd.fixedflag ? (_temp650_pw_gzrf1ftgd=pw_gzrf1ftgd,&_temp650_pw_gzrf1ftgd) : &pw_gzrf1ftgd,a_gzrf1ftg,ps1loggrd.tz,
+                ps1loggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf1ftg  = _ia_gzrf1ftg.fixedflag ?    ((void)((int)(a_gzrf1ftg*MAX_PG_IAMP/ps1loggrd.tz)), ia_gzrf1ftg) : (int)(a_gzrf1ftg*MAX_PG_IAMP/ps1loggrd.tz);
+
+    ia_rf1ftg  = _ia_rf1ftg.fixedflag ?    ((void)((int)(a_rf1ftg*MAX_PG_IAMP)), ia_rf1ftg) : (int)(a_rf1ftg*MAX_PG_IAMP);
+    if (res_rf1ftg == 0)
+    {
+        res_rf1ftg  = _res_rf1ftg.fixedflag ?  ((void)(pw_rf1ftg/(RF_UPDATE_TIME)), res_rf1ftg) : pw_rf1ftg/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1ftg.fixedflag ? (_temp651_a_gz1ftg=a_gz1ftg,&_temp651_a_gz1ftg) : &a_gz1ftg, _pw_gz1ftga.fixedflag ? (_temp652_pw_gz1ftga=pw_gz1ftga,&_temp652_pw_gz1ftga) : &pw_gz1ftga, _pw_gz1ftg.fixedflag ? (_temp653_pw_gz1ftg=pw_gz1ftg,&_temp653_pw_gz1ftg) : &pw_gz1ftg,
+                          _pw_gz1ftgd.fixedflag ? (_temp654_pw_gz1ftgd=pw_gz1ftgd,&_temp654_pw_gz1ftgd) : &pw_gz1ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1ftg  = _ia_gz1ftg.fixedflag ?     ((void)((int)((a_gz1ftg/target)*MAX_PG_IAMP)), ia_gz1ftg) : (int)((a_gz1ftg/target)*MAX_PG_IAMP);
+    }
+
+
+    if (ampslice(_a_gzrf2ftg.fixedflag ? (_temp655_a_gzrf2ftg=a_gzrf2ftg,&_temp655_a_gzrf2ftg) : &a_gzrf2ftg,(LONG)(4000000*cyc_rf2ftg/
+        pw_rf2ftg),
+        (float)thk_rf2ftg,(float)gscale_rf2ftg,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf2ftga.fixedflag ? (_temp656_pw_gzrf2ftga=pw_gzrf2ftga,&_temp656_pw_gzrf2ftga) : &pw_gzrf2ftga,a_gzrf2ftg,ps1loggrd.tz,
+                ps1loggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf2ftgd.fixedflag ? (_temp657_pw_gzrf2ftgd=pw_gzrf2ftgd,&_temp657_pw_gzrf2ftgd) : &pw_gzrf2ftgd,a_gzrf2ftg,ps1loggrd.tz,
+                ps1loggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf2ftg  = _ia_gzrf2ftg.fixedflag ?    ((void)((int)(a_gzrf2ftg*MAX_PG_IAMP/ps1loggrd.tz)), ia_gzrf2ftg) : (int)(a_gzrf2ftg*MAX_PG_IAMP/ps1loggrd.tz);
+
+    ia_rf2ftg  = _ia_rf2ftg.fixedflag ?    ((void)((int)(a_rf2ftg*MAX_PG_IAMP)), ia_rf2ftg) : (int)(a_rf2ftg*MAX_PG_IAMP);
+    if (res_rf2ftg == 0)
+    {
+        res_rf2ftg  = _res_rf2ftg.fixedflag ?  ((void)(pw_rf2ftg/(RF_UPDATE_TIME)), res_rf2ftg) : pw_rf2ftg/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz2ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz2ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz2ftg.fixedflag ? (_temp658_a_gz2ftg=a_gz2ftg,&_temp658_a_gz2ftg) : &a_gz2ftg, _pw_gz2ftga.fixedflag ? (_temp659_pw_gz2ftga=pw_gz2ftga,&_temp659_pw_gz2ftga) : &pw_gz2ftga, _pw_gz2ftg.fixedflag ? (_temp660_pw_gz2ftg=pw_gz2ftg,&_temp660_pw_gz2ftg) : &pw_gz2ftg,
+                          _pw_gz2ftgd.fixedflag ? (_temp661_pw_gz2ftgd=pw_gz2ftgd,&_temp661_pw_gz2ftgd) : &pw_gz2ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz2ftg  = _ia_gz2ftg.fixedflag ?     ((void)((int)((a_gz2ftg/target)*MAX_PG_IAMP)), ia_gz2ftg) : (int)((a_gz2ftg/target)*MAX_PG_IAMP);
+    }
+
+
+    if (ampslice(_a_gzrf3ftg.fixedflag ? (_temp662_a_gzrf3ftg=a_gzrf3ftg,&_temp662_a_gzrf3ftg) : &a_gzrf3ftg,(LONG)(4000000*cyc_rf3ftg/
+        pw_rf3ftg),
+        (float)thk_rf3ftg,(float)gscale_rf3ftg,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf3ftga.fixedflag ? (_temp663_pw_gzrf3ftga=pw_gzrf3ftga,&_temp663_pw_gzrf3ftga) : &pw_gzrf3ftga,a_gzrf3ftg,ps1loggrd.tz,
+                ps1loggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf3ftgd.fixedflag ? (_temp664_pw_gzrf3ftgd=pw_gzrf3ftgd,&_temp664_pw_gzrf3ftgd) : &pw_gzrf3ftgd,a_gzrf3ftg,ps1loggrd.tz,
+                ps1loggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf3ftg  = _ia_gzrf3ftg.fixedflag ?    ((void)((int)(a_gzrf3ftg*MAX_PG_IAMP/ps1loggrd.tz)), ia_gzrf3ftg) : (int)(a_gzrf3ftg*MAX_PG_IAMP/ps1loggrd.tz);
+
+    ia_rf3ftg  = _ia_rf3ftg.fixedflag ?    ((void)((int)(a_rf3ftg*MAX_PG_IAMP)), ia_rf3ftg) : (int)(a_rf3ftg*MAX_PG_IAMP);
+    if (res_rf3ftg == 0)
+    {
+        res_rf3ftg  = _res_rf3ftg.fixedflag ?  ((void)(pw_rf3ftg/(RF_UPDATE_TIME)), res_rf3ftg) : pw_rf3ftg/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz3ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz3ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz3ftg.fixedflag ? (_temp665_a_gz3ftg=a_gz3ftg,&_temp665_a_gz3ftg) : &a_gz3ftg, _pw_gz3ftga.fixedflag ? (_temp666_pw_gz3ftga=pw_gz3ftga,&_temp666_pw_gz3ftga) : &pw_gz3ftga, _pw_gz3ftg.fixedflag ? (_temp667_pw_gz3ftg=pw_gz3ftg,&_temp667_pw_gz3ftg) : &pw_gz3ftg,
+                          _pw_gz3ftgd.fixedflag ? (_temp668_pw_gz3ftgd=pw_gz3ftgd,&_temp668_pw_gz3ftgd) : &pw_gz3ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz3ftg  = _ia_gz3ftg.fixedflag ?     ((void)((int)((a_gz3ftg/target)*MAX_PG_IAMP)), ia_gz3ftg) : (int)((a_gz3ftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1ftg.fixedflag ? (_temp669_a_gx1ftg=a_gx1ftg,&_temp669_a_gx1ftg) : &a_gx1ftg, _pw_gx1ftga.fixedflag ? (_temp670_pw_gx1ftga=pw_gx1ftga,&_temp670_pw_gx1ftga) : &pw_gx1ftga, _pw_gx1ftg.fixedflag ? (_temp671_pw_gx1ftg=pw_gx1ftg,&_temp671_pw_gx1ftg) : &pw_gx1ftg,
+                          _pw_gx1ftgd.fixedflag ? (_temp672_pw_gx1ftgd=pw_gx1ftgd,&_temp672_pw_gx1ftgd) : &pw_gx1ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1ftg  = _ia_gx1ftg.fixedflag ?     ((void)((int)((a_gx1ftg/target)*MAX_PG_IAMP)), ia_gx1ftg) : (int)((a_gx1ftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1bftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1bftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1bftg.fixedflag ? (_temp673_a_gx1bftg=a_gx1bftg,&_temp673_a_gx1bftg) : &a_gx1bftg, _pw_gx1bftga.fixedflag ? (_temp674_pw_gx1bftga=pw_gx1bftga,&_temp674_pw_gx1bftga) : &pw_gx1bftga, _pw_gx1bftg.fixedflag ? (_temp675_pw_gx1bftg=pw_gx1bftg,&_temp675_pw_gx1bftg) : &pw_gx1bftg,
+                          _pw_gx1bftgd.fixedflag ? (_temp676_pw_gx1bftgd=pw_gx1bftgd,&_temp676_pw_gx1bftgd) : &pw_gx1bftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1bftg  = _ia_gx1bftg.fixedflag ?     ((void)((int)((a_gx1bftg/target)*MAX_PG_IAMP)), ia_gx1bftg) : (int)((a_gx1bftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxw1ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxw1ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxw1ftg.fixedflag ? (_temp677_a_gxw1ftg=a_gxw1ftg,&_temp677_a_gxw1ftg) : &a_gxw1ftg, _pw_gxw1ftga.fixedflag ? (_temp678_pw_gxw1ftga=pw_gxw1ftga,&_temp678_pw_gxw1ftga) : &pw_gxw1ftga, _pw_gxw1ftg.fixedflag ? (_temp679_pw_gxw1ftg=pw_gxw1ftg,&_temp679_pw_gxw1ftg) : &pw_gxw1ftg,
+                          _pw_gxw1ftgd.fixedflag ? (_temp680_pw_gxw1ftgd=pw_gxw1ftgd,&_temp680_pw_gxw1ftgd) : &pw_gxw1ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxw1ftg  = _ia_gxw1ftg.fixedflag ?     ((void)((int)((a_gxw1ftg/target)*MAX_PG_IAMP)), ia_gxw1ftg) : (int)((a_gxw1ftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_postgxw1ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_postgxw1ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_postgxw1ftg.fixedflag ? (_temp681_a_postgxw1ftg=a_postgxw1ftg,&_temp681_a_postgxw1ftg) : &a_postgxw1ftg, _pw_postgxw1ftga.fixedflag ? (_temp682_pw_postgxw1ftga=pw_postgxw1ftga,&_temp682_pw_postgxw1ftga) : &pw_postgxw1ftga, _pw_postgxw1ftg.fixedflag ? (_temp683_pw_postgxw1ftg=pw_postgxw1ftg,&_temp683_pw_postgxw1ftg) : &pw_postgxw1ftg,
+                          _pw_postgxw1ftgd.fixedflag ? (_temp684_pw_postgxw1ftgd=pw_postgxw1ftgd,&_temp684_pw_postgxw1ftgd) : &pw_postgxw1ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_postgxw1ftg  = _ia_postgxw1ftg.fixedflag ?     ((void)((int)((a_postgxw1ftg/target)*MAX_PG_IAMP)), ia_postgxw1ftg) : (int)((a_postgxw1ftg/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz2bftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz2bftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz2bftg.fixedflag ? (_temp685_a_gz2bftg=a_gz2bftg,&_temp685_a_gz2bftg) : &a_gz2bftg, _pw_gz2bftga.fixedflag ? (_temp686_pw_gz2bftga=pw_gz2bftga,&_temp686_pw_gz2bftga) : &pw_gz2bftga, _pw_gz2bftg.fixedflag ? (_temp687_pw_gz2bftg=pw_gz2bftg,&_temp687_pw_gz2bftg) : &pw_gz2bftg,
+                          _pw_gz2bftgd.fixedflag ? (_temp688_pw_gz2bftgd=pw_gz2bftgd,&_temp688_pw_gz2bftgd) : &pw_gz2bftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz2bftg  = _ia_gz2bftg.fixedflag ?     ((void)((int)((a_gz2bftg/target)*MAX_PG_IAMP)), ia_gz2bftg) : (int)((a_gz2bftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx2ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx2ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx2ftg.fixedflag ? (_temp689_a_gx2ftg=a_gx2ftg,&_temp689_a_gx2ftg) : &a_gx2ftg, _pw_gx2ftga.fixedflag ? (_temp690_pw_gx2ftga=pw_gx2ftga,&_temp690_pw_gx2ftga) : &pw_gx2ftga, _pw_gx2ftg.fixedflag ? (_temp691_pw_gx2ftg=pw_gx2ftg,&_temp691_pw_gx2ftg) : &pw_gx2ftg,
+                          _pw_gx2ftgd.fixedflag ? (_temp692_pw_gx2ftgd=pw_gx2ftgd,&_temp692_pw_gx2ftgd) : &pw_gx2ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx2ftg  = _ia_gx2ftg.fixedflag ?     ((void)((int)((a_gx2ftg/target)*MAX_PG_IAMP)), ia_gx2ftg) : (int)((a_gx2ftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxw2ftg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxw2ftg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxw2ftg.fixedflag ? (_temp693_a_gxw2ftg=a_gxw2ftg,&_temp693_a_gxw2ftg) : &a_gxw2ftg, _pw_gxw2ftga.fixedflag ? (_temp694_pw_gxw2ftga=pw_gxw2ftga,&_temp694_pw_gxw2ftga) : &pw_gxw2ftga, _pw_gxw2ftg.fixedflag ? (_temp695_pw_gxw2ftg=pw_gxw2ftg,&_temp695_pw_gxw2ftg) : &pw_gxw2ftg,
+                          _pw_gxw2ftgd.fixedflag ? (_temp696_pw_gxw2ftgd=pw_gxw2ftgd,&_temp696_pw_gxw2ftgd) : &pw_gxw2ftgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxw2ftg  = _ia_gxw2ftg.fixedflag ?     ((void)((int)((a_gxw2ftg/target)*MAX_PG_IAMP)), ia_gxw2ftg) : (int)((a_gxw2ftg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx2test, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx2test, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx2test.fixedflag ? (_temp697_a_gx2test=a_gx2test,&_temp697_a_gx2test) : &a_gx2test, _pw_gx2testa.fixedflag ? (_temp698_pw_gx2testa=pw_gx2testa,&_temp698_pw_gx2testa) : &pw_gx2testa, _pw_gx2test.fixedflag ? (_temp699_pw_gx2test=pw_gx2test,&_temp699_pw_gx2test) : &pw_gx2test,
+                          _pw_gx2testd.fixedflag ? (_temp700_pw_gx2testd=pw_gx2testd,&_temp700_pw_gx2testd) : &pw_gx2testd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx2test  = _ia_gx2test.fixedflag ?     ((void)((int)((a_gx2test/target)*MAX_PG_IAMP)), ia_gx2test) : (int)((a_gx2test/target)*MAX_PG_IAMP);
+    }
+
+
+
+{
+  float target;
+  gettarget(&target,(WF_PROCESSOR)wg_rf1xtg,&ps1loggrd);
+  if ((wg_rf1xtg==TYPRHO1)||(wg_rf1xtg==TYPRHO2)
+        ||(wg_rf1xtg==TYPOMEGA)||(wg_rf1xtg==TYPTHETA))
+    {
+      if (res_rf1xtg == 0)
+        {
+          res_rf1xtg  = _res_rf1xtg.fixedflag ?  ((void)(pw_rf1xtg/(RF_UPDATE_TIME)), res_rf1xtg) : pw_rf1xtg/(RF_UPDATE_TIME);
+        }
+      ia_rf1xtg  = _ia_rf1xtg.fixedflag ?    ((void)((int)(a_rf1xtg*MAX_PG_IAMP)), ia_rf1xtg) : (int)(a_rf1xtg*MAX_PG_IAMP);
+    }    
+  else
+    {
+      if (res_rf1xtg == 0)
+        {
+          res_rf1xtg  = _res_rf1xtg.fixedflag ?  ((void)(pw_rf1xtg/(GRAD_UPDATE_TIME)), res_rf1xtg) : pw_rf1xtg/(GRAD_UPDATE_TIME);
+        }
+      ia_rf1xtg  = _ia_rf1xtg.fixedflag ?     ((void)((int)((a_rf1xtg/target)*MAX_PG_IAMP)), ia_rf1xtg) : (int)((a_rf1xtg/target)*MAX_PG_IAMP);
+    }    
+}
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gyrf1xtg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gyrf1xtg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gyrf1xtg.fixedflag ? (_temp701_a_gyrf1xtg=a_gyrf1xtg,&_temp701_a_gyrf1xtg) : &a_gyrf1xtg, _pw_gyrf1xtga.fixedflag ? (_temp702_pw_gyrf1xtga=pw_gyrf1xtga,&_temp702_pw_gyrf1xtga) : &pw_gyrf1xtga, _pw_gyrf1xtg.fixedflag ? (_temp703_pw_gyrf1xtg=pw_gyrf1xtg,&_temp703_pw_gyrf1xtg) : &pw_gyrf1xtg,
+                          _pw_gyrf1xtgd.fixedflag ? (_temp704_pw_gyrf1xtgd=pw_gyrf1xtgd,&_temp704_pw_gyrf1xtgd) : &pw_gyrf1xtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gyrf1xtg  = _ia_gyrf1xtg.fixedflag ?     ((void)((int)((a_gyrf1xtg/target)*MAX_PG_IAMP)), ia_gyrf1xtg) : (int)((a_gyrf1xtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf1xtg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf1xtg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf1xtg.fixedflag ? (_temp705_a_gzrf1xtg=a_gzrf1xtg,&_temp705_a_gzrf1xtg) : &a_gzrf1xtg, _pw_gzrf1xtga.fixedflag ? (_temp706_pw_gzrf1xtga=pw_gzrf1xtga,&_temp706_pw_gzrf1xtga) : &pw_gzrf1xtga, _pw_gzrf1xtg.fixedflag ? (_temp707_pw_gzrf1xtg=pw_gzrf1xtg,&_temp707_pw_gzrf1xtg) : &pw_gzrf1xtg,
+                          _pw_gzrf1xtgd.fixedflag ? (_temp708_pw_gzrf1xtgd=pw_gzrf1xtgd,&_temp708_pw_gzrf1xtgd) : &pw_gzrf1xtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf1xtg  = _ia_gzrf1xtg.fixedflag ?     ((void)((int)((a_gzrf1xtg/target)*MAX_PG_IAMP)), ia_gzrf1xtg) : (int)((a_gzrf1xtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gykxtgl, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gykxtgl, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gykxtgl.fixedflag ? (_temp709_a_gykxtgl=a_gykxtgl,&_temp709_a_gykxtgl) : &a_gykxtgl, _pw_gykxtgla.fixedflag ? (_temp710_pw_gykxtgla=pw_gykxtgla,&_temp710_pw_gykxtgla) : &pw_gykxtgla, _pw_gykxtgl.fixedflag ? (_temp711_pw_gykxtgl=pw_gykxtgl,&_temp711_pw_gykxtgl) : &pw_gykxtgl,
+                          _pw_gykxtgld.fixedflag ? (_temp712_pw_gykxtgld=pw_gykxtgld,&_temp712_pw_gykxtgld) : &pw_gykxtgld) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gykxtgl  = _ia_gykxtgl.fixedflag ?     ((void)((int)((a_gykxtgl/target)*MAX_PG_IAMP)), ia_gykxtgl) : (int)((a_gykxtgl/target)*MAX_PG_IAMP);
+    }
+
+
+            ia_rf3xtg  = _ia_rf3xtg.fixedflag ?    ((void)((int)(a_rf3xtg*MAX_PG_IAMP)), ia_rf3xtg) : (int)(a_rf3xtg*MAX_PG_IAMP);
+            if (res_rf3xtg == 0)
+                res_rf3xtg  = _res_rf3xtg.fixedflag ?  ((void)(RES_FERMI_BLS), res_rf3xtg) : RES_FERMI_BLS;
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1xtg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1xtg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1xtg.fixedflag ? (_temp713_a_gz1xtg=a_gz1xtg,&_temp713_a_gz1xtg) : &a_gz1xtg, _pw_gz1xtga.fixedflag ? (_temp714_pw_gz1xtga=pw_gz1xtga,&_temp714_pw_gz1xtga) : &pw_gz1xtga, _pw_gz1xtg.fixedflag ? (_temp715_pw_gz1xtg=pw_gz1xtg,&_temp715_pw_gz1xtg) : &pw_gz1xtg,
+                          _pw_gz1xtgd.fixedflag ? (_temp716_pw_gz1xtgd=pw_gz1xtgd,&_temp716_pw_gz1xtgd) : &pw_gz1xtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1xtg  = _ia_gz1xtg.fixedflag ?     ((void)((int)((a_gz1xtg/target)*MAX_PG_IAMP)), ia_gz1xtg) : (int)((a_gz1xtg/target)*MAX_PG_IAMP);
+    }
+
+
+    if (ampslice(_a_gzrf2xtg.fixedflag ? (_temp717_a_gzrf2xtg=a_gzrf2xtg,&_temp717_a_gzrf2xtg) : &a_gzrf2xtg,(LONG)(4000000*cyc_rf2xtg/
+        pw_rf2xtg),
+        (float)thk_rf2xtg,(float)gscale_rf2xtg,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf2xtga.fixedflag ? (_temp718_pw_gzrf2xtga=pw_gzrf2xtga,&_temp718_pw_gzrf2xtga) : &pw_gzrf2xtga,a_gzrf2xtg,ps1loggrd.tz,
+                ps1loggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf2xtgd.fixedflag ? (_temp719_pw_gzrf2xtgd=pw_gzrf2xtgd,&_temp719_pw_gzrf2xtgd) : &pw_gzrf2xtgd,a_gzrf2xtg,ps1loggrd.tz,
+                ps1loggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf2xtg  = _ia_gzrf2xtg.fixedflag ?    ((void)((int)(a_gzrf2xtg*MAX_PG_IAMP/ps1loggrd.tz)), ia_gzrf2xtg) : (int)(a_gzrf2xtg*MAX_PG_IAMP/ps1loggrd.tz);
+
+    ia_rf2xtg  = _ia_rf2xtg.fixedflag ?    ((void)((int)(a_rf2xtg*MAX_PG_IAMP)), ia_rf2xtg) : (int)(a_rf2xtg*MAX_PG_IAMP);
+    if (res_rf2xtg == 0)
+    {
+        res_rf2xtg  = _res_rf2xtg.fixedflag ?  ((void)(pw_rf2xtg/(RF_UPDATE_TIME)), res_rf2xtg) : pw_rf2xtg/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz2xtg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz2xtg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz2xtg.fixedflag ? (_temp720_a_gz2xtg=a_gz2xtg,&_temp720_a_gz2xtg) : &a_gz2xtg, _pw_gz2xtga.fixedflag ? (_temp721_pw_gz2xtga=pw_gz2xtga,&_temp721_pw_gz2xtga) : &pw_gz2xtga, _pw_gz2xtg.fixedflag ? (_temp722_pw_gz2xtg=pw_gz2xtg,&_temp722_pw_gz2xtg) : &pw_gz2xtg,
+                          _pw_gz2xtgd.fixedflag ? (_temp723_pw_gz2xtgd=pw_gz2xtgd,&_temp723_pw_gz2xtgd) : &pw_gz2xtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz2xtg  = _ia_gz2xtg.fixedflag ?     ((void)((int)((a_gz2xtg/target)*MAX_PG_IAMP)), ia_gz2xtg) : (int)((a_gz2xtg/target)*MAX_PG_IAMP);
+    }
+
+
+            ia_rf4xtg  = _ia_rf4xtg.fixedflag ?    ((void)((int)(a_rf4xtg*MAX_PG_IAMP)), ia_rf4xtg) : (int)(a_rf4xtg*MAX_PG_IAMP);
+            if (res_rf4xtg == 0)
+                res_rf4xtg  = _res_rf4xtg.fixedflag ?  ((void)(RES_FERMI_BLS), res_rf4xtg) : RES_FERMI_BLS;
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gykxtgr, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gykxtgr, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gykxtgr.fixedflag ? (_temp724_a_gykxtgr=a_gykxtgr,&_temp724_a_gykxtgr) : &a_gykxtgr, _pw_gykxtgra.fixedflag ? (_temp725_pw_gykxtgra=pw_gykxtgra,&_temp725_pw_gykxtgra) : &pw_gykxtgra, _pw_gykxtgr.fixedflag ? (_temp726_pw_gykxtgr=pw_gykxtgr,&_temp726_pw_gykxtgr) : &pw_gykxtgr,
+                          _pw_gykxtgrd.fixedflag ? (_temp727_pw_gykxtgrd=pw_gykxtgrd,&_temp727_pw_gykxtgrd) : &pw_gykxtgrd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gykxtgr  = _ia_gykxtgr.fixedflag ?     ((void)((int)((a_gykxtgr/target)*MAX_PG_IAMP)), ia_gykxtgr) : (int)((a_gykxtgr/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1bxtg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1bxtg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1bxtg.fixedflag ? (_temp728_a_gx1bxtg=a_gx1bxtg,&_temp728_a_gx1bxtg) : &a_gx1bxtg, _pw_gx1bxtga.fixedflag ? (_temp729_pw_gx1bxtga=pw_gx1bxtga,&_temp729_pw_gx1bxtga) : &pw_gx1bxtga, _pw_gx1bxtg.fixedflag ? (_temp730_pw_gx1bxtg=pw_gx1bxtg,&_temp730_pw_gx1bxtg) : &pw_gx1bxtg,
+                          _pw_gx1bxtgd.fixedflag ? (_temp731_pw_gx1bxtgd=pw_gx1bxtgd,&_temp731_pw_gx1bxtgd) : &pw_gx1bxtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1bxtg  = _ia_gx1bxtg.fixedflag ?     ((void)((int)((a_gx1bxtg/target)*MAX_PG_IAMP)), ia_gx1bxtg) : (int)((a_gx1bxtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxw1xtg, &ps1loggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxw1xtg, &ps1loggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxw1xtg.fixedflag ? (_temp732_a_gxw1xtg=a_gxw1xtg,&_temp732_a_gxw1xtg) : &a_gxw1xtg, _pw_gxw1xtga.fixedflag ? (_temp733_pw_gxw1xtga=pw_gxw1xtga,&_temp733_pw_gxw1xtga) : &pw_gxw1xtga, _pw_gxw1xtg.fixedflag ? (_temp734_pw_gxw1xtg=pw_gxw1xtg,&_temp734_pw_gxw1xtg) : &pw_gxw1xtg,
+                          _pw_gxw1xtgd.fixedflag ? (_temp735_pw_gxw1xtgd=pw_gxw1xtgd,&_temp735_pw_gxw1xtgd) : &pw_gxw1xtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxw1xtg  = _ia_gxw1xtg.fixedflag ?     ((void)((int)((a_gxw1xtg/target)*MAX_PG_IAMP)), ia_gxw1xtg) : (int)((a_gxw1xtg/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+    if (ampslice(_a_gzrf1as.fixedflag ? (_temp736_a_gzrf1as=a_gzrf1as,&_temp736_a_gzrf1as) : &a_gzrf1as,(LONG)(4000000*cyc_rf1as/
+        pw_rf1as),
+        (float)thk_rf1as,(float)gscale_rf1as,
+        (int)TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1asa.fixedflag ? (_temp737_pw_gzrf1asa=pw_gzrf1asa,&_temp737_pw_gzrf1asa) : &pw_gzrf1asa,a_gzrf1as,asloggrd.tz,
+                asloggrd.zrt,TYPNDEF) == FAILURE)
+    {
+        return FAILURE;
+    }
+    if (optramp(_pw_gzrf1asd.fixedflag ? (_temp738_pw_gzrf1asd=pw_gzrf1asd,&_temp738_pw_gzrf1asd) : &pw_gzrf1asd,a_gzrf1as,asloggrd.tz,
+                asloggrd.zft,TYPNDEF)== FAILURE)
+    {
+        return FAILURE;
+    }
+
+    ia_gzrf1as  = _ia_gzrf1as.fixedflag ?    ((void)((int)(a_gzrf1as*MAX_PG_IAMP/asloggrd.tz)), ia_gzrf1as) : (int)(a_gzrf1as*MAX_PG_IAMP/asloggrd.tz);
+
+    ia_rf1as  = _ia_rf1as.fixedflag ?    ((void)((int)(a_rf1as*MAX_PG_IAMP)), ia_rf1as) : (int)(a_rf1as*MAX_PG_IAMP);
+    if (res_rf1as == 0)
+    {
+        res_rf1as  = _res_rf1as.fixedflag ?  ((void)(pw_rf1as/(RF_UPDATE_TIME)), res_rf1as) : pw_rf1as/(RF_UPDATE_TIME);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1as, &asloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1as, &asloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1as.fixedflag ? (_temp739_a_gz1as=a_gz1as,&_temp739_a_gz1as) : &a_gz1as, _pw_gz1asa.fixedflag ? (_temp740_pw_gz1asa=pw_gz1asa,&_temp740_pw_gz1asa) : &pw_gz1asa, _pw_gz1as.fixedflag ? (_temp741_pw_gz1as=pw_gz1as,&_temp741_pw_gz1as) : &pw_gz1as,
+                          _pw_gz1asd.fixedflag ? (_temp742_pw_gz1asd=pw_gz1asd,&_temp742_pw_gz1asd) : &pw_gz1asd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1as  = _ia_gz1as.fixedflag ?     ((void)((int)((a_gz1as/target)*MAX_PG_IAMP)), ia_gz1as) : (int)((a_gz1as/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxwas, &asloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxwas, &asloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxwas.fixedflag ? (_temp743_a_gxwas=a_gxwas,&_temp743_a_gxwas) : &a_gxwas, _pw_gxwasa.fixedflag ? (_temp744_pw_gxwasa=pw_gxwasa,&_temp744_pw_gxwasa) : &pw_gxwasa, _pw_gxwas.fixedflag ? (_temp745_pw_gxwas=pw_gxwas,&_temp745_pw_gxwas) : &pw_gxwas,
+                          _pw_gxwasd.fixedflag ? (_temp746_pw_gxwasd=pw_gxwasd,&_temp746_pw_gxwasd) : &pw_gxwasd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxwas  = _ia_gxwas.fixedflag ?     ((void)((int)((a_gxwas/target)*MAX_PG_IAMP)), ia_gxwas) : (int)((a_gxwas/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1as, &asloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1as, &asloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1as.fixedflag ? (_temp747_a_gx1as=a_gx1as,&_temp747_a_gx1as) : &a_gx1as, _pw_gx1asa.fixedflag ? (_temp748_pw_gx1asa=pw_gx1asa,&_temp748_pw_gx1asa) : &pw_gx1asa, _pw_gx1as.fixedflag ? (_temp749_pw_gx1as=pw_gx1as,&_temp749_pw_gx1as) : &pw_gx1as,
+                          _pw_gx1asd.fixedflag ? (_temp750_pw_gx1asd=pw_gx1asd,&_temp750_pw_gx1asd) : &pw_gx1asd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1as  = _ia_gx1as.fixedflag ?     ((void)((int)((a_gx1as/target)*MAX_PG_IAMP)), ia_gx1as) : (int)((a_gx1as/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1as,&asloggrd);
+        ia_gy1as  = _ia_gy1as.fixedflag ?      
+            ((void)((int)((endview_scaleas*a_gy1as/target)*MAX_PG_IAMP)), ia_gy1as) : (int)((endview_scaleas*a_gy1as/target)*MAX_PG_IAMP);
+        ia_gy1aswa  = _ia_gy1aswa.fixedflag ?      
+            ((void)((int)((endview_scaleas*a_gy1asa/target)*MAX_PG_IAMP)), ia_gy1aswa) : (int)((endview_scaleas*a_gy1asa/target)*MAX_PG_IAMP);
+        ia_gy1aswb  = _ia_gy1aswb.fixedflag ?      
+            ((void)((int)((endview_scaleas*a_gy1asb/target)*MAX_PG_IAMP)), ia_gy1aswb) : (int)((endview_scaleas*a_gy1asb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1ras,&asloggrd);
+        ia_gy1ras  = _ia_gy1ras.fixedflag ?      
+            ((void)((int)((endview_scaleas*a_gy1ras/target)*MAX_PG_IAMP)), ia_gy1ras) : (int)((endview_scaleas*a_gy1ras/target)*MAX_PG_IAMP);
+        ia_gy1raswa  = _ia_gy1raswa.fixedflag ?      
+            ((void)((int)((endview_scaleas*a_gy1rasa/target)*MAX_PG_IAMP)), ia_gy1raswa) : (int)((endview_scaleas*a_gy1rasa/target)*MAX_PG_IAMP);
+        ia_gy1raswb  = _ia_gy1raswb.fixedflag ?      
+            ((void)((int)((endview_scaleas*a_gy1rasb/target)*MAX_PG_IAMP)), ia_gy1raswb) : (int)((endview_scaleas*a_gy1rasb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxkas, &asloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxkas, &asloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxkas.fixedflag ? (_temp751_a_gxkas=a_gxkas,&_temp751_a_gxkas) : &a_gxkas, _pw_gxkasa.fixedflag ? (_temp752_pw_gxkasa=pw_gxkasa,&_temp752_pw_gxkasa) : &pw_gxkasa, _pw_gxkas.fixedflag ? (_temp753_pw_gxkas=pw_gxkas,&_temp753_pw_gxkas) : &pw_gxkas,
+                          _pw_gxkasd.fixedflag ? (_temp754_pw_gxkasd=pw_gxkasd,&_temp754_pw_gxkasd) : &pw_gxkasd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxkas  = _ia_gxkas.fixedflag ?     ((void)((int)((a_gxkas/target)*MAX_PG_IAMP)), ia_gxkas) : (int)((a_gxkas/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzkas, &asloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzkas, &asloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzkas.fixedflag ? (_temp755_a_gzkas=a_gzkas,&_temp755_a_gzkas) : &a_gzkas, _pw_gzkasa.fixedflag ? (_temp756_pw_gzkasa=pw_gzkasa,&_temp756_pw_gzkasa) : &pw_gzkasa, _pw_gzkas.fixedflag ? (_temp757_pw_gzkas=pw_gzkas,&_temp757_pw_gzkas) : &pw_gzkas,
+                          _pw_gzkasd.fixedflag ? (_temp758_pw_gzkasd=pw_gzkasd,&_temp758_pw_gzkasd) : &pw_gzkasd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzkas  = _ia_gzkas.fixedflag ?     ((void)((int)((a_gzkas/target)*MAX_PG_IAMP)), ia_gzkas) : (int)((a_gzkas/target)*MAX_PG_IAMP);
+    }
+
+{
+  float target;
+  gettarget(&target, (WF_PROCESSOR)wg_xdixon, &asloggrd);
+  ia_xdixon  = _ia_xdixon.fixedflag ?     ((void)((int)((a_xdixon/target)*MAX_PG_IAMP)), ia_xdixon) : (int)((a_xdixon/target)*MAX_PG_IAMP);
+}
+
+{
+  float target;
+  gettarget(&target, (WF_PROCESSOR)wg_ydixon, &asloggrd);
+  ia_ydixon  = _ia_ydixon.fixedflag ?     ((void)((int)((a_ydixon/target)*MAX_PG_IAMP)), ia_ydixon) : (int)((a_ydixon/target)*MAX_PG_IAMP);
+}
+
+{
+  float target;
+  gettarget(&target, (WF_PROCESSOR)wg_zdixon, &asloggrd);
+  ia_zdixon  = _ia_zdixon.fixedflag ?     ((void)((int)((a_zdixon/target)*MAX_PG_IAMP)), ia_zdixon) : (int)((a_zdixon/target)*MAX_PG_IAMP);
+}
+
+{
+  float target;
+  gettarget(&target, (WF_PROCESSOR)wg_sdixon, &asloggrd);
+  ia_sdixon  = _ia_sdixon.fixedflag ?     ((void)((int)((a_sdixon/target)*MAX_PG_IAMP)), ia_sdixon) : (int)((a_sdixon/target)*MAX_PG_IAMP);
+}
+
+{
+  float target;
+  gettarget(&target, (WF_PROCESSOR)wg_sdixon2, &asloggrd);
+  ia_sdixon2  = _ia_sdixon2.fixedflag ?     ((void)((int)((a_sdixon2/target)*MAX_PG_IAMP)), ia_sdixon2) : (int)((a_sdixon2/target)*MAX_PG_IAMP);
+}
+
+
+
+
+
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf1rs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf1rs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf1rs.fixedflag ? (_temp759_a_gzrf1rs=a_gzrf1rs,&_temp759_a_gzrf1rs) : &a_gzrf1rs, _pw_gzrf1rsa.fixedflag ? (_temp760_pw_gzrf1rsa=pw_gzrf1rsa,&_temp760_pw_gzrf1rsa) : &pw_gzrf1rsa, _pw_gzrf1rs.fixedflag ? (_temp761_pw_gzrf1rs=pw_gzrf1rs,&_temp761_pw_gzrf1rs) : &pw_gzrf1rs,
+                          _pw_gzrf1rsd.fixedflag ? (_temp762_pw_gzrf1rsd=pw_gzrf1rsd,&_temp762_pw_gzrf1rsd) : &pw_gzrf1rsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf1rs  = _ia_gzrf1rs.fixedflag ?     ((void)((int)((a_gzrf1rs/target)*MAX_PG_IAMP)), ia_gzrf1rs) : (int)((a_gzrf1rs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxkbsrs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxkbsrs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxkbsrs.fixedflag ? (_temp763_a_gxkbsrs=a_gxkbsrs,&_temp763_a_gxkbsrs) : &a_gxkbsrs, _pw_gxkbsrsa.fixedflag ? (_temp764_pw_gxkbsrsa=pw_gxkbsrsa,&_temp764_pw_gxkbsrsa) : &pw_gxkbsrsa, _pw_gxkbsrs.fixedflag ? (_temp765_pw_gxkbsrs=pw_gxkbsrs,&_temp765_pw_gxkbsrs) : &pw_gxkbsrs,
+                          _pw_gxkbsrsd.fixedflag ? (_temp766_pw_gxkbsrsd=pw_gxkbsrsd,&_temp766_pw_gxkbsrsd) : &pw_gxkbsrsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxkbsrs  = _ia_gxkbsrs.fixedflag ?     ((void)((int)((a_gxkbsrs/target)*MAX_PG_IAMP)), ia_gxkbsrs) : (int)((a_gxkbsrs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1rs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1rs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1rs.fixedflag ? (_temp767_a_gz1rs=a_gz1rs,&_temp767_a_gz1rs) : &a_gz1rs, _pw_gz1rsa.fixedflag ? (_temp768_pw_gz1rsa=pw_gz1rsa,&_temp768_pw_gz1rsa) : &pw_gz1rsa, _pw_gz1rs.fixedflag ? (_temp769_pw_gz1rs=pw_gz1rs,&_temp769_pw_gz1rs) : &pw_gz1rs,
+                          _pw_gz1rsd.fixedflag ? (_temp770_pw_gz1rsd=pw_gz1rsd,&_temp770_pw_gz1rsd) : &pw_gz1rsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1rs  = _ia_gz1rs.fixedflag ?     ((void)((int)((a_gz1rs/target)*MAX_PG_IAMP)), ia_gz1rs) : (int)((a_gz1rs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        ia_rfbrs    = _ia_rfbrs.fixedflag ?    ((void)((int)(a_rfbrs*MAX_PG_IAMP)), ia_rfbrs) : (int)(a_rfbrs*MAX_PG_IAMP);
+    }
+
+    {
+        ia_thetarfbrs    = _ia_thetarfbrs.fixedflag ?    ((void)((int)(a_thetarfbrs*MAX_PG_IAMP)), ia_thetarfbrs) : (int)(a_thetarfbrs*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzkbsrs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzkbsrs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzkbsrs.fixedflag ? (_temp771_a_gzkbsrs=a_gzkbsrs,&_temp771_a_gzkbsrs) : &a_gzkbsrs, _pw_gzkbsrsa.fixedflag ? (_temp772_pw_gzkbsrsa=pw_gzkbsrsa,&_temp772_pw_gzkbsrsa) : &pw_gzkbsrsa, _pw_gzkbsrs.fixedflag ? (_temp773_pw_gzkbsrs=pw_gzkbsrs,&_temp773_pw_gzkbsrs) : &pw_gzkbsrs,
+                          _pw_gzkbsrsd.fixedflag ? (_temp774_pw_gzkbsrsd=pw_gzkbsrsd,&_temp774_pw_gzkbsrsd) : &pw_gzkbsrsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzkbsrs  = _ia_gzkbsrs.fixedflag ?     ((void)((int)((a_gzkbsrs/target)*MAX_PG_IAMP)), ia_gzkbsrs) : (int)((a_gzkbsrs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxwrs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxwrs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxwrs.fixedflag ? (_temp775_a_gxwrs=a_gxwrs,&_temp775_a_gxwrs) : &a_gxwrs, _pw_gxwrsa.fixedflag ? (_temp776_pw_gxwrsa=pw_gxwrsa,&_temp776_pw_gxwrsa) : &pw_gxwrsa, _pw_gxwrs.fixedflag ? (_temp777_pw_gxwrs=pw_gxwrs,&_temp777_pw_gxwrs) : &pw_gxwrs,
+                          _pw_gxwrsd.fixedflag ? (_temp778_pw_gxwrsd=pw_gxwrsd,&_temp778_pw_gxwrsd) : &pw_gxwrsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxwrs  = _ia_gxwrs.fixedflag ?     ((void)((int)((a_gxwrs/target)*MAX_PG_IAMP)), ia_gxwrs) : (int)((a_gxwrs/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx2rs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx2rs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx2rs.fixedflag ? (_temp779_a_gx2rs=a_gx2rs,&_temp779_a_gx2rs) : &a_gx2rs, _pw_gx2rsa.fixedflag ? (_temp780_pw_gx2rsa=pw_gx2rsa,&_temp780_pw_gx2rsa) : &pw_gx2rsa, _pw_gx2rs.fixedflag ? (_temp781_pw_gx2rs=pw_gx2rs,&_temp781_pw_gx2rs) : &pw_gx2rs,
+                          _pw_gx2rsd.fixedflag ? (_temp782_pw_gx2rsd=pw_gx2rsd,&_temp782_pw_gx2rsd) : &pw_gx2rsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx2rs  = _ia_gx2rs.fixedflag ?     ((void)((int)((a_gx2rs/target)*MAX_PG_IAMP)), ia_gx2rs) : (int)((a_gx2rs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy2rs,&rsloggrd);
+        ia_gy2rs  = _ia_gy2rs.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy2rs/target)*MAX_PG_IAMP)), ia_gy2rs) : (int)((endview_scalers*a_gy2rs/target)*MAX_PG_IAMP);
+        ia_gy2rswa  = _ia_gy2rswa.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy2rsa/target)*MAX_PG_IAMP)), ia_gy2rswa) : (int)((endview_scalers*a_gy2rsa/target)*MAX_PG_IAMP);
+        ia_gy2rswb  = _ia_gy2rswb.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy2rsb/target)*MAX_PG_IAMP)), ia_gy2rswb) : (int)((endview_scalers*a_gy2rsb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxw2rs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxw2rs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxw2rs.fixedflag ? (_temp783_a_gxw2rs=a_gxw2rs,&_temp783_a_gxw2rs) : &a_gxw2rs, _pw_gxw2rsa.fixedflag ? (_temp784_pw_gxw2rsa=pw_gxw2rsa,&_temp784_pw_gxw2rsa) : &pw_gxw2rsa, _pw_gxw2rs.fixedflag ? (_temp785_pw_gxw2rs=pw_gxw2rs,&_temp785_pw_gxw2rs) : &pw_gxw2rs,
+                          _pw_gxw2rsd.fixedflag ? (_temp786_pw_gxw2rsd=pw_gxw2rsd,&_temp786_pw_gxw2rsd) : &pw_gxw2rsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxw2rs  = _ia_gxw2rs.fixedflag ?     ((void)((int)((a_gxw2rs/target)*MAX_PG_IAMP)), ia_gxw2rs) : (int)((a_gxw2rs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1rs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1rs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1rs.fixedflag ? (_temp787_a_gx1rs=a_gx1rs,&_temp787_a_gx1rs) : &a_gx1rs, _pw_gx1rsa.fixedflag ? (_temp788_pw_gx1rsa=pw_gx1rsa,&_temp788_pw_gx1rsa) : &pw_gx1rsa, _pw_gx1rs.fixedflag ? (_temp789_pw_gx1rs=pw_gx1rs,&_temp789_pw_gx1rs) : &pw_gx1rs,
+                          _pw_gx1rsd.fixedflag ? (_temp790_pw_gx1rsd=pw_gx1rsd,&_temp790_pw_gx1rsd) : &pw_gx1rsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1rs  = _ia_gx1rs.fixedflag ?     ((void)((int)((a_gx1rs/target)*MAX_PG_IAMP)), ia_gx1rs) : (int)((a_gx1rs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1rrs,&rsloggrd);
+        ia_gy1rrs  = _ia_gy1rrs.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy1rrs/target)*MAX_PG_IAMP)), ia_gy1rrs) : (int)((endview_scalers*a_gy1rrs/target)*MAX_PG_IAMP);
+        ia_gy1rrswa  = _ia_gy1rrswa.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy1rrsa/target)*MAX_PG_IAMP)), ia_gy1rrswa) : (int)((endview_scalers*a_gy1rrsa/target)*MAX_PG_IAMP);
+        ia_gy1rrswb  = _ia_gy1rrswb.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy1rrsb/target)*MAX_PG_IAMP)), ia_gy1rrswb) : (int)((endview_scalers*a_gy1rrsb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1rs,&rsloggrd);
+        ia_gy1rs  = _ia_gy1rs.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy1rs/target)*MAX_PG_IAMP)), ia_gy1rs) : (int)((endview_scalers*a_gy1rs/target)*MAX_PG_IAMP);
+        ia_gy1rswa  = _ia_gy1rswa.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy1rsa/target)*MAX_PG_IAMP)), ia_gy1rswa) : (int)((endview_scalers*a_gy1rsa/target)*MAX_PG_IAMP);
+        ia_gy1rswb  = _ia_gy1rswb.fixedflag ?      
+            ((void)((int)((endview_scalers*a_gy1rsb/target)*MAX_PG_IAMP)), ia_gy1rswb) : (int)((endview_scalers*a_gy1rsb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzkrs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzkrs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzkrs.fixedflag ? (_temp791_a_gzkrs=a_gzkrs,&_temp791_a_gzkrs) : &a_gzkrs, _pw_gzkrsa.fixedflag ? (_temp792_pw_gzkrsa=pw_gzkrsa,&_temp792_pw_gzkrsa) : &pw_gzkrsa, _pw_gzkrs.fixedflag ? (_temp793_pw_gzkrs=pw_gzkrs,&_temp793_pw_gzkrs) : &pw_gzkrs,
+                          _pw_gzkrsd.fixedflag ? (_temp794_pw_gzkrsd=pw_gzkrsd,&_temp794_pw_gzkrsd) : &pw_gzkrsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzkrs  = _ia_gzkrs.fixedflag ?     ((void)((int)((a_gzkrs/target)*MAX_PG_IAMP)), ia_gzkrs) : (int)((a_gzkrs/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxkrs, &rsloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxkrs, &rsloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxkrs.fixedflag ? (_temp795_a_gxkrs=a_gxkrs,&_temp795_a_gxkrs) : &a_gxkrs, _pw_gxkrsa.fixedflag ? (_temp796_pw_gxkrsa=pw_gxkrsa,&_temp796_pw_gxkrsa) : &pw_gxkrsa, _pw_gxkrs.fixedflag ? (_temp797_pw_gxkrs=pw_gxkrs,&_temp797_pw_gxkrs) : &pw_gxkrs,
+                          _pw_gxkrsd.fixedflag ? (_temp798_pw_gxkrsd=pw_gxkrsd,&_temp798_pw_gxkrsd) : &pw_gxkrsd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxkrs  = _ia_gxkrs.fixedflag ?     ((void)((int)((a_gxkrs/target)*MAX_PG_IAMP)), ia_gxkrs) : (int)((a_gxkrs/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf1dtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf1dtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf1dtg.fixedflag ? (_temp799_a_gzrf1dtg=a_gzrf1dtg,&_temp799_a_gzrf1dtg) : &a_gzrf1dtg, _pw_gzrf1dtga.fixedflag ? (_temp800_pw_gzrf1dtga=pw_gzrf1dtga,&_temp800_pw_gzrf1dtga) : &pw_gzrf1dtga, _pw_gzrf1dtg.fixedflag ? (_temp801_pw_gzrf1dtg=pw_gzrf1dtg,&_temp801_pw_gzrf1dtg) : &pw_gzrf1dtg,
+                          _pw_gzrf1dtgd.fixedflag ? (_temp802_pw_gzrf1dtgd=pw_gzrf1dtgd,&_temp802_pw_gzrf1dtgd) : &pw_gzrf1dtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf1dtg  = _ia_gzrf1dtg.fixedflag ?     ((void)((int)((a_gzrf1dtg/target)*MAX_PG_IAMP)), ia_gzrf1dtg) : (int)((a_gzrf1dtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxkbsdtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxkbsdtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxkbsdtg.fixedflag ? (_temp803_a_gxkbsdtg=a_gxkbsdtg,&_temp803_a_gxkbsdtg) : &a_gxkbsdtg, _pw_gxkbsdtga.fixedflag ? (_temp804_pw_gxkbsdtga=pw_gxkbsdtga,&_temp804_pw_gxkbsdtga) : &pw_gxkbsdtga, _pw_gxkbsdtg.fixedflag ? (_temp805_pw_gxkbsdtg=pw_gxkbsdtg,&_temp805_pw_gxkbsdtg) : &pw_gxkbsdtg,
+                          _pw_gxkbsdtgd.fixedflag ? (_temp806_pw_gxkbsdtgd=pw_gxkbsdtgd,&_temp806_pw_gxkbsdtgd) : &pw_gxkbsdtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxkbsdtg  = _ia_gxkbsdtg.fixedflag ?     ((void)((int)((a_gxkbsdtg/target)*MAX_PG_IAMP)), ia_gxkbsdtg) : (int)((a_gxkbsdtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gz1dtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gz1dtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gz1dtg.fixedflag ? (_temp807_a_gz1dtg=a_gz1dtg,&_temp807_a_gz1dtg) : &a_gz1dtg, _pw_gz1dtga.fixedflag ? (_temp808_pw_gz1dtga=pw_gz1dtga,&_temp808_pw_gz1dtga) : &pw_gz1dtga, _pw_gz1dtg.fixedflag ? (_temp809_pw_gz1dtg=pw_gz1dtg,&_temp809_pw_gz1dtg) : &pw_gz1dtg,
+                          _pw_gz1dtgd.fixedflag ? (_temp810_pw_gz1dtgd=pw_gz1dtgd,&_temp810_pw_gz1dtgd) : &pw_gz1dtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gz1dtg  = _ia_gz1dtg.fixedflag ?     ((void)((int)((a_gz1dtg/target)*MAX_PG_IAMP)), ia_gz1dtg) : (int)((a_gz1dtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        ia_rfbdtg    = _ia_rfbdtg.fixedflag ?    ((void)((int)(a_rfbdtg*MAX_PG_IAMP)), ia_rfbdtg) : (int)(a_rfbdtg*MAX_PG_IAMP);
+    }
+
+    {
+        ia_thetarfbdtg    = _ia_thetarfbdtg.fixedflag ?    ((void)((int)(a_thetarfbdtg*MAX_PG_IAMP)), ia_thetarfbdtg) : (int)(a_thetarfbdtg*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzkbsdtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzkbsdtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzkbsdtg.fixedflag ? (_temp811_a_gzkbsdtg=a_gzkbsdtg,&_temp811_a_gzkbsdtg) : &a_gzkbsdtg, _pw_gzkbsdtga.fixedflag ? (_temp812_pw_gzkbsdtga=pw_gzkbsdtga,&_temp812_pw_gzkbsdtga) : &pw_gzkbsdtga, _pw_gzkbsdtg.fixedflag ? (_temp813_pw_gzkbsdtg=pw_gzkbsdtg,&_temp813_pw_gzkbsdtg) : &pw_gzkbsdtg,
+                          _pw_gzkbsdtgd.fixedflag ? (_temp814_pw_gzkbsdtgd=pw_gzkbsdtgd,&_temp814_pw_gzkbsdtgd) : &pw_gzkbsdtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzkbsdtg  = _ia_gzkbsdtg.fixedflag ?     ((void)((int)((a_gzkbsdtg/target)*MAX_PG_IAMP)), ia_gzkbsdtg) : (int)((a_gzkbsdtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxwdtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxwdtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxwdtg.fixedflag ? (_temp815_a_gxwdtg=a_gxwdtg,&_temp815_a_gxwdtg) : &a_gxwdtg, _pw_gxwdtga.fixedflag ? (_temp816_pw_gxwdtga=pw_gxwdtga,&_temp816_pw_gxwdtga) : &pw_gxwdtga, _pw_gxwdtg.fixedflag ? (_temp817_pw_gxwdtg=pw_gxwdtg,&_temp817_pw_gxwdtg) : &pw_gxwdtg,
+                          _pw_gxwdtgd.fixedflag ? (_temp818_pw_gxwdtgd=pw_gxwdtgd,&_temp818_pw_gxwdtgd) : &pw_gxwdtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxwdtg  = _ia_gxwdtg.fixedflag ?     ((void)((int)((a_gxwdtg/target)*MAX_PG_IAMP)), ia_gxwdtg) : (int)((a_gxwdtg/target)*MAX_PG_IAMP);
+    }
+
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx2dtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx2dtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx2dtg.fixedflag ? (_temp819_a_gx2dtg=a_gx2dtg,&_temp819_a_gx2dtg) : &a_gx2dtg, _pw_gx2dtga.fixedflag ? (_temp820_pw_gx2dtga=pw_gx2dtga,&_temp820_pw_gx2dtga) : &pw_gx2dtga, _pw_gx2dtg.fixedflag ? (_temp821_pw_gx2dtg=pw_gx2dtg,&_temp821_pw_gx2dtg) : &pw_gx2dtg,
+                          _pw_gx2dtgd.fixedflag ? (_temp822_pw_gx2dtgd=pw_gx2dtgd,&_temp822_pw_gx2dtgd) : &pw_gx2dtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx2dtg  = _ia_gx2dtg.fixedflag ?     ((void)((int)((a_gx2dtg/target)*MAX_PG_IAMP)), ia_gx2dtg) : (int)((a_gx2dtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy2dtg,&dtgloggrd);
+        ia_gy2dtg  = _ia_gy2dtg.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy2dtg/target)*MAX_PG_IAMP)), ia_gy2dtg) : (int)((endview_scaledtg*a_gy2dtg/target)*MAX_PG_IAMP);
+        ia_gy2dtgwa  = _ia_gy2dtgwa.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy2dtga/target)*MAX_PG_IAMP)), ia_gy2dtgwa) : (int)((endview_scaledtg*a_gy2dtga/target)*MAX_PG_IAMP);
+        ia_gy2dtgwb  = _ia_gy2dtgwb.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy2dtgb/target)*MAX_PG_IAMP)), ia_gy2dtgwb) : (int)((endview_scaledtg*a_gy2dtgb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxw2dtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxw2dtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxw2dtg.fixedflag ? (_temp823_a_gxw2dtg=a_gxw2dtg,&_temp823_a_gxw2dtg) : &a_gxw2dtg, _pw_gxw2dtga.fixedflag ? (_temp824_pw_gxw2dtga=pw_gxw2dtga,&_temp824_pw_gxw2dtga) : &pw_gxw2dtga, _pw_gxw2dtg.fixedflag ? (_temp825_pw_gxw2dtg=pw_gxw2dtg,&_temp825_pw_gxw2dtg) : &pw_gxw2dtg,
+                          _pw_gxw2dtgd.fixedflag ? (_temp826_pw_gxw2dtgd=pw_gxw2dtgd,&_temp826_pw_gxw2dtgd) : &pw_gxw2dtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxw2dtg  = _ia_gxw2dtg.fixedflag ?     ((void)((int)((a_gxw2dtg/target)*MAX_PG_IAMP)), ia_gxw2dtg) : (int)((a_gxw2dtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gx1dtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1dtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gx1dtg.fixedflag ? (_temp827_a_gx1dtg=a_gx1dtg,&_temp827_a_gx1dtg) : &a_gx1dtg, _pw_gx1dtga.fixedflag ? (_temp828_pw_gx1dtga=pw_gx1dtga,&_temp828_pw_gx1dtga) : &pw_gx1dtga, _pw_gx1dtg.fixedflag ? (_temp829_pw_gx1dtg=pw_gx1dtg,&_temp829_pw_gx1dtg) : &pw_gx1dtg,
+                          _pw_gx1dtgd.fixedflag ? (_temp830_pw_gx1dtgd=pw_gx1dtgd,&_temp830_pw_gx1dtgd) : &pw_gx1dtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gx1dtg  = _ia_gx1dtg.fixedflag ?     ((void)((int)((a_gx1dtg/target)*MAX_PG_IAMP)), ia_gx1dtg) : (int)((a_gx1dtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1rdtg,&dtgloggrd);
+        ia_gy1rdtg  = _ia_gy1rdtg.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy1rdtg/target)*MAX_PG_IAMP)), ia_gy1rdtg) : (int)((endview_scaledtg*a_gy1rdtg/target)*MAX_PG_IAMP);
+        ia_gy1rdtgwa  = _ia_gy1rdtgwa.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy1rdtga/target)*MAX_PG_IAMP)), ia_gy1rdtgwa) : (int)((endview_scaledtg*a_gy1rdtga/target)*MAX_PG_IAMP);
+        ia_gy1rdtgwb  = _ia_gy1rdtgwb.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy1rdtgb/target)*MAX_PG_IAMP)), ia_gy1rdtgwb) : (int)((endview_scaledtg*a_gy1rdtgb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+
+        gettarget(&target,(WF_PROCESSOR)wg_gy1dtg,&dtgloggrd);
+        ia_gy1dtg  = _ia_gy1dtg.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy1dtg/target)*MAX_PG_IAMP)), ia_gy1dtg) : (int)((endview_scaledtg*a_gy1dtg/target)*MAX_PG_IAMP);
+        ia_gy1dtgwa  = _ia_gy1dtgwa.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy1dtga/target)*MAX_PG_IAMP)), ia_gy1dtgwa) : (int)((endview_scaledtg*a_gy1dtga/target)*MAX_PG_IAMP);
+        ia_gy1dtgwb  = _ia_gy1dtgwb.fixedflag ?      
+            ((void)((int)((endview_scaledtg*a_gy1dtgb/target)*MAX_PG_IAMP)), ia_gy1dtgwb) : (int)((endview_scaledtg*a_gy1dtgb/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzkdtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzkdtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzkdtg.fixedflag ? (_temp831_a_gzkdtg=a_gzkdtg,&_temp831_a_gzkdtg) : &a_gzkdtg, _pw_gzkdtga.fixedflag ? (_temp832_pw_gzkdtga=pw_gzkdtga,&_temp832_pw_gzkdtga) : &pw_gzkdtga, _pw_gzkdtg.fixedflag ? (_temp833_pw_gzkdtg=pw_gzkdtg,&_temp833_pw_gzkdtg) : &pw_gzkdtg,
+                          _pw_gzkdtgd.fixedflag ? (_temp834_pw_gzkdtgd=pw_gzkdtgd,&_temp834_pw_gzkdtgd) : &pw_gzkdtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzkdtg  = _ia_gzkdtg.fixedflag ?     ((void)((int)((a_gzkdtg/target)*MAX_PG_IAMP)), ia_gzkdtg) : (int)((a_gzkdtg/target)*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxkdtg, &dtgloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxkdtg, &dtgloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxkdtg.fixedflag ? (_temp835_a_gxkdtg=a_gxkdtg,&_temp835_a_gxkdtg) : &a_gxkdtg, _pw_gxkdtga.fixedflag ? (_temp836_pw_gxkdtga=pw_gxkdtga,&_temp836_pw_gxkdtga) : &pw_gxkdtga, _pw_gxkdtg.fixedflag ? (_temp837_pw_gxkdtg=pw_gxkdtg,&_temp837_pw_gxkdtg) : &pw_gxkdtg,
+                          _pw_gxkdtgd.fixedflag ? (_temp838_pw_gxkdtgd=pw_gxkdtgd,&_temp838_pw_gxkdtgd) : &pw_gxkdtgd) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxkdtg  = _ia_gxkdtg.fixedflag ?     ((void)((int)((a_gxkdtg/target)*MAX_PG_IAMP)), ia_gxkdtg) : (int)((a_gxkdtg/target)*MAX_PG_IAMP);
+    }
+
+
+
+
+    {
+        ia_rf1cal    = _ia_rf1cal.fixedflag ?    ((void)((int)(a_rf1cal*MAX_PG_IAMP)), ia_rf1cal) : (int)(a_rf1cal*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf1cal, &calloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf1cal, &calloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf1cal.fixedflag ? (_temp839_a_gzrf1cal=a_gzrf1cal,&_temp839_a_gzrf1cal) : &a_gzrf1cal, _pw_gzrf1cala.fixedflag ? (_temp840_pw_gzrf1cala=pw_gzrf1cala,&_temp840_pw_gzrf1cala) : &pw_gzrf1cala, _pw_gzrf1cal.fixedflag ? (_temp841_pw_gzrf1cal=pw_gzrf1cal,&_temp841_pw_gzrf1cal) : &pw_gzrf1cal,
+                          _pw_gzrf1cald.fixedflag ? (_temp842_pw_gzrf1cald=pw_gzrf1cald,&_temp842_pw_gzrf1cald) : &pw_gzrf1cald) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf1cal  = _ia_gzrf1cal.fixedflag ?     ((void)((int)((a_gzrf1cal/target)*MAX_PG_IAMP)), ia_gzrf1cal) : (int)((a_gzrf1cal/target)*MAX_PG_IAMP);
+    }
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gzcombcal, &calloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzcombcal, &calloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gzcombcal.fixedflag ? (_temp843_a_gzcombcal=a_gzcombcal,&_temp843_a_gzcombcal) : &a_gzcombcal, _pw_gzcombcala.fixedflag ? (_temp844_pw_gzcombcala=pw_gzcombcala,&_temp844_pw_gzcombcala) : &pw_gzcombcala, _pw_gzcombcal.fixedflag ? (_temp845_pw_gzcombcal=pw_gzcombcal,&_temp845_pw_gzcombcal) : &pw_gzcombcal,
+				 _pw_gzcombcald.fixedflag ? (_temp846_pw_gzcombcald=pw_gzcombcald,&_temp846_pw_gzcombcald) : &pw_gzcombcald) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gzcombcal  = _ia_gzcombcal.fixedflag ?       ((void)((int)((endviewz_scalecal*a_gzcombcal/target)*MAX_PG_IAMP)), ia_gzcombcal) : (int)((endviewz_scalecal*a_gzcombcal/target)*MAX_PG_IAMP);
+       ia_gzcombcalwa  = _ia_gzcombcalwa.fixedflag ?       ((void)((int)((endviewz_scalecal*a_gzcombcala/target)*MAX_PG_IAMP)), ia_gzcombcalwa) : (int)((endviewz_scalecal*a_gzcombcala/target)*MAX_PG_IAMP);
+       ia_gzcombcalwb  = _ia_gzcombcalwb.fixedflag ?       ((void)((int)((endviewz_scalecal*a_gzcombcalb/target)*MAX_PG_IAMP)), ia_gzcombcalwb) : (int)((endviewz_scalecal*a_gzcombcalb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gzcombcal  = _ia_gzcombcal.fixedflag ?     ((void)((int)((a_gzcombcal/target)*MAX_PG_IAMP)), ia_gzcombcal) : (int)((a_gzcombcal/target)*MAX_PG_IAMP);
+       ia_gzcombcalwa  = _ia_gzcombcalwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gzcombcalwa) : MAX_PG_WAMP;
+       ia_gzcombcalwb  = _ia_gzcombcalwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gzcombcalwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gzcombcal==TYPRHO1)||(wg_gzcombcal==TYPRHO2) ||
+       (wg_gzcombcal==TYPTHETA)||(wg_gzcombcal==TYPOMEGA))
+     {				/* Determine min period */
+       per_gzcombcal  = _per_gzcombcal.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gzcombcal) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gzcombcal  = _per_gzcombcal.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gzcombcal) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gzcombcalf  = _pw_gzcombcalf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gzcombcalf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gzcombcalf  = _pw_gzcombcalf.fixedflag ?  ((void)(0), pw_gzcombcalf) : 0;
+
+   if ((wg_gzcombcal==TYPRHO1)||(wg_gzcombcal==TYPRHO2) ||
+       (wg_gzcombcal==TYPTHETA)||(wg_gzcombcal==TYPOMEGA))
+     pw_gzcombcal  = _pw_gzcombcal.fixedflag ?  ((void)(0), pw_gzcombcal) : 0;    /* no need for leading edge if rf */
+
+   res_gzcombcal  = _res_gzcombcal.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gzcombcalf+pw_gzcombcala+pw_gzcombcal+pw_gzcombcald)/per_gzcombcal), res_gzcombcal) : (pw_gzcombcalf+pw_gzcombcala+pw_gzcombcal+pw_gzcombcald)/per_gzcombcal;
+}
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gzprcal, &calloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzprcal, &calloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gzprcal.fixedflag ? (_temp847_a_gzprcal=a_gzprcal,&_temp847_a_gzprcal) : &a_gzprcal, _pw_gzprcala.fixedflag ? (_temp848_pw_gzprcala=pw_gzprcala,&_temp848_pw_gzprcala) : &pw_gzprcala, _pw_gzprcal.fixedflag ? (_temp849_pw_gzprcal=pw_gzprcal,&_temp849_pw_gzprcal) : &pw_gzprcal,
+				 _pw_gzprcald.fixedflag ? (_temp850_pw_gzprcald=pw_gzprcald,&_temp850_pw_gzprcald) : &pw_gzprcald) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gzprcal  = _ia_gzprcal.fixedflag ?       ((void)((int)((endviewz_scalecal*a_gzprcal/target)*MAX_PG_IAMP)), ia_gzprcal) : (int)((endviewz_scalecal*a_gzprcal/target)*MAX_PG_IAMP);
+       ia_gzprcalwa  = _ia_gzprcalwa.fixedflag ?       ((void)((int)((endviewz_scalecal*a_gzprcala/target)*MAX_PG_IAMP)), ia_gzprcalwa) : (int)((endviewz_scalecal*a_gzprcala/target)*MAX_PG_IAMP);
+       ia_gzprcalwb  = _ia_gzprcalwb.fixedflag ?       ((void)((int)((endviewz_scalecal*a_gzprcalb/target)*MAX_PG_IAMP)), ia_gzprcalwb) : (int)((endviewz_scalecal*a_gzprcalb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gzprcal  = _ia_gzprcal.fixedflag ?     ((void)((int)((a_gzprcal/target)*MAX_PG_IAMP)), ia_gzprcal) : (int)((a_gzprcal/target)*MAX_PG_IAMP);
+       ia_gzprcalwa  = _ia_gzprcalwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gzprcalwa) : MAX_PG_WAMP;
+       ia_gzprcalwb  = _ia_gzprcalwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gzprcalwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gzprcal==TYPRHO1)||(wg_gzprcal==TYPRHO2) ||
+       (wg_gzprcal==TYPTHETA)||(wg_gzprcal==TYPOMEGA))
+     {				/* Determine min period */
+       per_gzprcal  = _per_gzprcal.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gzprcal) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gzprcal  = _per_gzprcal.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gzprcal) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gzprcalf  = _pw_gzprcalf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gzprcalf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gzprcalf  = _pw_gzprcalf.fixedflag ?  ((void)(0), pw_gzprcalf) : 0;
+
+   if ((wg_gzprcal==TYPRHO1)||(wg_gzprcal==TYPRHO2) ||
+       (wg_gzprcal==TYPTHETA)||(wg_gzprcal==TYPOMEGA))
+     pw_gzprcal  = _pw_gzprcal.fixedflag ?  ((void)(0), pw_gzprcal) : 0;    /* no need for leading edge if rf */
+
+   res_gzprcal  = _res_gzprcal.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gzprcalf+pw_gzprcala+pw_gzprcal+pw_gzprcald)/per_gzprcal), res_gzprcal) : (pw_gzprcalf+pw_gzprcala+pw_gzprcal+pw_gzprcald)/per_gzprcal;
+}
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxwcal, &calloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxwcal, &calloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxwcal.fixedflag ? (_temp851_a_gxwcal=a_gxwcal,&_temp851_a_gxwcal) : &a_gxwcal, _pw_gxwcala.fixedflag ? (_temp852_pw_gxwcala=pw_gxwcala,&_temp852_pw_gxwcala) : &pw_gxwcala, _pw_gxwcal.fixedflag ? (_temp853_pw_gxwcal=pw_gxwcal,&_temp853_pw_gxwcal) : &pw_gxwcal,
+                          _pw_gxwcald.fixedflag ? (_temp854_pw_gxwcald=pw_gxwcald,&_temp854_pw_gxwcald) : &pw_gxwcald) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxwcal  = _ia_gxwcal.fixedflag ?     ((void)((int)((a_gxwcal/target)*MAX_PG_IAMP)), ia_gxwcal) : (int)((a_gxwcal/target)*MAX_PG_IAMP);
+    }
+
+
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gx1cal, &calloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1cal, &calloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gx1cal.fixedflag ? (_temp855_a_gx1cal=a_gx1cal,&_temp855_a_gx1cal) : &a_gx1cal, _pw_gx1cala.fixedflag ? (_temp856_pw_gx1cala=pw_gx1cala,&_temp856_pw_gx1cala) : &pw_gx1cala, _pw_gx1cal.fixedflag ? (_temp857_pw_gx1cal=pw_gx1cal,&_temp857_pw_gx1cal) : &pw_gx1cal,
+				 _pw_gx1cald.fixedflag ? (_temp858_pw_gx1cald=pw_gx1cald,&_temp858_pw_gx1cald) : &pw_gx1cald) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL & TRAP_SLOPED)
+     {
+       ia_gx1cal  = _ia_gx1cal.fixedflag ?       ((void)((int)((1.0*a_gx1cal/target)*MAX_PG_IAMP)), ia_gx1cal) : (int)((1.0*a_gx1cal/target)*MAX_PG_IAMP);
+       ia_gx1calwa  = _ia_gx1calwa.fixedflag ?       ((void)((int)((1.0*a_gx1cala/target)*MAX_PG_IAMP)), ia_gx1calwa) : (int)((1.0*a_gx1cala/target)*MAX_PG_IAMP);
+       ia_gx1calwb  = _ia_gx1calwb.fixedflag ?       ((void)((int)((1.0*a_gx1calb/target)*MAX_PG_IAMP)), ia_gx1calwb) : (int)((1.0*a_gx1calb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gx1cal  = _ia_gx1cal.fixedflag ?     ((void)((int)((a_gx1cal/target)*MAX_PG_IAMP)), ia_gx1cal) : (int)((a_gx1cal/target)*MAX_PG_IAMP);
+       ia_gx1calwa  = _ia_gx1calwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gx1calwa) : MAX_PG_WAMP;
+       ia_gx1calwb  = _ia_gx1calwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gx1calwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gx1cal==TYPRHO1)||(wg_gx1cal==TYPRHO2) ||
+       (wg_gx1cal==TYPTHETA)||(wg_gx1cal==TYPOMEGA))
+     {				/* Determine min period */
+       per_gx1cal  = _per_gx1cal.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gx1cal) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gx1cal  = _per_gx1cal.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gx1cal) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gx1calf  = _pw_gx1calf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gx1calf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gx1calf  = _pw_gx1calf.fixedflag ?  ((void)(0), pw_gx1calf) : 0;
+
+   if ((wg_gx1cal==TYPRHO1)||(wg_gx1cal==TYPRHO2) ||
+       (wg_gx1cal==TYPTHETA)||(wg_gx1cal==TYPOMEGA))
+     pw_gx1cal  = _pw_gx1cal.fixedflag ?  ((void)(0), pw_gx1cal) : 0;    /* no need for leading edge if rf */
+
+   res_gx1cal  = _res_gx1cal.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gx1calf+pw_gx1cala+pw_gx1cal+pw_gx1cald)/per_gx1cal), res_gx1cal) : (pw_gx1calf+pw_gx1cala+pw_gx1cal+pw_gx1cald)/per_gx1cal;
+}
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gy1cal, &calloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gy1cal, &calloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gy1cal.fixedflag ? (_temp859_a_gy1cal=a_gy1cal,&_temp859_a_gy1cal) : &a_gy1cal, _pw_gy1cala.fixedflag ? (_temp860_pw_gy1cala=pw_gy1cala,&_temp860_pw_gy1cala) : &pw_gy1cala, _pw_gy1cal.fixedflag ? (_temp861_pw_gy1cal=pw_gy1cal,&_temp861_pw_gy1cal) : &pw_gy1cal,
+				 _pw_gy1cald.fixedflag ? (_temp862_pw_gy1cald=pw_gy1cald,&_temp862_pw_gy1cald) : &pw_gy1cald) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gy1cal  = _ia_gy1cal.fixedflag ?       ((void)((int)((endview_scalecal*a_gy1cal/target)*MAX_PG_IAMP)), ia_gy1cal) : (int)((endview_scalecal*a_gy1cal/target)*MAX_PG_IAMP);
+       ia_gy1calwa  = _ia_gy1calwa.fixedflag ?       ((void)((int)((endview_scalecal*a_gy1cala/target)*MAX_PG_IAMP)), ia_gy1calwa) : (int)((endview_scalecal*a_gy1cala/target)*MAX_PG_IAMP);
+       ia_gy1calwb  = _ia_gy1calwb.fixedflag ?       ((void)((int)((endview_scalecal*a_gy1calb/target)*MAX_PG_IAMP)), ia_gy1calwb) : (int)((endview_scalecal*a_gy1calb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gy1cal  = _ia_gy1cal.fixedflag ?     ((void)((int)((a_gy1cal/target)*MAX_PG_IAMP)), ia_gy1cal) : (int)((a_gy1cal/target)*MAX_PG_IAMP);
+       ia_gy1calwa  = _ia_gy1calwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gy1calwa) : MAX_PG_WAMP;
+       ia_gy1calwb  = _ia_gy1calwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gy1calwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gy1cal==TYPRHO1)||(wg_gy1cal==TYPRHO2) ||
+       (wg_gy1cal==TYPTHETA)||(wg_gy1cal==TYPOMEGA))
+     {				/* Determine min period */
+       per_gy1cal  = _per_gy1cal.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gy1cal) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gy1cal  = _per_gy1cal.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gy1cal) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gy1calf  = _pw_gy1calf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gy1calf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gy1calf  = _pw_gy1calf.fixedflag ?  ((void)(0), pw_gy1calf) : 0;
+
+   if ((wg_gy1cal==TYPRHO1)||(wg_gy1cal==TYPRHO2) ||
+       (wg_gy1cal==TYPTHETA)||(wg_gy1cal==TYPOMEGA))
+     pw_gy1cal  = _pw_gy1cal.fixedflag ?  ((void)(0), pw_gy1cal) : 0;    /* no need for leading edge if rf */
+
+   res_gy1cal  = _res_gy1cal.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gy1calf+pw_gy1cala+pw_gy1cal+pw_gy1cald)/per_gy1cal), res_gy1cal) : (pw_gy1calf+pw_gy1cala+pw_gy1cal+pw_gy1cald)/per_gy1cal;
+}
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gy1rcal, &calloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gy1rcal, &calloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gy1rcal.fixedflag ? (_temp863_a_gy1rcal=a_gy1rcal,&_temp863_a_gy1rcal) : &a_gy1rcal, _pw_gy1rcala.fixedflag ? (_temp864_pw_gy1rcala=pw_gy1rcala,&_temp864_pw_gy1rcala) : &pw_gy1rcala, _pw_gy1rcal.fixedflag ? (_temp865_pw_gy1rcal=pw_gy1rcal,&_temp865_pw_gy1rcal) : &pw_gy1rcal,
+				 _pw_gy1rcald.fixedflag ? (_temp866_pw_gy1rcald=pw_gy1rcald,&_temp866_pw_gy1rcald) : &pw_gy1rcald) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gy1rcal  = _ia_gy1rcal.fixedflag ?       ((void)((int)((endview_scalecal*a_gy1rcal/target)*MAX_PG_IAMP)), ia_gy1rcal) : (int)((endview_scalecal*a_gy1rcal/target)*MAX_PG_IAMP);
+       ia_gy1rcalwa  = _ia_gy1rcalwa.fixedflag ?       ((void)((int)((endview_scalecal*a_gy1rcala/target)*MAX_PG_IAMP)), ia_gy1rcalwa) : (int)((endview_scalecal*a_gy1rcala/target)*MAX_PG_IAMP);
+       ia_gy1rcalwb  = _ia_gy1rcalwb.fixedflag ?       ((void)((int)((endview_scalecal*a_gy1rcalb/target)*MAX_PG_IAMP)), ia_gy1rcalwb) : (int)((endview_scalecal*a_gy1rcalb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gy1rcal  = _ia_gy1rcal.fixedflag ?     ((void)((int)((a_gy1rcal/target)*MAX_PG_IAMP)), ia_gy1rcal) : (int)((a_gy1rcal/target)*MAX_PG_IAMP);
+       ia_gy1rcalwa  = _ia_gy1rcalwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gy1rcalwa) : MAX_PG_WAMP;
+       ia_gy1rcalwb  = _ia_gy1rcalwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gy1rcalwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gy1rcal==TYPRHO1)||(wg_gy1rcal==TYPRHO2) ||
+       (wg_gy1rcal==TYPTHETA)||(wg_gy1rcal==TYPOMEGA))
+     {				/* Determine min period */
+       per_gy1rcal  = _per_gy1rcal.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gy1rcal) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gy1rcal  = _per_gy1rcal.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gy1rcal) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gy1rcalf  = _pw_gy1rcalf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gy1rcalf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gy1rcalf  = _pw_gy1rcalf.fixedflag ?  ((void)(0), pw_gy1rcalf) : 0;
+
+   if ((wg_gy1rcal==TYPRHO1)||(wg_gy1rcal==TYPRHO2) ||
+       (wg_gy1rcal==TYPTHETA)||(wg_gy1rcal==TYPOMEGA))
+     pw_gy1rcal  = _pw_gy1rcal.fixedflag ?  ((void)(0), pw_gy1rcal) : 0;    /* no need for leading edge if rf */
+
+   res_gy1rcal  = _res_gy1rcal.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gy1rcalf+pw_gy1rcala+pw_gy1rcal+pw_gy1rcald)/per_gy1rcal), res_gy1rcal) : (pw_gy1rcalf+pw_gy1rcala+pw_gy1rcal+pw_gy1rcald)/per_gy1rcal;
+}
+
+
+
+
+
+    {
+        ia_rf1coil    = _ia_rf1coil.fixedflag ?    ((void)((int)(a_rf1coil*MAX_PG_IAMP)), ia_rf1coil) : (int)(a_rf1coil*MAX_PG_IAMP);
+    }
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gzrf1coil, &coilloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzrf1coil, &coilloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gzrf1coil.fixedflag ? (_temp867_a_gzrf1coil=a_gzrf1coil,&_temp867_a_gzrf1coil) : &a_gzrf1coil, _pw_gzrf1coila.fixedflag ? (_temp868_pw_gzrf1coila=pw_gzrf1coila,&_temp868_pw_gzrf1coila) : &pw_gzrf1coila, _pw_gzrf1coil.fixedflag ? (_temp869_pw_gzrf1coil=pw_gzrf1coil,&_temp869_pw_gzrf1coil) : &pw_gzrf1coil,
+                          _pw_gzrf1coild.fixedflag ? (_temp870_pw_gzrf1coild=pw_gzrf1coild,&_temp870_pw_gzrf1coild) : &pw_gzrf1coild) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gzrf1coil  = _ia_gzrf1coil.fixedflag ?     ((void)((int)((a_gzrf1coil/target)*MAX_PG_IAMP)), ia_gzrf1coil) : (int)((a_gzrf1coil/target)*MAX_PG_IAMP);
+    }
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gzcombcoil, &coilloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzcombcoil, &coilloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gzcombcoil.fixedflag ? (_temp871_a_gzcombcoil=a_gzcombcoil,&_temp871_a_gzcombcoil) : &a_gzcombcoil, _pw_gzcombcoila.fixedflag ? (_temp872_pw_gzcombcoila=pw_gzcombcoila,&_temp872_pw_gzcombcoila) : &pw_gzcombcoila, _pw_gzcombcoil.fixedflag ? (_temp873_pw_gzcombcoil=pw_gzcombcoil,&_temp873_pw_gzcombcoil) : &pw_gzcombcoil,
+				 _pw_gzcombcoild.fixedflag ? (_temp874_pw_gzcombcoild=pw_gzcombcoild,&_temp874_pw_gzcombcoild) : &pw_gzcombcoild) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gzcombcoil  = _ia_gzcombcoil.fixedflag ?       ((void)((int)((endviewz_scalecoil*a_gzcombcoil/target)*MAX_PG_IAMP)), ia_gzcombcoil) : (int)((endviewz_scalecoil*a_gzcombcoil/target)*MAX_PG_IAMP);
+       ia_gzcombcoilwa  = _ia_gzcombcoilwa.fixedflag ?       ((void)((int)((endviewz_scalecoil*a_gzcombcoila/target)*MAX_PG_IAMP)), ia_gzcombcoilwa) : (int)((endviewz_scalecoil*a_gzcombcoila/target)*MAX_PG_IAMP);
+       ia_gzcombcoilwb  = _ia_gzcombcoilwb.fixedflag ?       ((void)((int)((endviewz_scalecoil*a_gzcombcoilb/target)*MAX_PG_IAMP)), ia_gzcombcoilwb) : (int)((endviewz_scalecoil*a_gzcombcoilb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gzcombcoil  = _ia_gzcombcoil.fixedflag ?     ((void)((int)((a_gzcombcoil/target)*MAX_PG_IAMP)), ia_gzcombcoil) : (int)((a_gzcombcoil/target)*MAX_PG_IAMP);
+       ia_gzcombcoilwa  = _ia_gzcombcoilwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gzcombcoilwa) : MAX_PG_WAMP;
+       ia_gzcombcoilwb  = _ia_gzcombcoilwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gzcombcoilwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gzcombcoil==TYPRHO1)||(wg_gzcombcoil==TYPRHO2) ||
+       (wg_gzcombcoil==TYPTHETA)||(wg_gzcombcoil==TYPOMEGA))
+     {				/* Determine min period */
+       per_gzcombcoil  = _per_gzcombcoil.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gzcombcoil) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gzcombcoil  = _per_gzcombcoil.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gzcombcoil) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gzcombcoilf  = _pw_gzcombcoilf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gzcombcoilf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gzcombcoilf  = _pw_gzcombcoilf.fixedflag ?  ((void)(0), pw_gzcombcoilf) : 0;
+
+   if ((wg_gzcombcoil==TYPRHO1)||(wg_gzcombcoil==TYPRHO2) ||
+       (wg_gzcombcoil==TYPTHETA)||(wg_gzcombcoil==TYPOMEGA))
+     pw_gzcombcoil  = _pw_gzcombcoil.fixedflag ?  ((void)(0), pw_gzcombcoil) : 0;    /* no need for leading edge if rf */
+
+   res_gzcombcoil  = _res_gzcombcoil.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gzcombcoilf+pw_gzcombcoila+pw_gzcombcoil+pw_gzcombcoild)/per_gzcombcoil), res_gzcombcoil) : (pw_gzcombcoilf+pw_gzcombcoila+pw_gzcombcoil+pw_gzcombcoild)/per_gzcombcoil;
+}
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gzprcoil, &coilloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gzprcoil, &coilloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gzprcoil.fixedflag ? (_temp875_a_gzprcoil=a_gzprcoil,&_temp875_a_gzprcoil) : &a_gzprcoil, _pw_gzprcoila.fixedflag ? (_temp876_pw_gzprcoila=pw_gzprcoila,&_temp876_pw_gzprcoila) : &pw_gzprcoila, _pw_gzprcoil.fixedflag ? (_temp877_pw_gzprcoil=pw_gzprcoil,&_temp877_pw_gzprcoil) : &pw_gzprcoil,
+				 _pw_gzprcoild.fixedflag ? (_temp878_pw_gzprcoild=pw_gzprcoild,&_temp878_pw_gzprcoild) : &pw_gzprcoild) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gzprcoil  = _ia_gzprcoil.fixedflag ?       ((void)((int)((endviewz_scalecoil*a_gzprcoil/target)*MAX_PG_IAMP)), ia_gzprcoil) : (int)((endviewz_scalecoil*a_gzprcoil/target)*MAX_PG_IAMP);
+       ia_gzprcoilwa  = _ia_gzprcoilwa.fixedflag ?       ((void)((int)((endviewz_scalecoil*a_gzprcoila/target)*MAX_PG_IAMP)), ia_gzprcoilwa) : (int)((endviewz_scalecoil*a_gzprcoila/target)*MAX_PG_IAMP);
+       ia_gzprcoilwb  = _ia_gzprcoilwb.fixedflag ?       ((void)((int)((endviewz_scalecoil*a_gzprcoilb/target)*MAX_PG_IAMP)), ia_gzprcoilwb) : (int)((endviewz_scalecoil*a_gzprcoilb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gzprcoil  = _ia_gzprcoil.fixedflag ?     ((void)((int)((a_gzprcoil/target)*MAX_PG_IAMP)), ia_gzprcoil) : (int)((a_gzprcoil/target)*MAX_PG_IAMP);
+       ia_gzprcoilwa  = _ia_gzprcoilwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gzprcoilwa) : MAX_PG_WAMP;
+       ia_gzprcoilwb  = _ia_gzprcoilwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gzprcoilwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gzprcoil==TYPRHO1)||(wg_gzprcoil==TYPRHO2) ||
+       (wg_gzprcoil==TYPTHETA)||(wg_gzprcoil==TYPOMEGA))
+     {				/* Determine min period */
+       per_gzprcoil  = _per_gzprcoil.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gzprcoil) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gzprcoil  = _per_gzprcoil.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gzprcoil) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gzprcoilf  = _pw_gzprcoilf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gzprcoilf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gzprcoilf  = _pw_gzprcoilf.fixedflag ?  ((void)(0), pw_gzprcoilf) : 0;
+
+   if ((wg_gzprcoil==TYPRHO1)||(wg_gzprcoil==TYPRHO2) ||
+       (wg_gzprcoil==TYPTHETA)||(wg_gzprcoil==TYPOMEGA))
+     pw_gzprcoil  = _pw_gzprcoil.fixedflag ?  ((void)(0), pw_gzprcoil) : 0;    /* no need for leading edge if rf */
+
+   res_gzprcoil  = _res_gzprcoil.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gzprcoilf+pw_gzprcoila+pw_gzprcoil+pw_gzprcoild)/per_gzprcoil), res_gzprcoil) : (pw_gzprcoilf+pw_gzprcoila+pw_gzprcoil+pw_gzprcoild)/per_gzprcoil;
+}
+
+    {
+        float target;
+        int rtime, ftime;
+
+        gettarget(&target, (WF_PROCESSOR)wg_gxwcoil, &coilloggrd);
+        if (TYPNDEF == TYPDEF)
+        {
+            getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gxwcoil, &coilloggrd);
+            if (amppwgrad((float)(0),target, 0.0, 0.0, rtime,
+                          MIN_PLATEAU_TIME,
+                          _a_gxwcoil.fixedflag ? (_temp879_a_gxwcoil=a_gxwcoil,&_temp879_a_gxwcoil) : &a_gxwcoil, _pw_gxwcoila.fixedflag ? (_temp880_pw_gxwcoila=pw_gxwcoila,&_temp880_pw_gxwcoila) : &pw_gxwcoila, _pw_gxwcoil.fixedflag ? (_temp881_pw_gxwcoil=pw_gxwcoil,&_temp881_pw_gxwcoil) : &pw_gxwcoil,
+                          _pw_gxwcoild.fixedflag ? (_temp882_pw_gxwcoild=pw_gxwcoild,&_temp882_pw_gxwcoild) : &pw_gxwcoild) == FAILURE)
+            {
+                return FAILURE;
+            }
+        }
+
+        ia_gxwcoil  = _ia_gxwcoil.fixedflag ?     ((void)((int)((a_gxwcoil/target)*MAX_PG_IAMP)), ia_gxwcoil) : (int)((a_gxwcoil/target)*MAX_PG_IAMP);
+    }
+
+
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gx1coil, &coilloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gx1coil, &coilloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gx1coil.fixedflag ? (_temp883_a_gx1coil=a_gx1coil,&_temp883_a_gx1coil) : &a_gx1coil, _pw_gx1coila.fixedflag ? (_temp884_pw_gx1coila=pw_gx1coila,&_temp884_pw_gx1coila) : &pw_gx1coila, _pw_gx1coil.fixedflag ? (_temp885_pw_gx1coil=pw_gx1coil,&_temp885_pw_gx1coil) : &pw_gx1coil,
+				 _pw_gx1coild.fixedflag ? (_temp886_pw_gx1coild=pw_gx1coild,&_temp886_pw_gx1coild) : &pw_gx1coild) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL & TRAP_SLOPED)
+     {
+       ia_gx1coil  = _ia_gx1coil.fixedflag ?       ((void)((int)((1.0*a_gx1coil/target)*MAX_PG_IAMP)), ia_gx1coil) : (int)((1.0*a_gx1coil/target)*MAX_PG_IAMP);
+       ia_gx1coilwa  = _ia_gx1coilwa.fixedflag ?       ((void)((int)((1.0*a_gx1coila/target)*MAX_PG_IAMP)), ia_gx1coilwa) : (int)((1.0*a_gx1coila/target)*MAX_PG_IAMP);
+       ia_gx1coilwb  = _ia_gx1coilwb.fixedflag ?       ((void)((int)((1.0*a_gx1coilb/target)*MAX_PG_IAMP)), ia_gx1coilwb) : (int)((1.0*a_gx1coilb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gx1coil  = _ia_gx1coil.fixedflag ?     ((void)((int)((a_gx1coil/target)*MAX_PG_IAMP)), ia_gx1coil) : (int)((a_gx1coil/target)*MAX_PG_IAMP);
+       ia_gx1coilwa  = _ia_gx1coilwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gx1coilwa) : MAX_PG_WAMP;
+       ia_gx1coilwb  = _ia_gx1coilwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gx1coilwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gx1coil==TYPRHO1)||(wg_gx1coil==TYPRHO2) ||
+       (wg_gx1coil==TYPTHETA)||(wg_gx1coil==TYPOMEGA))
+     {				/* Determine min period */
+       per_gx1coil  = _per_gx1coil.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gx1coil) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gx1coil  = _per_gx1coil.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gx1coil) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gx1coilf  = _pw_gx1coilf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gx1coilf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gx1coilf  = _pw_gx1coilf.fixedflag ?  ((void)(0), pw_gx1coilf) : 0;
+
+   if ((wg_gx1coil==TYPRHO1)||(wg_gx1coil==TYPRHO2) ||
+       (wg_gx1coil==TYPTHETA)||(wg_gx1coil==TYPOMEGA))
+     pw_gx1coil  = _pw_gx1coil.fixedflag ?  ((void)(0), pw_gx1coil) : 0;    /* no need for leading edge if rf */
+
+   res_gx1coil  = _res_gx1coil.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gx1coilf+pw_gx1coila+pw_gx1coil+pw_gx1coild)/per_gx1coil), res_gx1coil) : (pw_gx1coilf+pw_gx1coila+pw_gx1coil+pw_gx1coild)/per_gx1coil;
+}
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gy1coil, &coilloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gy1coil, &coilloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gy1coil.fixedflag ? (_temp887_a_gy1coil=a_gy1coil,&_temp887_a_gy1coil) : &a_gy1coil, _pw_gy1coila.fixedflag ? (_temp888_pw_gy1coila=pw_gy1coila,&_temp888_pw_gy1coila) : &pw_gy1coila, _pw_gy1coil.fixedflag ? (_temp889_pw_gy1coil=pw_gy1coil,&_temp889_pw_gy1coil) : &pw_gy1coil,
+				 _pw_gy1coild.fixedflag ? (_temp890_pw_gy1coild=pw_gy1coild,&_temp890_pw_gy1coild) : &pw_gy1coild) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gy1coil  = _ia_gy1coil.fixedflag ?       ((void)((int)((endview_scalecoil*a_gy1coil/target)*MAX_PG_IAMP)), ia_gy1coil) : (int)((endview_scalecoil*a_gy1coil/target)*MAX_PG_IAMP);
+       ia_gy1coilwa  = _ia_gy1coilwa.fixedflag ?       ((void)((int)((endview_scalecoil*a_gy1coila/target)*MAX_PG_IAMP)), ia_gy1coilwa) : (int)((endview_scalecoil*a_gy1coila/target)*MAX_PG_IAMP);
+       ia_gy1coilwb  = _ia_gy1coilwb.fixedflag ?       ((void)((int)((endview_scalecoil*a_gy1coilb/target)*MAX_PG_IAMP)), ia_gy1coilwb) : (int)((endview_scalecoil*a_gy1coilb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gy1coil  = _ia_gy1coil.fixedflag ?     ((void)((int)((a_gy1coil/target)*MAX_PG_IAMP)), ia_gy1coil) : (int)((a_gy1coil/target)*MAX_PG_IAMP);
+       ia_gy1coilwa  = _ia_gy1coilwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gy1coilwa) : MAX_PG_WAMP;
+       ia_gy1coilwb  = _ia_gy1coilwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gy1coilwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gy1coil==TYPRHO1)||(wg_gy1coil==TYPRHO2) ||
+       (wg_gy1coil==TYPTHETA)||(wg_gy1coil==TYPOMEGA))
+     {				/* Determine min period */
+       per_gy1coil  = _per_gy1coil.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gy1coil) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gy1coil  = _per_gy1coil.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gy1coil) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gy1coilf  = _pw_gy1coilf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gy1coilf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gy1coilf  = _pw_gy1coilf.fixedflag ?  ((void)(0), pw_gy1coilf) : 0;
+
+   if ((wg_gy1coil==TYPRHO1)||(wg_gy1coil==TYPRHO2) ||
+       (wg_gy1coil==TYPTHETA)||(wg_gy1coil==TYPOMEGA))
+     pw_gy1coil  = _pw_gy1coil.fixedflag ?  ((void)(0), pw_gy1coil) : 0;    /* no need for leading edge if rf */
+
+   res_gy1coil  = _res_gy1coil.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gy1coilf+pw_gy1coila+pw_gy1coil+pw_gy1coild)/per_gy1coil), res_gy1coil) : (pw_gy1coilf+pw_gy1coila+pw_gy1coil+pw_gy1coild)/per_gy1coil;
+}
+
+{
+   float target;
+   int rtime,ftime;
+
+   gettarget(&target, (WF_PROCESSOR)wg_gy1rcoil, &coilloggrd);
+   getramptime(&rtime, &ftime, (WF_PROCESSOR)wg_gy1rcoil, &coilloggrd);
+   if (TYPNDEF == TYPDEF) {
+     if (amppwgrad((float)(0.0),target,0.0,0.0,rtime,MIN_PLATEAU_TIME,
+				 _a_gy1rcoil.fixedflag ? (_temp891_a_gy1rcoil=a_gy1rcoil,&_temp891_a_gy1rcoil) : &a_gy1rcoil, _pw_gy1rcoila.fixedflag ? (_temp892_pw_gy1rcoila=pw_gy1rcoila,&_temp892_pw_gy1rcoila) : &pw_gy1rcoila, _pw_gy1rcoil.fixedflag ? (_temp893_pw_gy1rcoil=pw_gy1rcoil,&_temp893_pw_gy1rcoil) : &pw_gy1rcoil,
+				 _pw_gy1rcoild.fixedflag ? (_temp894_pw_gy1rcoild=pw_gy1rcoild,&_temp894_pw_gy1rcoild) : &pw_gy1rcoild) == FAILURE) return FAILURE;
+   }
+   if (TRAP_ALL_SLOPED & TRAP_SLOPED)
+     {
+       ia_gy1rcoil  = _ia_gy1rcoil.fixedflag ?       ((void)((int)((endview_scalecoil*a_gy1rcoil/target)*MAX_PG_IAMP)), ia_gy1rcoil) : (int)((endview_scalecoil*a_gy1rcoil/target)*MAX_PG_IAMP);
+       ia_gy1rcoilwa  = _ia_gy1rcoilwa.fixedflag ?       ((void)((int)((endview_scalecoil*a_gy1rcoila/target)*MAX_PG_IAMP)), ia_gy1rcoilwa) : (int)((endview_scalecoil*a_gy1rcoila/target)*MAX_PG_IAMP);
+       ia_gy1rcoilwb  = _ia_gy1rcoilwb.fixedflag ?       ((void)((int)((endview_scalecoil*a_gy1rcoilb/target)*MAX_PG_IAMP)), ia_gy1rcoilwb) : (int)((endview_scalecoil*a_gy1rcoilb/target)*MAX_PG_IAMP);
+     }
+   else  /* standard trapezoid */
+     {
+       ia_gy1rcoil  = _ia_gy1rcoil.fixedflag ?     ((void)((int)((a_gy1rcoil/target)*MAX_PG_IAMP)), ia_gy1rcoil) : (int)((a_gy1rcoil/target)*MAX_PG_IAMP);
+       ia_gy1rcoilwa  = _ia_gy1rcoilwa.fixedflag ?   ((void)(MAX_PG_WAMP), ia_gy1rcoilwa) : MAX_PG_WAMP;
+       ia_gy1rcoilwb  = _ia_gy1rcoilwb.fixedflag ?  ((void)(MAX_PG_WAMP), ia_gy1rcoilwb) : MAX_PG_WAMP;
+     }
+
+   if ((wg_gy1rcoil==TYPRHO1)||(wg_gy1rcoil==TYPRHO2) ||
+       (wg_gy1rcoil==TYPTHETA)||(wg_gy1rcoil==TYPOMEGA))
+     {				/* Determine min period */
+       per_gy1rcoil  = _per_gy1rcoil.fixedflag ?  ((void)((RF_UPDATE_TIME)), per_gy1rcoil) : (RF_UPDATE_TIME); 
+     }
+   else
+     {
+       per_gy1rcoil  = _per_gy1rcoil.fixedflag ?  ((void)((GRAD_UPDATE_TIME)), per_gy1rcoil) : (GRAD_UPDATE_TIME);
+     }
+
+   /* set leading edge pulse width */
+   if (0 != 0)
+     pw_gy1rcoilf  = _pw_gy1rcoilf.fixedflag ?  ((void)(IMax(2,GRAD_UPDATE_TIME,0)), pw_gy1rcoilf) : IMax(2,GRAD_UPDATE_TIME,0);
+   else
+     pw_gy1rcoilf  = _pw_gy1rcoilf.fixedflag ?  ((void)(0), pw_gy1rcoilf) : 0;
+
+   if ((wg_gy1rcoil==TYPRHO1)||(wg_gy1rcoil==TYPRHO2) ||
+       (wg_gy1rcoil==TYPTHETA)||(wg_gy1rcoil==TYPOMEGA))
+     pw_gy1rcoil  = _pw_gy1rcoil.fixedflag ?  ((void)(0), pw_gy1rcoil) : 0;    /* no need for leading edge if rf */
+
+   res_gy1rcoil  = _res_gy1rcoil.fixedflag ? 		/* Find resolution */
+           
+       ((void)((pw_gy1rcoilf+pw_gy1rcoila+pw_gy1rcoil+pw_gy1rcoild)/per_gy1rcoil), res_gy1rcoil) : (pw_gy1rcoilf+pw_gy1rcoila+pw_gy1rcoil+pw_gy1rcoild)/per_gy1rcoil;
+}
+
+
+
+
+
+

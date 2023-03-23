@@ -1,0 +1,24 @@
+/*
+ * Imakefile
+ *
+ * Imakefile template for an EPIC PSD.
+ *
+ * This file creates the Makefile for this PSD on an imboot
+ * and provides the necessary support to generate the (host and tgt)
+ * hardware and simulation executables for an EPIC PSD.
+ *
+ * Support for building the PSD Eval executable and building two PSDs from
+ * the same source file are discontinued.
+ *
+ * Author:  Roshy J. Francis, Daniel L. Premetz
+ * Date  : 20/May/2002
+ *
+ */
+
+/*
+ * The toolset to be used in the make. For a PSD, this is always specified as
+ * EPIC, regardless of whether this is built with EPIC or EPIC+.
+ */
+TOOLSET = EPIC
+
+#include "Imakefile.common"
