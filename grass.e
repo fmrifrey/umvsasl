@@ -47,8 +47,14 @@
 
 #include "grass.h"
 
-/* import global definitions from ktraj.e */
-@inline ktraj.e global
+/* Define important values */
+#define MAXWAVELEN 50000 /* Maximum wave length for gradients */
+#define MAXNTRAINS 50 /* Maximum number of echo trains per frame */
+#define MAXNECHOES 50 /* Maximum number of echoes per echo train */
+#define MAXITR 50 /* Maximum number of iterations for iterative processes */
+#define GAMMA 26754 /* Gyromagnetic ratio */
+#define TSP_GRAD 4 /* Scanner gradient transmitter sampling rate */
+#define TSP_RF 2 /* Scanner rf transmitter sampling rate */
 
 @inline Prescan.e PSglobal
 int debugstate = 1;
@@ -113,8 +119,16 @@ float yfov_aspect = 1.0 with {0,,,INVIS, "acquired Y FOV aspect ratio to X",};
 int endview_iamp; /* last instruction phase amp */
 float endview_scale; /* ratio of last instruction amp to maximum value */
 
-/* import cvs from ktraj.e */
-@inline ktraj.e cv
+/* Trajectory cvs */
+int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
+int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
+int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
+float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
+float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
+int sptype2d = 1 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
+int sptype3d = 1 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
+float SLEWMAX = 17000.0 with {5000.0, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
+float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 
 @inline Prescan.e PScvs
 
@@ -161,8 +175,32 @@ FILTER_INFO *echo1_filt;
    to point to an infinite number of structures in filter.h. */
 FILTER_INFO echo1_rtfilt;
 
-/* import host functions from ktraj.e */
-@inline ktraj.e host
+/* Golden ratio numbers */
+float PHI = (1.0 + sqrt(5.0)) / 2.0; /* 1d golden ratio */
+float phi1 = 0.4656; /* 2d golden ratio 1 */
+float phi2 = 0.6823; /* 2d golden ratio 2 */
+
+/* Declare gradient waveform arrays */
+int Gx[MAXWAVELEN];
+int Gy[MAXWAVELEN];
+int Gz[MAXWAVELEN];
+float a_Gx;
+float a_Gy;
+float a_Gz;
+int pw_G = 5000;
+
+/* Declare view transformation table */
+int T_v[MAXNTRAINS*MAXNECHOES][9];
+
+/* Declare function prototypes from ktraj.h */
+int genspiral(int N, int itr);
+int genviews();
+int sinsmooth(float *x, int N, int L);
+
+/* Import functions from ktraj.h (using @inline instead of #include since
+ * functions reference global variables in this file)
+ */
+@inline ktraj.h
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -174,19 +212,52 @@ static char supfailfmt[] = "Support routine %s failed";
 /* Invoked once (& only once) when the PSD host process	is started up.	*/
 /* Code which is independent of any OPIO button operation is put here.	*/
 /************************************************************************/
-STATUS
-cvinit( void )
+STATUS cvinit( void )
 {
-	/* Initialize RBW pulldown menus */
-	pircbnub = pircb2nub = 0;
-	pite2nub = 6;
+	/* turn off bandwidth option - fixed! */
+	oprbw = 500.0 / (float)TSP_GRAD;
+	pircbnub = 0;
 
-	/* Default RBW */
-	cvdef(oprbw, 15.625);
-	oprbw = 15.625;
+	/* fov */
+	opfov = 240;
+	pifovnub = 5;
+	pifovval2 = 200;
+	pifovval3 = 220;
+	pifovval4 = 240;
+	pifovval5 = 260;
+	pifovval6 = 280;
 
-	/* Do not show any fractional NEX values */
-	pinexnub = 57;
+	/* tr */
+	optr = 4500ms;
+	pitrnub = 2;
+	pitrval2 = PSD_MINIMUMTR;
+	pitrval3 = 4500ms;
+
+	/* te */
+	opte = PSD_MINFULLTE;
+	pitrnub = 2;
+	pite1val2 = PSD_MINFULLTE;
+	pite1val3 = 100ms;
+
+	/* frequency (xres) */
+	cvmin(opxres, 32);
+	cvmax(opxres, 128);
+	cvdef(opxres, 64);
+	opxres = 64;
+	pixresnub = 0; /* hide option */
+
+	/* hide phase (yres) option */
+	piyresnub = 0;
+
+	/* show flip angle menu */
+	pifanub = 2;
+
+	/* hide second bandwidth option */
+	pircb2nub = 0;
+
+	/* hide nex stuff */
+	piechnub = 0;
+	pinexnub = 0;
 
 #ifdef ERMES_DEBUG
 	use_ermes = 0;
@@ -224,8 +295,7 @@ cvinit( void )
 /* CVEVAL should only contain code which impacts the advisory panel--	*/
 /* put other code in cvinit or predownload				*/
 /************************************************************************/
-	STATUS
-cveval( void )
+STATUS cveval( void )
 {
 
 	configSystem();
@@ -262,11 +332,13 @@ cveval( void )
 	/* For use on the RSP side */
 	echo1bw = echo1_filt->bw;
 
-	/*
-	 * Generate 2d spiral and 3d transformations 
-	 * (functions came from ktraj.e)
-	 */
-	genspiral(pw_G);
+	/* Generate 2d spiral */
+	if (genspiral(pw_G, 0) == 0) {
+		epic_error( use_ermes, "failure to generate spiral waveform", EE_ARGS(1), EE_ARGS(0));
+		return FAILURE;
+	}
+
+	/* Generate view transformations */
 	genviews();
 
 	/*

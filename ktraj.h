@@ -1,48 +1,6 @@
-@host global
-#define MAXWAVELEN 10000
-#define MAXNTRAINS 50
-#define MAXNECHOES 50
-#define GAMMA 26754
-#define dt 4
-
-@host cv
-int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
-int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
-int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
-float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
-float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
-int sptype2d = 1 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 1 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
-float SLEWMAX = 17000.0 with {5000.0, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
-float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
-
-@host host
-/* Golden ratio numbers */
-float PHI = (1.0 + sqrt(5.0))/2.0;
-float phi1 = 0.4656;
-float phi2 = 0.6823;
-
-/* Gradient waveforms */
-int Gx[MAXWAVELEN];
-int Gy[MAXWAVELEN];
-int Gz[MAXWAVELEN];
-int T_v[MAXNTRAINS*MAXNECHOES][9];
-
-/* Gradient amplitudes */
-float a_Gx;
-float a_Gy;
-float a_Gz;
-
-/* Gradient width */
-int pw_G = 5000;
-
-/* Function prototypes */
-int genspiral(int N);
-int genviews();
-int sinsmooth(float *x, int N, int L);
-
 /* genspiral() function definition */
-int genspiral(int N) {
+int genspiral(int N, int itr) {
+	fprintf(stderr, "gensp(): iteration %d, N = %d\n", itr, N);
 
 	/* Declare files */
 	FILE *fID_k;
@@ -60,8 +18,8 @@ int genspiral(int N) {
 	float sx[N], sy[N], sz[N];
 
 	/* Declare maximum values */
-	float kxy_max = (float)opxres / (float)opfov/10.0 / 2.0;
-	float kz_max = (float)nechoes / (float)opfov/10.0 / 2.0;
+	float kxy_max = (float)opxres / ((float)opfov /10.0) / 2.0;
+	float kz_max = (float)nechoes / ((float)opfov /10.0) / 2.0;
 	float gx_max, gy_max, gz_max;
 	float sx_max, sy_max, sz_max;
 
@@ -144,17 +102,17 @@ int genspiral(int N) {
 	}
 
 	/* Calculate gradient waveforms by differentiating trajectory */
-	diff(kx, N, dt*1e-6*GAMMA/2.0/M_PI, gx);
-	diff(ky, N, dt*1e-6*GAMMA/2.0/M_PI, gy);
-	diff(kz, N, dt*1e-6*GAMMA/2.0/M_PI, gz);
+	diff(kx, N, TSP_GRAD*1e-6*GAMMA/2.0/M_PI, gx);
+	diff(ky, N, TSP_GRAD*1e-6*GAMMA/2.0/M_PI, gy);
+	diff(kz, N, TSP_GRAD*1e-6*GAMMA/2.0/M_PI, gz);
 	gx_max = fabs(getmaxabs(gx, N));
 	gy_max = fabs(getmaxabs(gy, N));
 	gz_max = fabs(getmaxabs(gz, N));
 
 	/* Calculate slew waveforms by differentiating gradient */
-	diff(gx, N, dt*1e-6, sx);
-	diff(gy, N, dt*1e-6, sy);
-	diff(gz, N, dt*1e-6, sz);
+	diff(gx, N, TSP_GRAD*1e-6, sx);
+	diff(gy, N, TSP_GRAD*1e-6, sy);
+	diff(gz, N, TSP_GRAD*1e-6, sz);
 	sx_max = fabs(getmaxabs(sx, N));
 	sy_max = fabs(getmaxabs(sy, N));
 	sz_max = fabs(getmaxabs(sz, N));
@@ -165,7 +123,16 @@ int genspiral(int N) {
 	int N_stretch = 4 * round(getmaxabs(stretch, 6) * N / 4.0);
 
 	/* Determine if N can be stretched any more */
-	if (fabs(N_stretch - N) <= 4) {
+	if (N_stretch > MAXWAVELEN) {
+		fprintf(stderr, "gensp(): N_stretch = %d > MAXWAVELEN = %d, aborting...\n",
+				N_stretch, MAXWAVELEN);
+		return 0;
+	}
+	else if (itr > MAXITR) {
+		fprintf(stderr, "gensp(): itr = %d > MAXITR = %d, aborting...\n",
+				itr, MAXITR);
+	}
+	else if (fabs(N_stretch - N) <= 16) {
 		/* Save values */
 		pw_G = N;
 		a_Gx = gx_max;
@@ -182,12 +149,13 @@ int genspiral(int N) {
 		}
 		fclose(fID_k);
 		fclose(fID_g);
+		return 1;
 	}
 	else {
 		/* Recurse */
-		genspiral(N_stretch);
+		genspiral(N_stretch, itr + 1);
 	}	
-
+	
 	return 1;
 };
 
@@ -214,14 +182,14 @@ int genviews() {
 				case 1 : /* Kz shifts */
 					rx = 0.0;
 					ry = 0.0;
-					rz = (float)trainn * PHI;
+					rz = (float)trainn * 2.0 * M_PI / PHI;
 					dz = pow(-1, (float)trainn) * (float)trainn / (float)ntrains;
 					dz += pow(-1, (float)echon) * floor((float)(echon + 1) / 2.0);
 					dz *= 2.0 / (float)nechoes;
 					break;
 				case 2 : /* Single axis rotation */
 					rx = 0.0;
-					ry = (float)(trainn*nechoes + echon) * PHI;
+					ry = (float)(trainn*nechoes + echon) * 2.0 * M_PI / PHI;
 					rz = 0.0;
 					dz = 1.0;
 					break;
