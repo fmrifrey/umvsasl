@@ -1,10 +1,10 @@
 /* genspiral() function definition */
 int genspiral(int N, int itr) {
-	fprintf(stderr, "gensp(): iteration %d, N = %d\n", itr, N);
+	fprintf(stderr, "genspiral(): iteration %d, N = %d\n", itr, N);
 
 	/* Declare files */
-	FILE *fID_k;
-	FILE *fID_g;
+	FILE *fID_ktraj;
+	FILE *fID_grad;
 
 	/* Declare/initialize variables */
 	int n, m;
@@ -117,46 +117,70 @@ int genspiral(int N, int itr) {
 	sy_max = fabs(getmaxabs(sy, N));
 	sz_max = fabs(getmaxabs(sz, N));
 
+	/* Calculate stretch factors */
+	float sf_gx = (float)(gx_max/GMAX);
+	float sf_gy = (float)(gy_max/GMAX);
+	float sf_gz = (float)(gz_max/GMAX);
+	float sf_sx = (float)sqrt(sx_max/SLEWMAX);
+	float sf_sy = (float)sqrt(sy_max/SLEWMAX);
+	float sf_sz = (float)sqrt(sz_max/SLEWMAX);
+
 	/* Determine if function exceeds gradient/slew limits */
-	float stretch[6] = {gx_max/GMAX, gy_max/GMAX, gz_max/GMAX,
-		sqrt(sx_max/SLEWMAX), sqrt(sy_max/SLEWMAX), sqrt(sz_max/SLEWMAX)};
+	float stretch[6] = {sf_gx, sf_gy, sf_gz, sf_sx, sf_sy, sf_sz};
 	int N_stretch = 4 * round(getmaxabs(stretch, 6) * N / 4.0);
 
 	/* Determine if N can be stretched any more */
 	if (N_stretch > MAXWAVELEN) {
-		fprintf(stderr, "gensp(): N_stretch = %d > MAXWAVELEN = %d, aborting...\n",
+		fprintf(stderr, "genspiral(): N_stretch = %d > MAXWAVELEN = %d, aborting...\n",
 				N_stretch, MAXWAVELEN);
 		return 0;
 	}
 	else if (itr > MAXITR) {
-		fprintf(stderr, "gensp(): itr = %d > MAXITR = %d, aborting...\n",
+		fprintf(stderr, "genspiral(): itr = %d > MAXITR = %d, aborting...\n",
 				itr, MAXITR);
 	}
 	else if (fabs(N_stretch - N) <= 16) {
 		/* Save values */
-		pw_G = N;
-		a_Gx = gx_max;
-		a_Gy = gy_max;
-		a_Gz = gz_max;
-		fID_k = fopen("./ktraj.txt", "w");
-		fID_g = fopen("./grad.txt", "w");
+		res_gx = N;
+		res_gy = N;
+		res_gz = N;
+		pw_gx = N*TSP_GRAD;
+		pw_gy = N*TSP_GRAD;
+		pw_gz = N*TSP_GRAD;
+		a_gx = gx_max;
+		a_gy = gy_max;
+		a_gz = gz_max;
+		ia_gx = MAX_PG_WAMP;
+		ia_gy = MAX_PG_WAMP;
+		ia_gz = MAX_PG_WAMP;
+		fprintf(stderr, "genspiral(): saving readout x gradient with a_gx = %.2f G/cm, pw_gx = %d us, res_gx = %d\n",
+			a_gx, pw_gx, res_gx);
+		fprintf(stderr, "genspiral(): saving readout y gradient with a_gy = %.2f G/cm, pw_gy = %d us, res_gy = %d\n",
+			a_gy, pw_gy, res_gy);
+		fprintf(stderr, "genspiral(): saving readout z gradient with a_gz = %.2f G/cm, pw_gz = %d us, res_gz = %d\n",
+			a_gz, pw_gz, res_gz);
+
+		/* Write trajectory and gradient to files */
+		fID_ktraj = fopen("./ktraj.txt", "w");
+		fID_grad = fopen("./grad.txt","w");
 		for (n = 0; n < N; n++) {
-			Gx[n] = round(32767.0 / a_Gx * gx[n]);
-			Gy[n] = round(32767.0 / a_Gy * gy[n]);
-			Gz[n] = round(32767.0 / a_Gz * gz[n]);
-			fprintf(fID_k, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);	
-			fprintf(fID_g, "%d \t%d \t%d\n", Gx[n], Gy[n], Gz[n]);	
+			Gx[n] = 2 * round(MAX_PG_WAMP / a_gx * gx[n] / 2.0);
+			Gy[n] = 2 * round(MAX_PG_WAMP / a_gy * gy[n] / 2.0);
+			Gz[n] = 2 * round(MAX_PG_WAMP / a_gz * gz[n] / 2.0);
+			fprintf(fID_ktraj, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);
+			fprintf(fID_grad, "%d \t%d \t%d\n", Gx[n], Gy[n], Gz[n]);
 		}
-		fclose(fID_k);
-		fclose(fID_g);
+		fclose(fID_ktraj);
+		fclose(fID_grad);
+
 		return 1;
 	}
 	else {
 		/* Recurse */
-		genspiral(N_stretch, itr + 1);
-	}	
-	
-	return 1;
+		return genspiral(N_stretch, itr + 1);
+	}
+
+	return 0;	
 };
 
 /* genviews() function definition */

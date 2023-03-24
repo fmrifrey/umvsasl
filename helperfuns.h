@@ -144,9 +144,9 @@ int diff(float* x, int lenx, float di, float* y) {
 float getmaxabs(float *x, int lenx) {
 
 	int i;
-	float recordmax = x[0];
+	float recordmax = fabs(x[0]);
 	for (i = 1; i < lenx; i++)
-		if (fabs(x[i]) > recordmax) recordmax = x[i];
+		recordmax = fmax(recordmax, fabs(x[i]));		
 
 	return recordmax;
 };

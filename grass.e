@@ -16,7 +16,7 @@
 /* PX25  06/Jun/2014 YT    HCSDM00289004 - add APx functions */
 
 @inline epic.h
-
+@inline intwave.h
 
 @global
 /*********************************************************************
@@ -75,6 +75,14 @@ int debugstate = 1;
 @inline Prescan.e PSipgexport
 RF_PULSE_INFO rfpulseInfo[RF_FREE] = { {0,0} };
 
+/* Declare gradient waveform arrays */
+int Gx[MAXWAVELEN];
+int Gy[MAXWAVELEN];
+int Gz[MAXWAVELEN];
+
+/* Declare view transformation table */
+int T_v[MAXNTRAINS*MAXNECHOES][9];
+
 @cv
 /*********************************************************************
  *                       GRASS.E CV SECTION                          *
@@ -96,9 +104,6 @@ int numdda = 4;			/* For Prescan: # of disdaqs ps2*/
 
 float xmtaddScan;
 
-int pos_start = 0 with {
-    0, , , INVIS, "Start time for sequence. ",
-};
 int tlead = 25us with {
     0, , 25us, INVIS, "Init deadtime",
 };
@@ -116,8 +121,6 @@ int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 
 int pw_gy1_tot;       /* temp time accumulation */
 float yfov_aspect = 1.0 with {0,,,INVIS, "acquired Y FOV aspect ratio to X",};
-int endview_iamp; /* last instruction phase amp */
-float endview_scale; /* ratio of last instruction amp to maximum value */
 
 /* Trajectory cvs */
 int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -145,6 +148,7 @@ float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 #include <math.h>
 #include <stdlib.h>
 #include "grad_rf_grass.h"
+
 #include "psdopt.h"
 #include "sar_pm.h"
 #include "support_func.host.h"
@@ -179,18 +183,6 @@ FILTER_INFO echo1_rtfilt;
 float PHI = (1.0 + sqrt(5.0)) / 2.0; /* 1d golden ratio */
 float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
-
-/* Declare gradient waveform arrays */
-int Gx[MAXWAVELEN];
-int Gy[MAXWAVELEN];
-int Gz[MAXWAVELEN];
-float a_Gx;
-float a_Gy;
-float a_Gz;
-int pw_G = 5000;
-
-/* Declare view transformation table */
-int T_v[MAXNTRAINS*MAXNECHOES][9];
 
 /* Declare function prototypes from ktraj.h */
 int genspiral(int N, int itr);
@@ -234,7 +226,7 @@ STATUS cvinit( void )
 	pitrval3 = 4500ms;
 
 	/* te */
-	opte = PSD_MINFULLTE;
+	opte = 50ms;
 	pitrnub = 2;
 	pite1val2 = PSD_MINFULLTE;
 	pite1val3 = 100ms;
@@ -332,21 +324,8 @@ STATUS cveval( void )
 	/* For use on the RSP side */
 	echo1bw = echo1_filt->bw;
 
-	/* Generate 2d spiral */
-	if (genspiral(pw_G, 0) == 0) {
-		epic_error( use_ermes, "failure to generate spiral waveform", EE_ARGS(1), EE_ARGS(0));
-		return FAILURE;
-	}
-
-	/* Generate view transformations */
-	genviews();
-
-	/*
-	 * The minimum TR is based on the time before the RF pulse +
-	 * half the RF pulse + the TE time + the last half of the
-	 * readout + the time for the end of sequence killers
-	 */
-	avmintr = 1ms + pw_rf1 / 2 + exist(opte) + echo1_rtfilt.tdaq / 2 + 2ms;
+	/* Calculate minimum tr */	
+	avmintr = 2s;
 
 @inline Prescan.e PScveval
 
@@ -374,18 +353,8 @@ int getAPxAlgorithm(optparam *optflag, int *algorithm)
 /* Executed on each 'next page' to ensure prescription can proceed 	*/
 /* to the next page. 							*/
 /************************************************************************/
-	STATUS
-cvcheck( void )
+STATUS cvcheck( void )
 {
-	if( exist(optr) < avmintr )
-	{
-		int min_tr = (int)ceil( (double)avmintr / 1ms );
-
-		epic_error( use_ermes,
-				"The TR needs to be increased to %d ms for the current prescription.",
-				EM_PSD_TR_OUT_OF_RANGE, EE_ARGS(1), INT_ARG, min_tr );
-		return ADVISORY_FAILURE;
-	}
 
 	return SUCCESS;
 }   /* end cvcheck() */
@@ -400,87 +369,46 @@ cvcheck( void )
 /* in this section.  Time anchor settings for pulsegen are done in this */
 /* section too.  				 			*/
 /************************************************************************/
-	STATUS
-predownload( void )
+STATUS predownload( void )
 {
-	/* Set the defaults for the excitation pulse */
-	a_rf1 = opflip/180.0;
-	thk_rf1 = opslthick;
-	res_rf1 = 320;
-	flip_rf1 = opflip;
-
-	/* Set the phase encode amplitude*/
-
-	yfov_aspect = nop*exist(opphasefov);
-	rhnframes = opyres*fn*yfov_aspect;
-
-	if( endview( (int)(rhnframes / fn), &endview_iamp ) == FAILURE )
-	{
-		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-				EE_ARGS(1), STRING_ARG, "endview" );
-		return FAILURE;
-	}
-
-	endview_scale = (float)max_pg_iamp / (float)endview_iamp;
-
-	if( amppwencode( &grady[GY1_SLOT], &pw_gy1_tot,
-				FMin( 2, loggrd.ty_xyz,loggrd.ty / endview_scale ),
-				(int)loggrd.yrt,
-				(float)(nop * opfov * opphasefov), (int)(rhnframes / fn ),
-				(float)0.0 /* offset area */ ) == FAILURE )
-	{
-		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-				EE_ARGS(1), STRING_ARG, "amppwencode:gy1" );
-		return FAILURE;
-	}
-
-	grady[GY1_SLOT].num = 1;
-
-	/* Set the Read Out gradient amplitude */
-	if( ampfov( &a_gxw, echo1_filt->bw, opfov ) == FAILURE )
-	{
-		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-				EE_ARGS(1), STRING_ARG, "ampfov" );
-		return FAILURE;
-	}
-
-	/* Duration of read lobe to match acquisition interval */
-	pw_gxw = echo1_filt->tdaq;
-
-	a_gy1a = -a_gy1a;
-	a_gy1b = -a_gy1b;
-	a_gy1 = -0.9;     /* to make it visible in plotpulse */
-
-	a_gyr1a = -a_gy1a;
-	a_gyr1b = -a_gy1b;
-	a_gyr1 = a_gy1;   /* to make it visible in plotpulse */
-
-	pw_gyr1 = pw_gy1;
-	pw_gyr1a = pw_gy1a;
-	pw_gyr1d = pw_gy1d;
 
 /*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
 /*********************************************************************/
 
+	/* Set the defaults for the excitation pulse */
+	a_rf1 = opflip/180.0;
+	thk_rf1 = opslthick;
+	res_rf1 = 320;
+	flip_rf1 = opflip;
+	pw_gzrf1 = 2*320;
+	pw_gzrf1a = 2*50;
+	pw_gzrf1d = 2*50;
+	
+	/* Generate 2d spiral */
+	if (genspiral(5000, 0) == 0) {
+		epic_error( use_ermes, "Error: failure to generate spiral waveform", EE_ARGS(1), EE_ARGS(0));
+		return FAILURE;
+	}
+
+	/* Generate view transformations */
+	if (genviews() == 0) {
+		epic_error( use_ermes, "Error: failure to generate view transformation matrices", EE_ARGS(1), EE_ARGS(0));
+		return FAILURE;
+	}
+
+	
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
 	   and assign to the appropriate acquisition pulse for the right 
 	   filter selection - LxMGD, RJF */
 	setfilter( echo1_filt, SCAN );
+/*
 	filter_echo1 = echo1_filt->fslot;
+*/
 
 @inline Prescan.e PSfilter
-
-		/* Set the Slope of the Read Out window's leading edge */
-		if( optramp( &pw_gxwa, a_gxw, loggrd.tx, loggrd.xrt, TYPDEF ) == FAILURE )
-		{
-			epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-					EE_ARGS(1), STRING_ARG, "optramp" );
-			return FAILURE;
-		}
-	pw_gxwd = pw_gxwa;		/* Set trailing edge ramp to same duration. */
-
+	
 	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
 	pislquant = opslquant;	/* # of 2nd pass slices */
 	/* slquant1 = max # of locations in 1 pass */
@@ -537,7 +465,6 @@ predownload( void )
 		return FAILURE;
 	}
 
-	ia_rf1 = max_pg_iamp * (*rfpulse[RF1_SLOT].amp);
 	entry_point_table[L_SCAN].epxmtadd = (short)rint( (double)xmtaddScan );
 
 	/* APS2 & MPS2 */
@@ -574,26 +501,6 @@ predownload( void )
 
 @inline Prescan.e PSpredownload
 
-	/***************************** Gradient Structure Initializations ******************************/
-
-	gradx[GX1_SLOT].num = 1;
-	gradx[GXW2_SLOT].num = 1;
-	grady[GY1_SLOT].num = 1;
-	gradz[GZRF1_SLOT].num = 1;
-	gradz[GZ1_SLOT].num = 1;
-
-	avepepowscale(&(grady[GY1_SLOT].scale), rhnframes, rhnframes/2);
-
-	gradx[GX1_SLOT].powscale = 1.0;
-	gradx[GXW2_SLOT].powscale = 1.0;
-	grady[GY1_SLOT].powscale = 1.0;
-	gradz[GZRF1_SLOT].powscale = 1.0;
-	gradz[GZ1_SLOT].powscale = 1.0;
-
-
-
-
-
 	return SUCCESS;
 }   /* end predownload() */
 
@@ -613,35 +520,30 @@ predownload( void )
 #include "support_func.h"
 
 
-	STATUS
-pulsegen( void )
+STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
+	
+	fprintf(stderr, "Generating RF1 pulse (90deg tipdown) with a_rf1 = %.2f, pw_rf1 = %d... ",
+		a_rf1, pw_rf1);
+	SLICESELZ(rf1, 1ms, 3200us, opslthick, opflip, 1, 1, loggrd);
+	fprintf(stderr, " done.\n");
 
-	/* RF wave */
-	SLICESELZ(rf1, 1ms, 3200us, opslthick, opflip, 1, , loggrd); 
+	fprintf(stderr, "Generating readout x gradient with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
+		a_gx, pw_gx, res_gx);
+	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gx, 0, loggrd);
+	fprintf(stderr, " done.\n");
 
-	/* Z Dephaser */
-	TRAPEZOID(ZGRAD, gz1, pend( &gzrf1d, "gzrf1d", 0 ) + pw_gz1a, (int)(-0.5 * a_gzrf1 * (pw_rf1 + pw_gzrf1d)), , loggrd);
+	fprintf(stderr, "Generating readout y gradient with a_gy = %.2f, pw_gy = %d, res_gy = %d... ",
+		a_gy, pw_gy, res_gy);
+	INTWAVE(YGRAD, gy, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gy, 0, loggrd);
+	fprintf(stderr, " done.\n");
 
-	/* X Readout */
-	TRAPEZOID(XGRAD, gxw, RUP_GRD(pmid( &gzrf1, "gzrf1", 0 ) + opte - pw_gxw / 2), 0, TYPNDEF, loggrd);
-
-	/* Frequency Dephaser */
-	TRAPEZOID(XGRAD, gx1, pbeg( &gxwa, "gxwa", 0 ) - pw_gx1 - pw_gx1d, (int)(-0.5 * a_gxw * (pw_gxw + pw_gxwa)), , loggrd);
-
-	/* Phase Encoding */
-	TRAPEZOID2(YGRAD, gy1, RDN_GRD(pend(&rf1,"rf1",0) + rfupd), TRAP_ALL_SLOPED, , , endview_scale, loggrd);
-
-	/* Data Acquisition */
-	ACQUIREDATA(echo1, pbeg( &gxw, "gxw", 0 ), , , );
-
-	TRAPEZOID2(YGRAD, gyr1, pend( &gxw, "gxw", 0), TRAP_ALL_SLOPED, , , endview_scale, loggrd);
-
-	/* Z & X Killers */
-	TRAPEZOID(ZGRAD, gzk, pend( &gxwd, "gxwd", 0 ) + pw_gzka, 980, , loggrd);
-	TRAPEZOID(XGRAD, gxk, pend( &gxwd, "gxwd", 0 ) + pw_gxka, 980, , loggrd);
-
+	fprintf(stderr, "Generating readout z gradient with a_gz = %.2f, pw_gz = %d, res_gz = %d... ",
+		a_gz, pw_gz, res_gz);
+	INTWAVE(ZGRAD, gz, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gz, 0, loggrd);
+	fprintf(stderr, " done.\n");
+	
 	SEQLENGTH(seqcore, optr, seqcore); /* set the sequence length to optr */
 
 @inline Prescan.e PSpulsegen
@@ -736,8 +638,9 @@ STATUS psdinit( void )
 	seqCount = 0;		/* Set SPGR sequence counter */
 	settriggerarray( (short)slquant1, rsptrigger );
 	setrotatearray( (short)slquant1, rsprot[0] );
+/*
 	setrfltrs( (int)filter_echo1, &echo1 );
-
+*/
 	return SUCCESS;
 }   /* end psdinit() */
 
@@ -806,6 +709,9 @@ STATUS aps2( void )
 /************************************************************************/
 STATUS scan( void )
 {
+
+	int echon, trainn;
+
 	if( psdinit() == FAILURE )
 	{
 		return rspexit();
@@ -814,7 +720,7 @@ STATUS scan( void )
 	setrotatearray( opslquant, rsprot[0] );
 	settriggerarray( opslquant, rsptrigger );
 	setssitime( 250 );	/* allow time to update sequencer memory */
-
+    
 	/* Calculate the RF & slice frequencies */
 	rf1_freq = (int *)AllocNode( opslquant * sizeof(int) );
 	receive_freq1 = (int *)AllocNode( opslquant * sizeof(int) );
@@ -825,78 +731,16 @@ STATUS scan( void )
 	setupslices( receive_freq1, rsp_info, opslquant,(float)0, echo1bw, opfov,
 			TYPREC);
 
-	setiamp( ia_rf1, &rf1, 0 );
-	setupphasetable( viewtable, TYPNORM, opyres );
+	setiamp( ia_rf1,  &rf1, 0 );
 
-	/* The SLICE loop */
-	for( slice = 0; slice < opslquant; ++slice )
-	{
-		setfrequency( rf1_freq[slice], &rf1, 0 );
-		setfrequency( receive_freq1[slice], &echo1, 0 );
-
-		/* equilibrium views */
-		dabop = 0;
-		loaddab( &echo1, 0, 0, dabop, (int)0, DABOFF, PSD_LOAD_DAB_ALL );  /* each slice is a pass, slice index in each pass should be 0 */
-		setiampt( viewtable[1], &gy1, 0 );
-		setiampt( viewtable[1], &gyr1, 0 );  
-
-		for( view = 0; view < 4; ++view )
-		{
+	for (trainn = 0; trainn < ntrains; trainn++) {
+		for (echon = 0; echon < nechoes; echon++) {
+			fprintf(stderr, "scan(): playing train %d/%d, echo %d/%d... ", trainn, ntrains, echon, nechoes);
 			startseq( 0, (short)MAY_PAUSE );
-			getiamp( &chopamp, &rf1, 0 );
-			setiamp( -chopamp, &rf1, 0 );
+			boffset( off_seqcore ); /* reset the hardware in the 'core' sequence */
+			fprintf(stderr, "done.\n");
 		}
-
-		for( view = 0; view < rhbline; ++view )
-		{
-			loaddab( &echo1, 0, 0, dabop, (int)0, DABON, PSD_LOAD_DAB_ALL );  /* each slice is a pass, slice index in each pass should be 0 */
-			startseq( 0, (short)MAY_PAUSE );
-			getiamp( &chopamp, &rf1, 0 );
-			setiamp( -chopamp, &rf1, 0 );
-			dabop = 1; /* accumulate base views */
-		}
-
-		/* The VIEW loop */
-		for( view = 1; view < (opyres + 1); ++view )
-		{
-			for( excitation = 1; excitation <= opnex; ++excitation )
-			{
-				if( excitation == 1 )
-				{
-					dabop = 0;
-				}
-				else
-				{
-					dabop = 3 - 2 * (excitation % 2);
-				}
-
-				setiampt( viewtable[view], &gy1, 0 );
-				setiampt( viewtable[view], &gyr1, 0 );
-				/* loaddab loads SSP packet used by data acquisition */
-				loaddab( &echo1, 0, 0, dabop, view, DABON, PSD_LOAD_DAB_ALL );  /* each slice is a pass, slice index in each pass should be 0 */
-
-				startseq( 0, (short)MAY_PAUSE );
-				getiamp( &chopamp, &rf1, 0 );
-				setiamp( -chopamp, &rf1, 0 );
-
-			} /* end-of-excitation loop */
-		}  /* end-of-view loop */
-
-		boffset( off_pass );
-		if( slice == (opslquant - 1) ) /* Last pass */
-		{
-			/* Set DAB pass packet to end of scan */
-			setwamp( SSPD + DABPASS + DABSCAN, &endpass, 2 );
-		}
-		else
-		{
-			/* Set DAB pass packet to end of pass */
-			setwamp( SSPD + DABPASS, &endpass, 2 );
-		}
-		startseq( 0, (short)MAY_PAUSE );
-
-		boffset( off_seqcore ); /* reset the hardware in the 'core' sequence */
-	} /* end-of-slice loop */
+	}
 
 	rspexit();
 
@@ -909,54 +753,10 @@ STATUS scan( void )
 /*************************************************/
 STATUS prescanCore( void )
 {
-
-	/*
-	 * Core rsp routine for prescan entry points. Same as scan, only
-	 *  no PE gradients or chopping. 
-	 */
-	boffset( off_seqcore );
-
-	if( psdinit() == FAILURE )
+	if( scan() == FAILURE )
 	{
-		rspexit();
+		return rspexit();
 	}
-
-	setrotatearray( 1, rsprot[0] );
-	settriggerarray( 1, rsptrigger );
-
-	rf1_freq = (int *)AllocNode( sizeof(int) );
-	receive_freq1 = (int *)AllocNode( sizeof(int) );
-
-	(*rf1_freq) = (int)(GAM * a_gzrf1 * rsp_info[rspesl].rsptloc / (10 * TARDIS_FREQ_RES));
-	(*receive_freq1) = (int)((float)cfreceiveroffsetfreq / TARDIS_FREQ_RES);
-
-	setiamp( ia_rf1, &rf1, 0 );
-
-	setfrequency( (*rf1_freq), &rf1, 0 );
-	setfrequency( (*receive_freq1), &echo1, 0 );
-
-	dabop = 0;
-
-	loaddab( &echo1, 0, 0, dabop, (int) 0, DABOFF, PSD_LOAD_DAB_ALL );
-
-	setiampt( 0, &gy1, 0 );
-
-	for( view = 0; view < numdda; ++view ) 
-	{
-		startseq( 0, (short)MAY_PAUSE );
-		getiamp( &chopamp, &rf1, 0 );
-		setiamp( -chopamp, &rf1, 0 );
-	}
-
-	for( view = 1; view < rspvus + 1; ++view ) 
-	{
-		loaddab( &echo1, 0, 0, dabop, view, DABON, PSD_LOAD_DAB_ALL );
-		startseq( 0, (short)MAY_PAUSE );
-		getiamp( &chopamp, &rf1, 0 );
-		setiamp( -chopamp, &rf1, 0 );
-	} /* views */
-
-	rspexit();
 
 	return SUCCESS;
 }   /* end prescanCore() */

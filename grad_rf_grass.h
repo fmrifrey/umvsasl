@@ -43,136 +43,23 @@ RF_PULSE rfpulse[MAX_RFPULSE] = {
      (int *)&wg_rf1,
      1
   },
+
 #include "rf_Prescan.h"
 };
 
-GRAD_PULSE gradx[MAX_GRADX] = { 
-  /* GRADX 0 - X dephaser */
-  {G_TRAP,
-     (int *)&pw_gx1a, 
-     (int *)&pw_gx1d,
-     (int *)&pw_gx1, 
-     (float *)NULL,
-     (float *)&a_gx1,
-     (float *)NULL,
-     (float *)NULL,
-     (char *)NULL,
-     0, 
-     1.0,
-     (int *)NULL,
-     0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0,
-     0,
-     0.0	/* for SGD heating */
-  },
-  /* GRADX 1 - First Echo Readout */
-  {G_TRAP,
-     (int *)&pw_gxwa, 
-     (int *)&pw_gxwd,
-     (int *)&pw_gxw,
-     (float *)NULL,
-     (float *)&a_gxw,
-     (float *)NULL,
-     (float *)NULL,
-     (char *)NULL,
-     0, 
-     1.0,
-     (int *)NULL,
-     0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0,
-     0,
-     0.0	/* for SGD heating */
+GRAD_PULSE gradx[MAX_GRADX] = {
+  {
   }
 };
- 
-GRAD_PULSE grady[MAX_GRADY] = { 
-  /* GRADY 0 - Phase Encodes and Rewinder */
-  {G_ARBTRAP,
-     (int *)&pw_gy1a,
-     (int *)&pw_gy1d, 
-     (int *)&pw_gy1,
-     (float *)NULL,
-     (float *)&a_gy1a,
-     (float *)&a_gy1b,
-     (float *)NULL,
-     (char *)NULL,
-     0,
-     1.0,
-     (int *)NULL,
-     0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0,
-     0,
-     0.0	/* for SGD heating */
-  }  
+
+GRAD_PULSE grady[MAX_GRADY] = {
+  {
+  }
 };
 
-GRAD_PULSE gradz[MAX_GRADZ] = { 
-  /* GRADZ 0 - 90 Slice Select  */
-  {G_TRAP, 
-     (int *)&pw_gzrf1a, 
-     (int *)&pw_gzrf1d, 
-     (int *)&pw_gzrf1, 
-     (float *)NULL,
-     (float *)&a_gzrf1, 
-     (float *)NULL,
-     (float *)NULL,
-     (char *)NULL,
-     0,
-     1.0,
-     (int *)NULL,
-     0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0.0,
-     0,
-     0,
-     0.0	/* for SGD heating */
-  },
-  /* GRADZ 1 - 90 rephaser */
-  {G_TRAP,
-     (int *)&pw_gz1a, 
-     (int *)&pw_gz1d,
-     (int *)&pw_gz1, 
-     (float *)NULL,
-     (float *)&a_gz1, 
-     (float *)NULL,
-     (float *)NULL,
-     (char *)NULL,
-     0,
-     1.0,
-     (int *)NULL, 
-     0,
-     0.0, 
-     0.0, 
-     0.0, 
-     0.0, 
-     0.0, 
-     0.0, 
-     0,
-     0,
-     0.0	/* for SGD heating */
-   }
- };
+GRAD_PULSE gradz[MAX_GRADZ] = {
+  {
+  }
+};
 
 #endif  /* grad_rf_grass_INCL */
