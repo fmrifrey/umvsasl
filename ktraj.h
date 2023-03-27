@@ -194,8 +194,10 @@ int genviews() {
 	float T_0[9], T[9];
 
 	/* Initialize z translation to identity matrix */
-	eye(T_0,3);
 	eye(Tz, 3);
+
+	/* Get original transformation matrix in float vals */
+	for (n = 0; n < 9; n++) T_0[n] = (float)rsprot[0][n] / MAX_PG_WAMP;
 
 	/* Loop through all views */
 	for (trainn = 0; trainn < ntrains; trainn++) {
@@ -247,7 +249,7 @@ int genviews() {
 
 			/* Save the matrix to the table of matrices */
 			for (n = 0; n < 9; n++)
-				T_v[trainn*nechoes + echon][n] = (int)round(32767.0*T[n]);
+				rsprot[trainn*nechoes + echon][n] = (s32)round(MAX_PG_WAMP*T[n]);
 		}
 	}
 

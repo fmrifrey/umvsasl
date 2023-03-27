@@ -80,9 +80,6 @@ int Gx[MAXWAVELEN];
 int Gy[MAXWAVELEN];
 int Gz[MAXWAVELEN];
 
-/* Declare view transformation table */
-int T_v[MAXNTRAINS*MAXNECHOES][9];
-
 @cv
 /*********************************************************************
  *                       GRASS.E CV SECTION                          *
@@ -130,7 +127,7 @@ float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
 int sptype2d = 1 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 1 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
-float SLEWMAX = 17000.0 with {5000.0, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
+float SLEWMAX = 17000.0 with {, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 
 @inline Prescan.e PScvs
@@ -379,11 +376,12 @@ STATUS predownload( void )
 	/* Set the defaults for the excitation pulse */
 	a_rf1 = opflip/180.0;
 	thk_rf1 = opslthick;
-	res_rf1 = 320;
+	res_rf1 = 1600;
+	pw_rf1 = 3200;
 	flip_rf1 = opflip;
-	pw_gzrf1 = 2*320;
-	pw_gzrf1a = 2*50;
-	pw_gzrf1d = 2*50;
+	pw_gzrf1 = 3200;
+	pw_gzrf1a = 300;
+	pw_gzrf1d = 300;
 	
 	/* Generate 2d spiral */
 	if (genspiral(5000, 0) == 0) {
@@ -526,9 +524,9 @@ STATUS pulsegen( void )
 	
 	fprintf(stderr, "Generating RF1 pulse (90deg tipdown) with a_rf1 = %.2f, pw_rf1 = %d... ",
 		a_rf1, pw_rf1);
-	SLICESELZ(rf1, 1ms, 3200us, opslthick, opflip, 1, 1, loggrd);
+	SLICESELZ(rf1, 30ms, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, " done.\n");
-
+	
 	fprintf(stderr, "Generating readout x gradient with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
 		a_gx, pw_gx, res_gx);
 	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gx, 0, loggrd);
@@ -575,11 +573,11 @@ STATUS pulsegen( void )
  *********************************************************************/
 extern PSD_EXIT_ARG psdexitarg;
 
-short viewtable[513];
+int echon;
+int trainn;
 int view;
-int slice;
-int dabop;
 int excitation;
+int dabop;
 int rspent;
 int rspdda;
 int rspbas;
@@ -628,7 +626,7 @@ int *receive_freq1;
 STATUS psdinit( void )
 {
 	/* Initialize everything to a known state */
-	view = slice = excitation = 0;
+	echon = trainn = 0;
 	setrfconfig( (short)5 );	/* Only activate rho1 */
 	setssitime( 100 );		/* Set ssi counter to 400 us. */
 	rspqueueinit( 200 );	/* Initialize to 200 entries */
@@ -636,8 +634,8 @@ STATUS psdinit( void )
 	syncon( &seqcore );		/* Activate sync for core */
 	syncoff( &pass );		/* Deactivate sync during pass */
 	seqCount = 0;		/* Set SPGR sequence counter */
-	settriggerarray( (short)slquant1, rsptrigger );
-	setrotatearray( (short)slquant1, rsprot[0] );
+	settriggerarray( (short)1, rsptrigger );
+	setrotatearray( (short)ntrains*nechoes, rsprot[0] );
 /*
 	setrfltrs( (int)filter_echo1, &echo1 );
 */
@@ -661,7 +659,7 @@ STATUS mps2( void )
 	rspnex = 2;
 	rspesl = -1;
 	rspasl = pre_slice;
-	rspslq = slquant1;
+	rspslq = ntrains*nechoes;
 	rspsct = 0;
 
 	if( psdinit() == FAILURE )
@@ -689,7 +687,7 @@ STATUS aps2( void )
 	rspnex = 2;
 	rspesl = -1;
 	rspasl = -1;
-	rspslq = slquant1;
+	rspslq = ntrains*nechoes;
 	rspsct = 0;
 
 	if( psdinit() == FAILURE )
@@ -717,8 +715,8 @@ STATUS scan( void )
 		return rspexit();
 	}
 	boffset( off_seqcore );	/* start the hardware in the 'core' sequence */
-	setrotatearray( opslquant, rsprot[0] );
-	settriggerarray( opslquant, rsptrigger );
+	setrotatearray( ntrains*nechoes, rsprot[0] );
+	settriggerarray( (short)1, rsptrigger );
 	setssitime( 250 );	/* allow time to update sequencer memory */
     
 	/* Calculate the RF & slice frequencies */
@@ -735,10 +733,17 @@ STATUS scan( void )
 
 	for (trainn = 0; trainn < ntrains; trainn++) {
 		for (echon = 0; echon < nechoes; echon++) {
-			fprintf(stderr, "scan(): playing train %d/%d, echo %d/%d... ", trainn, ntrains, echon, nechoes);
+			fprintf(stderr, "scan(): playing train %d/%d, echo %d/%d... ",
+				trainn + 1, ntrains, echon + 1, nechoes);
+			
+			settrigger(TRIG_INTERN,0);
+			setrotate((s32 *)rsprot, trainn*nechoes + echon);
+			
+			boffset( off_seqcore ); /* reset the hardware in the 'core' sequence */
 			startseq( 0, (short)MAY_PAUSE );
 			boffset( off_seqcore ); /* reset the hardware in the 'core' sequence */
 			fprintf(stderr, "done.\n");
+
 		}
 	}
 
@@ -753,10 +758,16 @@ STATUS scan( void )
 /*************************************************/
 STATUS prescanCore( void )
 {
+	setiamp( 0, &gx, 0 );
+	setiamp( 0, &gy, 0 );
+	setiamp( 0, &gz, 0 );
 	if( scan() == FAILURE )
 	{
 		return rspexit();
 	}
+	setiamp( ia_gx, &gx, 0 );
+	setiamp( ia_gy, &gy, 0 );
+	setiamp( ia_gz, &gx, 0 );
 
 	return SUCCESS;
 }   /* end prescanCore() */
