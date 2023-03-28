@@ -79,6 +79,10 @@ RF_PULSE_INFO rfpulseInfo[RF_FREE] = { {0,0} };
 int Gx[MAXWAVELEN];
 int Gy[MAXWAVELEN];
 int Gz[MAXWAVELEN];
+int grad_len = 5000;
+float gx_max;
+float gy_max;
+float gz_max;
 
 @cv
 /*********************************************************************
@@ -118,6 +122,9 @@ int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 
 int pw_gy1_tot;       /* temp time accumulation */
 float yfov_aspect = 1.0 with {0,,,INVIS, "acquired Y FOV aspect ratio to X",};
+
+/* rf cvs */
+int ramptime = 400 with {50, , 400, VIS, "Ramp time (us) for trapezoidal gradients", };
 
 /* Trajectory cvs */
 int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -377,17 +384,26 @@ STATUS predownload( void )
 	a_rf1 = opflip/180.0;
 	thk_rf1 = opslthick;
 	res_rf1 = 1600;
-	pw_rf1 = 3200;
+	pw_rf1 = TSP_RF * res_rf1;
 	flip_rf1 = opflip;
-	pw_gzrf1 = 3200;
-	pw_gzrf1a = 300;
-	pw_gzrf1d = 300;
+	pw_gzrf1 = pw_rf1;
+	pw_gzrf1a = ramptime;
+	pw_gzrf1d = ramptime;
 	
 	/* Generate 2d spiral */
 	if (genspiral(5000, 0) == 0) {
 		epic_error( use_ermes, "Error: failure to generate spiral waveform", EE_ARGS(1), EE_ARGS(0));
 		return FAILURE;
 	}
+	a_gx = gx_max;
+	a_gy = gy_max;
+	a_gz = gz_max;
+	res_gx = grad_len;
+	res_gy = grad_len;
+	res_gz = grad_len;
+	pw_gx = TSP_GRAD * grad_len;
+	pw_gy = TSP_GRAD * grad_len;
+	pw_gz = TSP_GRAD * grad_len;
 
 	/* Generate view transformations */
 	if (genviews() == 0) {
@@ -524,22 +540,22 @@ STATUS pulsegen( void )
 	
 	fprintf(stderr, "Generating RF1 pulse (90deg tipdown) with a_rf1 = %.2f, pw_rf1 = %d... ",
 		a_rf1, pw_rf1);
-	SLICESELZ(rf1, 30ms, 3200, opslthick, opflip, 1, 1, loggrd);
+	SLICESELZ(rf1, ramptime, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, " done.\n");
 	
 	fprintf(stderr, "Generating readout x gradient with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
-		a_gx, pw_gx, res_gx);
-	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gx, 0, loggrd);
+		gx_max, TSP_GRAD * grad_len, grad_len);
+	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), gx_max, grad_len, TSP_GRAD * grad_len, Gx, 0, loggrd);
 	fprintf(stderr, " done.\n");
 
 	fprintf(stderr, "Generating readout y gradient with a_gy = %.2f, pw_gy = %d, res_gy = %d... ",
-		a_gy, pw_gy, res_gy);
-	INTWAVE(YGRAD, gy, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gy, 0, loggrd);
+		gy_max, TSP_GRAD * grad_len, grad_len);
+	INTWAVE(YGRAD, gy, pend( &gzrf1d, "gzrf1d", 0), gy_max, grad_len, TSP_GRAD * grad_len, Gy, 0, loggrd);
 	fprintf(stderr, " done.\n");
 
 	fprintf(stderr, "Generating readout z gradient with a_gz = %.2f, pw_gz = %d, res_gz = %d... ",
-		a_gz, pw_gz, res_gz);
-	INTWAVE(ZGRAD, gz, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gz, 0, loggrd);
+		gz_max, TSP_GRAD * grad_len, grad_len);
+	INTWAVE(ZGRAD, gz, pend( &gzrf1d, "gzrf1d", 0), gz_max, grad_len, TSP_GRAD * grad_len, Gz, 0, loggrd);
 	fprintf(stderr, " done.\n");
 	
 	SEQLENGTH(seqcore, optr, seqcore); /* set the sequence length to optr */
