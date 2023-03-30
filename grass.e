@@ -123,6 +123,8 @@ int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 int pw_gy1_tot;       /* temp time accumulation */
 float yfov_aspect = 1.0 with {0,,,INVIS, "acquired Y FOV aspect ratio to X",};
 
+int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
+
 /* Trajectory cvs */
 int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
@@ -384,8 +386,8 @@ STATUS predownload( void )
 	pw_rf1 = 3200;
 	flip_rf1 = opflip;
 	pw_gzrf1 = 3200;
-	pw_gzrf1a = 300;
-	pw_gzrf1d = 300;
+	pw_gzrf1a = trapramptime;
+	pw_gzrf1d = trapramptime;
 	
 	/* Generate 2d spiral */
 	if (genspiral(grad_len, 0) == 0) {
@@ -540,7 +542,7 @@ STATUS pulsegen( void )
 	
 	fprintf(stderr, "pulsegen(): generating RF1 pulse (90deg tipdown) using SLICESELZ() with a_rf1 = %.2f, pw_rf1 = %d... ",
 		a_rf1, pw_rf1);
-	SLICESELZ(rf1, 500, 3200, opslthick, opflip, 1, 1, loggrd);
+	SLICESELZ(rf1, trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, " done.\n");
 	
 	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE() with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
