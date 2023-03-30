@@ -124,6 +124,7 @@ int pw_gy1_tot;       /* temp time accumulation */
 float yfov_aspect = 1.0 with {0,,,INVIS, "acquired Y FOV aspect ratio to X",};
 
 int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
+int gradbufftime = 100 with {100, , 100, INVIS, "Gradient IPG buffer space (us)",};
 
 /* Trajectory cvs */
 int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -131,8 +132,8 @@ int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",}
 int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
 float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
-int sptype2d = 1 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 1 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
+int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
+int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
 float SLEWMAX = 17000.0 with {, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 
@@ -295,6 +296,9 @@ STATUS cveval( void )
 
 	configSystem();
 	InitAdvPnlCVs();
+	
+	/* Declare temporary error message string */
+	char tmpstr[80];
 
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -326,9 +330,38 @@ STATUS cveval( void )
 
 	/* For use on the RSP side */
 	echo1bw = echo1_filt->bw;
+	
+	/* Generate 2d spiral */
+	if (genspiral(grad_len, 0) == 0) {
+		epic_error(use_ermes,"Error: failure to generate spiral waveform", EE_ARGS(0), EE_ARGS(0));
+		return FAILURE;
+	}
+	
+	/* Generate view transformations */
+	if (genviews() == 0) {
+		epic_error(use_ermes,"Error: failure to generate view transformation matrices", EE_ARGS(0), EE_ARGS(0));
+		return FAILURE;
+	}
 
-	/* Calculate minimum tr */	
+	/* Calculate minimum te */
+	avminte = pw_rf2 + grad_len * TSP_GRAD + 2*gradbufftime;
+
+	/* Calculate minimum tr */
 	avmintr = 2s;
+
+	/* Check if TE is valid */
+	if (opte < avminte) {
+		sprintf(tmpstr, "Error: opte must be >= %.3fms", avminte*1e-3);
+		epic_error(use_ermes, tmpstr, EE_ARGS(0), EE_ARGS(0));
+		return FAILURE;
+	};
+	
+	/* Check if TR is valid */
+	if (optr < avmintr) {
+		sprintf(tmpstr, "Error: optr must be >= %.3fs", avmintr*1e-6);
+		epic_error(use_ermes, tmpstr, EE_ARGS(0), EE_ARGS(0));
+		return FAILURE;
+	};
 
 @inline Prescan.e PScveval
 
@@ -358,7 +391,6 @@ int getAPxAlgorithm(optparam *optflag, int *algorithm)
 /************************************************************************/
 STATUS cvcheck( void )
 {
-
 	return SUCCESS;
 }   /* end cvcheck() */
 
@@ -379,7 +411,7 @@ STATUS predownload( void )
 #include "predownload.in"	/* include 'canned' predownload code */
 /*********************************************************************/
 
-	/* Set the defaults for the excitation pulse */
+	/* Set the parameters for the spin echo tipdown pulse */
 	a_rf1 = opflip/180.0;
 	thk_rf1 = opslthick;
 	res_rf1 = 1600;
@@ -389,30 +421,26 @@ STATUS predownload( void )
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
 	
-	/* Generate 2d spiral */
-	if (genspiral(grad_len, 0) == 0) {
-		epic_error( use_ermes, "Error: failure to generate spiral waveform", EE_ARGS(1), EE_ARGS(0));
-		return FAILURE;
-	}
-	else {
-		/* Update the pulse parameters */
-		a_gx = gx_max;
-		a_gy = gy_max;
-		a_gz = gz_max;
-		res_gx = grad_len;
-		res_gy = grad_len;
-		res_gz = grad_len;
-		pw_gx = TSP_GRAD*grad_len;
-		pw_gy = TSP_GRAD*grad_len;
-		pw_gz = TSP_GRAD*grad_len;
-	}
+	/* Set the parameters for the excitation pulse */
+	a_rf2 = opflip/180.0;
+	thk_rf2 = opslthick;
+	res_rf2 = 1600;
+	pw_rf2 = 3200;
+	flip_rf2 = opflip;
+	pw_gzrf2 = 3200;
+	pw_gzrf2a = trapramptime;
+	pw_gzrf2d = trapramptime;
 	
-	/* Generate view transformations */
-	if (genviews() == 0) {
-		epic_error( use_ermes, "Error: failure to generate view transformation matrices", EE_ARGS(1), EE_ARGS(0));
-		return FAILURE;
-	}
-
+	/* Update the pulse parameters */
+	a_gx = gx_max;
+	a_gy = gy_max;
+	a_gz = gz_max;
+	res_gx = grad_len;
+	res_gy = grad_len;
+	res_gz = grad_len;
+	pw_gx = TSP_GRAD*grad_len;
+	pw_gy = TSP_GRAD*grad_len;
+	pw_gz = TSP_GRAD*grad_len;
 	
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
@@ -539,28 +567,68 @@ STATUS predownload( void )
 STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
+
+	/* initialize temporary time marker */
+	int tmploc;
+
+
+	/******************************/
+	/* Generate readout gradients */
+	/******************************/
+	fprintf(stderr, "pulsegen(): beginning pulse generation of spiral readout core (seqcore)\n");
 	
+	/* Calculate start of gradient within the core */
+	tmploc = (opte - pw_rf2/2 - 2*gradbufftime - TSP_GRAD*grad_len) / 2;
+
+	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE() with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
+		gx_max, TSP_GRAD*grad_len, grad_len);
+	INTWAVE(XGRAD, gx, tmploc, 1.0, grad_len, TSP_GRAD*grad_len, Gx, 1, loggrd);
+	fprintf(stderr, " done.\n");
+
+	fprintf(stderr, "pulsegen(): generating readout y gradient using INTWAVE() with a_gy = %.2f, pw_gy = %d, res_gy = %d... ",
+		gy_max, TSP_GRAD*grad_len, grad_len);
+	INTWAVE(YGRAD, gy, tmploc, 1.0, grad_len, TSP_GRAD*grad_len, Gy, 1, loggrd);
+	fprintf(stderr, " done.\n");
+
+	fprintf(stderr, "pulsegen(): generating readout z gradient using INTWAVE() with a_gz = %.2f, pw_gz = %d, res_gz = %d... ",
+		gz_max, TSP_GRAD*grad_len, grad_len);
+	INTWAVE(ZGRAD, gz, tmploc, 1.0, grad_len, TSP_GRAD*grad_len, Gz, 1, loggrd);
+	fprintf(stderr, " done.\n");
+	
+	fprintf(stderr, "pulsegen(): finalizing spiral readout core...");
+	SEQLENGTH(seqcore, opte - pw_rf2/2 - 2*gradbufftime, seqcore);
+	fprintf(stderr, " done\n");
+
+
+	/***********************************/
+	/* Generate spin echo tipdown core */
+	/***********************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
+
 	fprintf(stderr, "pulsegen(): generating RF1 pulse (90deg tipdown) using SLICESELZ() with a_rf1 = %.2f, pw_rf1 = %d... ",
 		a_rf1, pw_rf1);
 	SLICESELZ(rf1, trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, " done.\n");
 	
-	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE() with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
-		gx_max, TSP_GRAD*grad_len, grad_len);
-	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), 1.0, grad_len, TSP_GRAD*grad_len, Gx, 1, loggrd);
-	fprintf(stderr, " done.\n");
+	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...");
+	SEQLENGTH(tipdowncore, opte/2, tipdowncore);
+	fprintf(stderr, " done\n");
+	
 
-	fprintf(stderr, "pulsegen(): generating readout y gradient using INTWAVE() with a_gy = %.2f, pw_gy = %d, res_gy = %d... ",
-		gy_max, TSP_GRAD*grad_len, grad_len);
-	INTWAVE(YGRAD, gy, pend( &gzrf1d, "gzrf1d", 0), 1.0, grad_len, TSP_GRAD*grad_len, Gy, 1, loggrd);
-	fprintf(stderr, " done.\n");
-
-	fprintf(stderr, "pulsegen(): generating readout z gradient using INTWAVE() with a_gz = %.2f, pw_gz = %d, res_gz = %d... ",
-		gz_max, TSP_GRAD*grad_len, grad_len);
-	INTWAVE(ZGRAD, gz, pend( &gzrf1d, "gzrf1d", 0), 1.0, grad_len, TSP_GRAD*grad_len, Gz, 1, loggrd);
+	/*************************************/
+	/* Generate epin echo refocuser core */
+	/*************************************/
+	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo refocuser core (refocuscore)\n");
+	
+	fprintf(stderr, "pulsegen(): generating RF2 pulse (180deg spin echo refocuser) using SLICESELZ() with a_rf2 = %.2f, pw_rf2 = %d... ",
+		a_rf1, pw_rf1);
+	SLICESELZ(rf2, trapramptime + gradbufftime, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, " done.\n");
 	
-	SEQLENGTH(seqcore, optr, seqcore); /* set the sequence length to optr */
+	fprintf(stderr, "pulsegen(): finalizing spin echo refocuser core...");
+	SEQLENGTH(refocuscore, pend( &gzrf2d, "gzrf2d", 0) + 2*gradbufftime, refocuscore);
+	fprintf(stderr, " done\n");
+
 
 @inline Prescan.e PSpulsegen
 
@@ -749,17 +817,26 @@ STATUS scan( void )
 
 	setiamp( ia_rf1,  &rf1, 0 );
 
+	fprintf(stderr, "scan(): playing spin echo tipdown core... ");
+	boffset( off_tipdowncore );
+	startseq( 0, (short)MAY_PAUSE );
+	fprintf(stderr, "done.\n");
+
 	for (trainn = 0; trainn < ntrains; trainn++) {
 		for (echon = 0; echon < nechoes; echon++) {
-			fprintf(stderr, "scan(): playing train %d/%d, echo %d/%d... ",
+			fprintf(stderr, "scan(): playing refocuser and readout gradients for train %d/%d, echo %d/%d... ",
 				trainn + 1, ntrains, echon + 1, nechoes);
 			
-			settrigger(TRIG_INTERN,0);
 			setrotate((s32 *)rsprot, trainn*nechoes + echon);
 			
-			boffset( off_seqcore ); /* reset the hardware in the 'core' sequence */
+			/* play refocuser */
+			boffset( off_refocuscore );
 			startseq( 0, (short)MAY_PAUSE );
-			boffset( off_seqcore ); /* reset the hardware in the 'core' sequence */
+
+			/* play readout gradients */
+			boffset( off_seqcore );
+			startseq( 0, (short)MAY_PAUSE );
+			
 			fprintf(stderr, "done.\n");
 
 		}
