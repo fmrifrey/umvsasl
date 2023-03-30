@@ -79,6 +79,10 @@ RF_PULSE_INFO rfpulseInfo[RF_FREE] = { {0,0} };
 int Gx[MAXWAVELEN];
 int Gy[MAXWAVELEN];
 int Gz[MAXWAVELEN];
+int grad_len = 5000;
+float gx_max;
+float gy_max;
+float gz_max;
 
 @cv
 /*********************************************************************
@@ -384,11 +388,23 @@ STATUS predownload( void )
 	pw_gzrf1d = 300;
 	
 	/* Generate 2d spiral */
-	if (genspiral(5000, 0) == 0) {
+	if (genspiral(grad_len, 0) == 0) {
 		epic_error( use_ermes, "Error: failure to generate spiral waveform", EE_ARGS(1), EE_ARGS(0));
 		return FAILURE;
 	}
-
+	else {
+		/* Update the pulse parameters */
+		a_gx = gx_max;
+		a_gy = gy_max;
+		a_gz = gz_max;
+		res_gx = grad_len;
+		res_gy = grad_len;
+		res_gz = grad_len;
+		pw_gx = TSP_GRAD*grad_len;
+		pw_gy = TSP_GRAD*grad_len;
+		pw_gz = TSP_GRAD*grad_len;
+	}
+	
 	/* Generate view transformations */
 	if (genviews() == 0) {
 		epic_error( use_ermes, "Error: failure to generate view transformation matrices", EE_ARGS(1), EE_ARGS(0));
@@ -522,24 +538,24 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 	
-	fprintf(stderr, "Generating RF1 pulse (90deg tipdown) with a_rf1 = %.2f, pw_rf1 = %d... ",
+	fprintf(stderr, "pulsegen(): generating RF1 pulse (90deg tipdown) using SLICESELZ() with a_rf1 = %.2f, pw_rf1 = %d... ",
 		a_rf1, pw_rf1);
-	SLICESELZ(rf1, 30ms, 3200, opslthick, opflip, 1, 1, loggrd);
+	SLICESELZ(rf1, 500, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, " done.\n");
 	
-	fprintf(stderr, "Generating readout x gradient with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
-		a_gx, pw_gx, res_gx);
-	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gx, 0, loggrd);
+	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE() with a_gx = %.2f, pw_gx = %d, res_gx = %d... ",
+		gx_max, TSP_GRAD*grad_len, grad_len);
+	INTWAVE(XGRAD, gx, pend( &gzrf1d, "gzrf1d", 0), 1.0, grad_len, TSP_GRAD*grad_len, Gx, 1, loggrd);
 	fprintf(stderr, " done.\n");
 
-	fprintf(stderr, "Generating readout y gradient with a_gy = %.2f, pw_gy = %d, res_gy = %d... ",
-		a_gy, pw_gy, res_gy);
-	INTWAVE(YGRAD, gy, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gy, 0, loggrd);
+	fprintf(stderr, "pulsegen(): generating readout y gradient using INTWAVE() with a_gy = %.2f, pw_gy = %d, res_gy = %d... ",
+		gy_max, TSP_GRAD*grad_len, grad_len);
+	INTWAVE(YGRAD, gy, pend( &gzrf1d, "gzrf1d", 0), 1.0, grad_len, TSP_GRAD*grad_len, Gy, 1, loggrd);
 	fprintf(stderr, " done.\n");
 
-	fprintf(stderr, "Generating readout z gradient with a_gz = %.2f, pw_gz = %d, res_gz = %d... ",
-		a_gz, pw_gz, res_gz);
-	INTWAVE(ZGRAD, gz, pend( &gzrf1d, "gzrf1d", 0), 1.0, 1000, 4000, Gz, 0, loggrd);
+	fprintf(stderr, "pulsegen(): generating readout z gradient using INTWAVE() with a_gz = %.2f, pw_gz = %d, res_gz = %d... ",
+		gz_max, TSP_GRAD*grad_len, grad_len);
+	INTWAVE(ZGRAD, gz, pend( &gzrf1d, "gzrf1d", 0), 1.0, grad_len, TSP_GRAD*grad_len, Gz, 1, loggrd);
 	fprintf(stderr, " done.\n");
 	
 	SEQLENGTH(seqcore, optr, seqcore); /* set the sequence length to optr */

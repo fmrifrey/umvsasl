@@ -20,7 +20,6 @@ int genspiral(int N, int itr) {
 	/* Declare maximum values */
 	float kxy_max = (float)opxres / ((float)opfov /10.0) / 2.0;
 	float kz_max = (float)nechoes / ((float)opfov /10.0) / 2.0;
-	float gx_max, gy_max, gz_max;
 	float sx_max, sy_max, sz_max;
 
 	/* Declare values */
@@ -140,33 +139,19 @@ int genspiral(int N, int itr) {
 				itr, MAXITR);
 	}
 	else if (fabs(N_stretch - N) <= 16) {
-		/* Save values */
-		res_gx = N;
-		res_gy = N;
-		res_gz = N;
-		pw_gx = N*TSP_GRAD;
-		pw_gy = N*TSP_GRAD;
-		pw_gz = N*TSP_GRAD;
-		a_gx = gx_max;
-		a_gy = gy_max;
-		a_gz = gz_max;
-		ia_gx = MAX_PG_WAMP;
-		ia_gy = MAX_PG_WAMP;
-		ia_gz = MAX_PG_WAMP;
-		fprintf(stderr, "genspiral(): saving readout x gradient with a_gx = %.2f G/cm, pw_gx = %d us, res_gx = %d\n",
-			a_gx, pw_gx, res_gx);
-		fprintf(stderr, "genspiral(): saving readout y gradient with a_gy = %.2f G/cm, pw_gy = %d us, res_gy = %d\n",
-			a_gy, pw_gy, res_gy);
-		fprintf(stderr, "genspiral(): saving readout z gradient with a_gz = %.2f G/cm, pw_gz = %d us, res_gz = %d\n",
-			a_gz, pw_gz, res_gz);
+		fprintf(stderr, "genspiral(): saving readout gradients with pw_g* = %dus, res_g* = %d\n", TSP_GRAD*N, N);
+		fprintf(stderr, "genspiral(): saving readout x gradient with a_gx = %.2f G/cm\n", gx_max);
+		fprintf(stderr, "genspiral(): saving readout y gradient with a_gy = %.2f G/cm\n", gy_max);
+		fprintf(stderr, "genspiral(): saving readout z gradient with a_gz = %.2f G/cm\n", gz_max);
+		grad_len = N;
 
 		/* Write trajectory and gradient to files */
 		fID_ktraj = fopen("./ktraj.txt", "w");
 		fID_grad = fopen("./grad.txt","w");
 		for (n = 0; n < N; n++) {
-			Gx[n] = 2 * round(MAX_PG_WAMP / a_gx * gx[n] / 2.0);
-			Gy[n] = 2 * round(MAX_PG_WAMP / a_gy * gy[n] / 2.0);
-			Gz[n] = 2 * round(MAX_PG_WAMP / a_gz * gz[n] / 2.0);
+			Gx[n] = 2 * round(MAX_PG_WAMP / gx_max * gx[n] / 2.0);
+			Gy[n] = 2 * round(MAX_PG_WAMP / gy_max * gy[n] / 2.0);
+			Gz[n] = 2 * round(MAX_PG_WAMP / gz_max * gz[n] / 2.0);
 			fprintf(fID_ktraj, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);
 			fprintf(fID_grad, "%d \t%d \t%d\n", Gx[n], Gy[n], Gz[n]);
 		}
