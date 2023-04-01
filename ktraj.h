@@ -2,15 +2,16 @@
 int genspiral(int N, int itr) {
 	fprintf(stderr, "genspiral(): iteration %d, N = %d\n", itr, N);
 
-	/* Declare files */
-	FILE *fID_ktraj;
-	FILE *fID_grad;
+	/* Declare file */
+	FILE *fID;
 
 	/* Declare/initialize variables */
 	int n, m;
 	float dn;
 	float nturns = THETA_accel * (float)opxres / sqrt( (float)ntrains );
 	int L = 4 * round( (float)N / (float)nturns / 2.0 );
+	float stretch[6];
+	int N_stretch;
 
 	/* Declare waveforms */
 	float kx[N], ky[N], kz[N];
@@ -20,6 +21,7 @@ int genspiral(int N, int itr) {
 	/* Declare maximum values */
 	float kxy_max = (float)opxres / ((float)opfov /10.0) / 2.0;
 	float kz_max = (float)nechoes / ((float)opfov /10.0) / 2.0;
+	float gx_max, gy_max, gz_max;
 	float sx_max, sy_max, sz_max;
 
 	/* Declare values */
@@ -101,32 +103,31 @@ int genspiral(int N, int itr) {
 	}
 
 	/* Calculate gradient waveforms by differentiating trajectory */
-	diff(kx, N, TSP_GRAD*1e-6*GAMMA/2.0/M_PI, gx);
-	diff(ky, N, TSP_GRAD*1e-6*GAMMA/2.0/M_PI, gy);
-	diff(kz, N, TSP_GRAD*1e-6*GAMMA/2.0/M_PI, gz);
+	diff(kx, N, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gx);
+	diff(ky, N, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gy);
+	diff(kz, N, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gz);
 	gx_max = fabs(getmaxabs(gx, N));
 	gy_max = fabs(getmaxabs(gy, N));
 	gz_max = fabs(getmaxabs(gz, N));
 
 	/* Calculate slew waveforms by differentiating gradient */
-	diff(gx, N, TSP_GRAD*1e-6, sx);
-	diff(gy, N, TSP_GRAD*1e-6, sy);
-	diff(gz, N, TSP_GRAD*1e-6, sz);
+	diff(gx, N, GRAD_UPDATE_TIME*1e-6, sx);
+	diff(gy, N, GRAD_UPDATE_TIME*1e-6, sy);
+	diff(gz, N, GRAD_UPDATE_TIME*1e-6, sz);
 	sx_max = fabs(getmaxabs(sx, N));
 	sy_max = fabs(getmaxabs(sy, N));
 	sz_max = fabs(getmaxabs(sz, N));
 
 	/* Calculate stretch factors */
-	float sf_gx = (float)(gx_max/GMAX);
-	float sf_gy = (float)(gy_max/GMAX);
-	float sf_gz = (float)(gz_max/GMAX);
-	float sf_sx = (float)sqrt(sx_max/SLEWMAX);
-	float sf_sy = (float)sqrt(sy_max/SLEWMAX);
-	float sf_sz = (float)sqrt(sz_max/SLEWMAX);
+	stretch[0] = (float)(gx_max/GMAX);
+	stretch[1] = (float)(gy_max/GMAX);
+	stretch[2] = (float)(gz_max/GMAX);
+	stretch[3] = (float)sqrt(sx_max/SLEWMAX);
+	stretch[4] = (float)sqrt(sy_max/SLEWMAX);
+	stretch[5] = (float)sqrt(sz_max/SLEWMAX);
 
-	/* Determine if function exceeds gradient/slew limits */
-	float stretch[6] = {sf_gx, sf_gy, sf_gz, sf_sx, sf_sy, sf_sz};
-	int N_stretch = 4 * round(getmaxabs(stretch, 6) * N / 4.0);
+	/* Determine new N if function exceeds gradient/slew limits */
+	N_stretch = 4 * round(getmaxabs(stretch, 6) * N / 4.0);
 
 	/* Determine if N can be stretched any more */
 	if (N_stretch > MAXWAVELEN) {
@@ -139,24 +140,21 @@ int genspiral(int N, int itr) {
 				itr, MAXITR);
 	}
 	else if (fabs(N_stretch - N) <= 16) {
-		fprintf(stderr, "genspiral(): saving readout gradients with pw_g* = %dus, res_g* = %d\n", TSP_GRAD*N, N);
+		fprintf(stderr, "genspiral(): saving readout gradients with pw_g* = %dus, res_g* = %d\n", GRAD_UPDATE_TIME*N, N);
 		fprintf(stderr, "genspiral(): saving readout x gradient with a_gx = %.2f G/cm\n", gx_max);
 		fprintf(stderr, "genspiral(): saving readout y gradient with a_gy = %.2f G/cm\n", gy_max);
 		fprintf(stderr, "genspiral(): saving readout z gradient with a_gz = %.2f G/cm\n", gz_max);
 		grad_len = N;
 
 		/* Write trajectory and gradient to files */
-		fID_ktraj = fopen("./ktraj.txt", "w");
-		fID_grad = fopen("./grad.txt","w");
+		fID = fopen("./ktraj.txt", "w");
 		for (n = 0; n < N; n++) {
-			Gx[n] = 2 * round(MAX_PG_WAMP / gx_max * gx[n] / 2.0);
-			Gy[n] = 2 * round(MAX_PG_WAMP / gy_max * gy[n] / 2.0);
-			Gz[n] = 2 * round(MAX_PG_WAMP / gz_max * gz[n] / 2.0);
-			fprintf(fID_ktraj, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);
-			fprintf(fID_grad, "%d \t%d \t%d\n", Gx[n], Gy[n], Gz[n]);
+			Gx[n] = 2 * round(MAX_PG_WAMP * gx[n] / XGRAD_max / 2.0);
+			Gy[n] = 2 * round(MAX_PG_WAMP * gy[n] / YGRAD_max / 2.0);
+			Gz[n] = 2 * round(MAX_PG_WAMP * gz[n] / ZGRAD_max / 2.0);
+			fprintf(fID, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);
 		}
-		fclose(fID_ktraj);
-		fclose(fID_grad);
+		fclose(fID);
 
 		return 1;
 	}
@@ -234,7 +232,7 @@ int genviews() {
 
 			/* Save the matrix to the table of matrices */
 			for (n = 0; n < 9; n++)
-				rsprot[trainn*nechoes + echon][n] = (s32)round(MAX_PG_WAMP*T[n]);
+				Ttable[n][trainn*nechoes + echon] = T[n];
 		}
 	}
 
