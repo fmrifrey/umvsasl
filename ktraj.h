@@ -177,10 +177,8 @@ int genviews() {
 	float T_0[9], T[9];
 
 	/* Initialize z translation to identity matrix */
+	eye(T_0, 3);
 	eye(Tz, 3);
-
-	/* Get original transformation matrix in float vals */
-	for (n = 0; n < 9; n++) T_0[n] = (float)rsprot[0][n] / MAX_PG_WAMP;
 
 	/* Loop through all views */
 	for (trainn = 0; trainn < ntrains; trainn++) {
@@ -238,6 +236,66 @@ int genviews() {
 
 	/* Close the file */
 	fclose(fID);
+
+	return 1;
+};
+
+/* genwaves() function definition */
+int genwaves() {
+
+	FILE* ftmp = fopen("tmp.txt","w");
+
+	/* Declare loop indicies */
+	int trainn, echon, n;
+
+	/* Get receiver phase offsets */
+	float rdx[3] = {
+		rsp_info[0].rsprloc,
+		rsp_info[0].rspphasoff,
+		0.0
+	};
+
+	/* Get initial gradients in matrix form */
+	float G_0[3*grad_len];
+	float G[3*grad_len];
+	for (n = 0; n < grad_len; n++) {
+		G_0[3*n] = (float)Gx[n];
+		G_0[3*n + 1] = (float)Gy[n];
+		G_0[3*n + 2] = (float)Gz[n];
+	}
+
+	/* Initialize tranformation matrix and arrays */
+	float T[9];
+	float gx[grad_len], gy[grad_len], gz[grad_len];
+	float thetarec[grad_len];
+
+	/* Loop through views */
+	for (trainn = 0; trainn < ntrains; trainn++) {
+		for (echon = 0; echon < nechoes; echon++) {
+			/* Get transformation matrix for current view */
+			for (n = 0; n < 9; n++) T[n] = Ttable[n][trainn*nechoes + echon];
+			
+			/* Calculate transformed trajectory as G = (T * G_0')' = G_0 * T' */
+			transpose(3,3,T);
+			multmat(grad_len, 3, 3, G_0, T, G);
+			for (n = 0; n < grad_len; n++) {
+				gx[n] = G[3*n];
+				gy[n] = G[3*n + 1];
+				gz[n] = G[3*n + 2];
+			}
+
+			/* Calculate reciever gain as cumsum(GAMMA/2/pi * G * rdx * dt) */
+			multmat(grad_len, 3, 1, G, rdx, thetarec);
+			cumsum(thetarec, grad_len, GAMMA/2/M_PI * 1e-6*GRAD_UPDATE_TIME, thetarec);
+		}
+	}
+
+	printmat(ftmp, grad_len, 1, gx);
+	printmat(ftmp, grad_len, 1, gy);
+	printmat(ftmp, grad_len, 1, gz);
+	printmat(ftmp, grad_len, 1, thetarec);
+
+	fclose(ftmp);
 
 	return 1;
 };
