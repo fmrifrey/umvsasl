@@ -3,13 +3,11 @@
 #include <string.h>
 
 int eye(float *M, int n);
-int transpose(int M, int N, float* mat);
 int genrotmat(char axis, float angle, float* R);
 int multmat(int M, int N, int P, float* mat1, float* mat2, float* mat3);
 int printmat(FILE *fID, int M, int N, float* mat);
 int conv(float* x, int lenx, float* h, int lenh, float* y);
 int diff(float* x, int lenx, float di, float* y);
-int cumsum(float* x, int lenx, float di, float* y);
 float getmaxabs(float *x, int lenx);
 int reverse(float *x, int nl, int nr);
 
@@ -23,21 +21,6 @@ int eye(float *M, int n) {
 			M[i] = 0.0;
 	}
 	
-	return 1;
-}
-
-int transpose(int M, int N, float* mat) {
-
-	int m, n;
-
-	float mat2[M*N];
-	for (n = 0; n < M*N; n++) mat2[n] = mat[n];
-
-	for (m = 0; m < M; m++) {
-		for(n = 0; n < N; n++)
-			mat[m*N + n] = mat2[n*M + m];
-	}
-
 	return 1;
 }
 
@@ -151,28 +134,9 @@ int conv(float* x, int lenx, float* h, int lenh, float* y) {
 int diff(float* x, int lenx, float di, float* y) {
 
 	int i;
-
-	float xtmp[lenx];
-	for (i = 0; i < lenx; i++) xtmp[i] = x[i];
-	
+	for (i = 0; i < lenx; i++) y[i] = 0;
 	for (i = 1; i < lenx - 1; i++)
-		y[i] = (xtmp[i] - xtmp[i-1]) / di;
-
-	return 1;
-};
-
-int cumsum(float* x, int lenx, float di, float* y) {
-
-	int i, j;
-
-	float xtmp[lenx];
-	for (i = 0; i < lenx; i++) xtmp[i] = x[i];
-	
-	for (i = 0; i < lenx - 1; i++) {
-		y[i] = 0.0;
-		for (j = 0; j < lenx; j++)
-			y[i] += xtmp[j];
-	}
+		y[i] = (x[i] - x[i-1]) / di;
 
 	return 1;
 };

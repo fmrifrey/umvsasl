@@ -185,7 +185,6 @@ float phi2 = 0.6823; /* 2d golden ratio 2 */
 /* Declare function prototypes from ktraj.h */
 int genspiral(int N, int itr);
 int genviews();
-int genwaves();
 int sinsmooth(float *x, int N, int L);
 
 /* Import functions from ktraj.h (using @inline instead of #include since
@@ -340,13 +339,6 @@ STATUS cveval( void )
 	fprintf(stderr, "cveval(): calling genviews()\n");
 	if (genviews() == 0) {
 		epic_error(use_ermes,"cveval() Error: failure to generate view transformation matrices", EE_ARGS(0), EE_ARGS(0));
-		return FAILURE;
-	}
-	
-	/* Generate transformed trajectories */
-	fprintf(stderr, "pulsegen(): calling genwaves()\n");
-	if (genwaves() == 0) {
-		epic_error(use_ermes,"cveval() Error: failure to generate transformed waveforms", EE_ARGS(0), EE_ARGS(0));
 		return FAILURE;
 	}
 
@@ -584,6 +576,7 @@ STATUS predownload( void )
  * with @pulsedef, and must return SUCCESS or FAILURE.               *
  *********************************************************************/
 #include "support_func.h"
+
 
 STATUS pulsegen( void )
 {
