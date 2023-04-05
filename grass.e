@@ -53,6 +53,7 @@
 #define MAXNECHOES 50 /* Maximum number of echoes per echo train */
 #define MAXITR 50 /* Maximum number of iterations for iterative processes */
 #define GAMMA 26754 /* Gyromagnetic ratio */
+#define TIMESSI 400 /* SSP instruction time */
 
 @inline Prescan.e PSglobal
 int debugstate = 1;
@@ -88,8 +89,8 @@ int Gy[MAXWAVELEN];
 int Gz[MAXWAVELEN];
 int grad_len = 5000;
 
-/* Declare transformation matrix table */
-float Ttable[9][MAXNTRAINS*MAXNECHOES];
+/* Initialize rotation matrices */
+long T_all[9][MAXNTRAINS*MAXNECHOES];
 
 @cv
 /*********************************************************************
@@ -117,18 +118,19 @@ int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 
 /* FSE timing cvs */
 int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
-int gradbufftime = 100 with {100, , 100, INVIS, "Gradient IPG buffer space (us)",};
+int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer space (us)",};
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
 
 /* Trajectory cvs */
 int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
+int nframes = 1 with {1, , 1, VIS, "Number of frames to acquire",};
 int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
 float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
-float SLEWMAX = 17000.0 with {, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
+float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 
 @inline Prescan.e PScvs
@@ -204,6 +206,7 @@ static char supfailfmt[] = "Support routine %s failed";
 /************************************************************************/
 STATUS cvinit( void )
 {
+
 	/* turn off bandwidth option */
 	oprbw = 500.0 / (float)GRAD_UPDATE_TIME;
 	pircbnub = 0;
@@ -218,12 +221,14 @@ STATUS cvinit( void )
 	pifovval6 = 280;
 
 	/* tr */
+	cvdef(optr, 4500);
 	optr = 4500ms;
 	pitrnub = 2;
 	pitrval2 = PSD_MINIMUMTR;
 	pitrval3 = 4500ms;
 
 	/* te */
+	cvdef(opte, 50);
 	opte = 50ms;
 	pitrnub = 2;
 	pite1val2 = PSD_MINFULLTE;
@@ -235,6 +240,12 @@ STATUS cvinit( void )
 	cvdef(opxres, 64);
 	opxres = 64;
 	pixresnub = 0; /* hide option */
+
+	/* flip angle */
+	cvmin(opflip, 50);
+	cvmax(opflip, 130);
+	cvdef(opflip, 90);
+	opflip = 90;
 
 	/* hide phase (yres) option */
 	piyresnub = 0;
@@ -290,9 +301,46 @@ STATUS cveval( void )
 
 	configSystem();
 	InitAdvPnlCVs();
+
+	pititle = 1;
+	cvdesc(pititle, "Advanced pulse sequence parameters");
 	
-	/* Declare temporary error message string */
-	char tmpstr[80];
+	piuset = use0;
+	cvdesc(opuser0, "Number of frames to acquire");
+	cvdef(opuser0, 1);
+	opuser0 = 1;
+	cvmin(opuser0, 1);
+	nframes = opuser0;
+
+	piuset += use1;
+	cvdesc(opuser1, "Number of echoes in each echo train");
+	cvdef(opuser1, 1);
+	opuser1 = 1;
+	cvmin(opuser1, 1);
+	nechoes = opuser1;
+
+	piuset += use2;
+	cvdesc(opuser2, "Number of echo trains");
+	cvdef(opuser2, 1);
+	opuser2 = 1;
+	cvmin(opuser2, 1);
+	ntrains = opuser2;
+
+	piuset += use3;
+	cvdesc(opuser3, "Initial spiral trajectory type");
+	cvdef(opuser3, 1);
+	opuser3 = 4;
+	cvmin(opuser3, 1);
+	cvmax(opuser3, 4);
+	sptype2d = opuser3;
+
+	piuset += use4;
+	cvdesc(opuser4, "3d trajectory transformations type");
+	cvdef(opuser4, 3);
+	opuser4 = 1;
+	cvmin(opuser4, 1);
+	cvmax(opuser4, 4);
+	sptype3d = opuser4;
 
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -328,27 +376,12 @@ STATUS cveval( void )
 	gettarget(&ZGRAD_max, ZGRAD, &loggrd);
 	gettarget(&THETA_max, THETA, &loggrd);
 	
-	/* Generate initial spiral trajectory */
-	fprintf(stderr, "cveval(): calling genspiral()\n");
-	if (genspiral(grad_len, 0) == 0) {
-		epic_error(use_ermes,"cveval() Error: failure to generate spiral waveform", EE_ARGS(0), EE_ARGS(0));
-		return FAILURE;
-	}
-	
-	/* Generate view transformations */
-	fprintf(stderr, "cveval(): calling genviews()\n");
-	if (genviews() == 0) {
-		epic_error(use_ermes,"cveval() Error: failure to generate view transformation matrices", EE_ARGS(0), EE_ARGS(0));
-		return FAILURE;
-	}
-
 	/* Calculate minimum te */
-	avminte = pw_rf2 + 4*gradbufftime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;;
+	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;
 
 	/* Check if TE is valid */
 	if (opte < avminte) {
-		sprintf(tmpstr, "cveval() Error: opte must be >= %.3fms", avminte*1e-3);
-		epic_error(use_ermes, tmpstr, EE_ARGS(0), EE_ARGS(0));
+		epic_error(use_ermes, "cveval() Error: opte must be >= %dus", EM_PSD_SUPPORT_FAILURE, 1, FLOAT_ARG, avminte);
 		return FAILURE;
 	};
 
@@ -360,8 +393,7 @@ STATUS cveval( void )
 
 	/* Check if TR is valid */
 	if (optr < avmintr) {
-		sprintf(tmpstr, "cveval() Error: optr must be >= %.3fs", avmintr*1e-6);
-		epic_error(use_ermes, tmpstr, EE_ARGS(0), EE_ARGS(0));
+		epic_error(use_ermes, "cveval() Error: optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, 1, INT_ARG, avmintr);
 		return FAILURE;
 	};
 
@@ -415,7 +447,7 @@ STATUS predownload( void )
 
 	/* Set the parameters for the spin echo tipdown pulse */
 	a_rf1 = opflip/180.0;
-	thk_rf1 = opslthick;
+	thk_rf1 = opslthick*opslquant;
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
 	flip_rf1 = opflip;
@@ -423,15 +455,21 @@ STATUS predownload( void )
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
 	
+	/* Set the parameters for the tipdown crusher */
+	a_gzrf1crush = 1.5;
+	pw_gzrf1crush = 2*trapramptime + 4;
+	pw_gzrf1crusha = trapramptime;
+	pw_gzrf1crushd = trapramptime;
+	
 	/* Set the parameters for the pre-refocuser crusher */
-	a_gzrf2crush1 = 1.0;
-	pw_gzrf2crush1 = GRAD_UPDATE_TIME * 800;
+	a_gzrf2crush1 = 1.5;
+	pw_gzrf2crush1 = 2*trapramptime + 4;
 	pw_gzrf2crush1a = trapramptime;
 	pw_gzrf2crush1d = trapramptime;
 	
 	/* Set the parameters for the refocuser pulse */
-	a_rf2 = opflip/180.0;
-	thk_rf2 = opslthick;
+	a_rf2 = 2.0*opflip/180.0;
+	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
 	flip_rf2 = opflip;
@@ -440,8 +478,8 @@ STATUS predownload( void )
 	pw_gzrf2d = trapramptime;
 	
 	/* Set the parameters for the post-refocuser crusher */
-	a_gzrf2crush2 = 1.0;
-	pw_gzrf2crush2 = GRAD_UPDATE_TIME * 800;
+	a_gzrf2crush2 = 1.5;
+	pw_gzrf2crush2 = 2*trapramptime + 4;
 	pw_gzrf2crush2a = trapramptime;
 	pw_gzrf2crush2d = trapramptime;
 	
@@ -461,9 +499,7 @@ STATUS predownload( void )
 	   and assign to the appropriate acquisition pulse for the right 
 	   filter selection - LxMGD, RJF */
 	setfilter( echo1_filt, SCAN );
-/*
 	filter_echo1 = echo1_filt->fslot;
-*/
 
 @inline Prescan.e PSfilter
 	
@@ -551,11 +587,34 @@ STATUS predownload( void )
 		nex = opnex;
 		exnex = opnex;
 	}
-	acqs = opslquant;	/* Fixes the # of rhnpasses to the # of passes */
+	acqs = 1;	/* Fixes the # of rhnpasses to the # of passes */
 	acq_type = TYPGRAD;
 @inline loadrheader.e rheaderinit   /* Recon variables */
 
-	scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
+	/* Recon parameters */
+	cvmax(rhfrsize, 32767);
+	rhfrsize = grad_len;
+	rhexecctrl = 2;
+	rhnframes = 2 * (int)ceil((float)(nframes + 1) / 2.0);
+	rhnslices = ntrains*nechoes;
+	rhnecho = 1;
+	rhrawsize = 2*rhptsize*rhfrsize * rhnframes * rhnslices;
+	
+	/* Generate initial spiral trajectory */
+	fprintf(stderr, "cveval(): calling genspiral()\n");
+	if (genspiral(grad_len, 0) == 0) {
+		epic_error(use_ermes,"cveval() Error: failure to generate spiral waveform", EE_ARGS(0), EE_ARGS(0));
+		return FAILURE;
+	}
+	
+	/* Generate view transformations */
+	fprintf(stderr, "cveval(): calling genviews()\n");
+	if (genviews() == 0) {
+		epic_error(use_ermes,"cveval() Error: failure to generate view transformation matrices", EE_ARGS(0), EE_ARGS(0));
+		return FAILURE;
+	}
+
+	scalerotmats( rsprot, &loggrd, &phygrd, ntrains*nechoes, obl_debug );
 
 @inline Prescan.e PSpredownload
 
@@ -586,50 +645,37 @@ STATUS pulsegen( void )
 	int tmploc;
 
 
-	/*************************************************/
-	/* Generate spin echo refocuser and readout core */
-	/*************************************************/
-	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo refocuser and readout core (seqcore)\n");
+	/********************************/
+	/* Generate spiral readout core */
+	/********************************/
+	/* Calculate start of spiral */
+	tmploc = (opte - (pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime + 4*trapramptime) - GRAD_UPDATE_TIME*grad_len)/2;
 
-	/* Generate pre-rf2 crusher */	
-	fprintf(stderr, "pulsegen(): generating pre-rf2 crusher...\n");
-	TRAPEZOID(ZGRAD, gzrf2crush1, gradbufftime + trapramptime, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush1a, "gzrf2crush1a", 0), pend( &gzrf2crush1d, "gzrf2crush1d", 0));
-	fprintf(stderr, "\tDone.\n");
-
-	/* Generate rf2 */
-	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
-	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + gradbufftime + trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
-	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2a, "gzrf2a", 0), pend( &gzrf2d, "gzrf2d", 0));
-	fprintf(stderr, "\tDone.\n");	
-
-	/* Generate post-rf2 crusher */
-	fprintf(stderr, "pulsegen(): generating post-rf2 crusher...\n");
-	TRAPEZOID(ZGRAD, gzrf2crush2, pend( &gzrf2d, "gzrf2d", 0) + gradbufftime + trapramptime, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush2a, "gzrf2crush2a", 0), pend( &gzrf2crush2d, "gzrf2crush2d", 0));
-	fprintf(stderr, "\tDone.\n");
-
-	/* Calculate deadtime between end of refocuser/crushers and start of spiral */
-	tmploc = (opte + pend( &gzrf2crush2d, "gzrf2crush2d", 0) + gradbufftime - GRAD_UPDATE_TIME*grad_len)/2;
-
-	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE() with a_gxw = %.2f, pw_gxw = %d, res_gxw = %d...\n",
-		XGRAD_max, GRAD_UPDATE_TIME*grad_len, grad_len);
+	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE()...\n");
 	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gxw, "gxw", 0), pend( &gxw, "gxw", 0));
 	fprintf(stderr, "\tDone.\n");
 
-	fprintf(stderr, "pulsegen(): generating readout y gradient using INTWAVE() with a_gyw = %.2f, pw_gyw = %d, res_gyw = %d...\n",
-		YGRAD_max, GRAD_UPDATE_TIME*grad_len, grad_len);
+	fprintf(stderr, "pulsegen(): generating readout y gradient using INTWAVE()...\n");
 	INTWAVE(YGRAD, gyw, tmploc, YGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gyw, "gyw", 0), pend( &gyw, "gyw", 0));
 	fprintf(stderr, "\tDone.\n");
 
-	fprintf(stderr, "pulsegen(): generating readout z gradient using INTWAVE() with a_gzw = %.2f, pw_gzw = %d, res_gzw = %d...\n",
-		ZGRAD_max, GRAD_UPDATE_TIME*grad_len, grad_len);
+	fprintf(stderr, "pulsegen(): generating readout z gradient using INTWAVE()...\n");
 	INTWAVE(ZGRAD, gzw, tmploc, ZGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gz, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzw, "gzw", 0), pend( &gzw, "gzw", 0));
+	fprintf(stderr, "\tDone.\n");
+
+	fprintf(stderr, "pulsegen(): generating data acquisition instruction using ACQUIREDATA()...\n");
+	ACQUIREDATA(echo1, tmploc + psd_grd_wait,,,);
 	fprintf(stderr, "\tDone.\n");
 	
+	/* Calculate length of core */
+	tmploc = opte - (pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime);
+
 	fprintf(stderr, "pulsegen(): finalizing spiral readout core...\n");
-	fprintf(stderr, "\ttotal time: %dus\n", opte);
-	SEQLENGTH(seqcore, opte, seqcore);
+	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
+	SEQLENGTH(seqcore, tmploc, seqcore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -642,12 +688,49 @@ STATUS pulsegen( void )
 	SLICESELZ(rf1, trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
-	
+
+	fprintf(stderr, "pulsegen(): generating rf1 crusher...\n");
+	TRAPEZOID(ZGRAD, gzrf1crush, pend( &gzrf1d, "gzrf1d", 0 ) + gradbufftime, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1crusha, "gzrf1crusha", 0), pend( &gzrf1crushd, "gzrf1crushd", 0));
+	fprintf(stderr, "\tDone.\n");	
+
+	/* Calculate length of core */	
+	tmploc = opte/2 - pw_rf2/2 - 2*gradbufftime - pw_gzrf2crush1;
+
 	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
-	fprintf(stderr, "\ttotal time: %dus\n", opte/2 - pw_rf2/2 - 2*gradbufftime - pw_gzrf2crush1);
-	SEQLENGTH(tipdowncore, opte/2 - pw_rf2/2 - 2*gradbufftime - pw_gzrf2crush1, tipdowncore);
+	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
+	SEQLENGTH(tipdowncore, tmploc, tipdowncore);
 	fprintf(stderr, "\tDone.\n");
 	
+
+	/*************************************/
+	/* Generate spin echo refocuser core */
+	/*************************************/
+	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo refocuser and readout core (seqcore)\n");
+
+	fprintf(stderr, "pulsegen(): generating pre-rf2 crusher...\n");
+	TRAPEZOID(ZGRAD, gzrf2crush1, gradbufftime + trapramptime, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush1a, "gzrf2crush1a", 0), pend( &gzrf2crush1d, "gzrf2crush1d", 0));
+	fprintf(stderr, "\tDone.\n");
+
+	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
+	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + gradbufftime + trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2a, "gzrf2a", 0), pend( &gzrf2d, "gzrf2d", 0));
+	fprintf(stderr, "\tDone.\n");	
+
+	fprintf(stderr, "pulsegen(): generating post-rf2 crusher...\n");
+	TRAPEZOID(ZGRAD, gzrf2crush2, pend( &gzrf2d, "gzrf2d", 0) + gradbufftime + trapramptime, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush2a, "gzrf2crush2a", 0), pend( &gzrf2crush2d, "gzrf2crush2d", 0));
+	fprintf(stderr, "\tDone.\n");
+
+	/* Calculate length of core */
+	tmploc = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime + 4*trapramptime;
+
+	fprintf(stderr, "pulsegen(): finalizing spin echo refocuser core...\n");
+	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
+	SEQLENGTH(refocuscore, tmploc, refocuscore);
+	fprintf(stderr, "\tDone.\n");
+
 
 	/***************************************/
 	/* Generate TR deadtime (tadjust) core */
@@ -689,6 +772,7 @@ STATUS pulsegen( void )
  *********************************************************************/
 extern PSD_EXIT_ARG psdexitarg;
 
+int ispre;
 int echon;
 int trainn;
 int view;
@@ -706,6 +790,8 @@ int rspnex;
 int rspslq;
 int rspsct;
 short chopamp;
+
+int dtype;
 
 /* For Prescan: K */
 int seqCount;
@@ -736,15 +822,14 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
    adds more entry points and closes the list. */
 
 int *rf1_freq;
-int *receive_freq1;
 
 
 STATUS psdinit( void )
 {
 	/* Initialize everything to a known state */
 	echon = trainn = 0;
-	setrfconfig( (short)5 );	/* Only activate rho1 */
-	setssitime( 100 );		/* Set ssi counter to 400 us. */
+	setrfconfig(ENBL_RHO1 + ENBL_THETA);	/* Only activate rho1 */
+	setssitime( TIMESSI/GRAD_UPDATE_TIME );		/* Set ssi counter to 400 us. */
 	rspqueueinit( 200 );	/* Initialize to 200 entries */
 	scopeon( &seqcore );	/* Activate scope for core */
 	syncon( &seqcore );		/* Activate sync for core */
@@ -752,38 +837,28 @@ STATUS psdinit( void )
 	seqCount = 0;		/* Set SPGR sequence counter */
 	settriggerarray( (short)1, rsptrigger );
 	setrotatearray( (short)ntrains*nechoes, rsprot[0] );
-/*
 	setrfltrs( (int)filter_echo1, &echo1 );
-*/
+
 	return SUCCESS;
 }   /* end psdinit() */
 
 
 @inline Prescan.e PScore
-
+STATUS scanCore( void );
 
 /* For Prescan: MPS2 Function */
 STATUS mps2( void )
 {
-	boffset(off_seqcore);
-	/* Initialize RSP parameters */
-	rspent = L_MPS2;	
-	rspdda = 2;
-	rspbas = 0;
-	rspvus = 30000;
-	rspgy1 = 0;
-	rspnex = 2;
-	rspesl = -1;
-	rspasl = pre_slice;
-	rspslq = ntrains*nechoes;
-	rspsct = 0;
-
 	if( psdinit() == FAILURE )
 	{
 		return rspexit();
 	}
 
-	prescanCore();
+	ispre = 1;
+	if( scanCore() == FAILURE )
+	{
+		return rspexit();
+	}
 	rspexit();
 
 	return SUCCESS;
@@ -793,25 +868,16 @@ STATUS mps2( void )
 /* For Prescan: APS2 Function */
 STATUS aps2( void )
 {
-	boffset(off_seqcore);
-	/* Initialize RSP parameters */
-	rspent = L_APS2;	
-	rspdda = 2;
-	rspbas = 0;
-	rspvus = 1024;
-	rspgy1 = 0;
-	rspnex = 2;
-	rspesl = -1;
-	rspasl = -1;
-	rspslq = ntrains*nechoes;
-	rspsct = 0;
-
 	if( psdinit() == FAILURE )
 	{
-		return rspexit();
+		return FAILURE;
 	}
 
-	prescanCore();
+	ispre = 1;
+	if( scanCore() == FAILURE )
+	{
+		return FAILURE;
+	}
 	rspexit();
 
 	return SUCCESS;
@@ -823,73 +889,113 @@ STATUS aps2( void )
 /************************************************************************/
 STATUS scan( void )
 {
-
-	int echon, trainn;
-
 	if( psdinit() == FAILURE )
 	{
-		return rspexit();
+		return FAILURE;
 	}
+
+	ispre = 0;
+	if( scanCore() == FAILURE )
+	{
+		return FAILURE;
+	}
+	rspexit();
+
+	return SUCCESS;
+}
+
+
+/**********************************************/
+/* Runtime core section executed during scan. */
+/**********************************************/
+STATUS scanCore( void )
+{
+
+	int framen, echon, trainn, n;
+	long T_0[9];
+	long tmpmat[9];
+
 	boffset( off_seqcore );	/* start the hardware in the 'core' sequence */
 	setrotatearray( ntrains*nechoes, rsprot[0] );
 	settriggerarray( (short)1, rsptrigger );
-	setssitime( 250 );	/* allow time to update sequencer memory */
+	setssitime( TIMESSI );	/* allow time to update sequencer memory */
     
 	/* Calculate the RF & slice frequencies */
+	setrfconfig(ENBL_RHO1 + ENBL_THETA);
 	rf1_freq = (int *)AllocNode( opslquant * sizeof(int) );
-	receive_freq1 = (int *)AllocNode( opslquant * sizeof(int) );
+	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
 	setiamp( ia_rf1,  &rf1, 0 );
+	setfrequency((rf1_freq[opslquant/2] + rf1_freq[opslquant/2 - 1])/2, &rf1, 0);
+	setiphase(0, &rf1, 0);
+	setphase(0.0, &echo1, 0);
 
-	fprintf(stderr, "scan(): playing spin echo tipdown core...\n");
-	boffset( off_tipdowncore );
-	startseq( 0, (short)MAY_PAUSE );
-	fprintf(stderr, "\tDone.\n");
+	/* Get initial rotation matrix */
+	getrotate(T_0, 0);
 
-	for (trainn = 0; trainn < ntrains; trainn++) {
-		for (echon = 0; echon < nechoes; echon++) {
-			fprintf(stderr, "scan(): playing refocuser and readout gradients for train %d/%d, echo %d/%d...\n",
-				trainn + 1, ntrains, echon + 1, nechoes);
-			
-			/* play readout gradients */
-			boffset( off_seqcore );
+	if (ispre) {
+		setiamp(0, &gxw, 0);
+		setiamp(0, &gyw, 0);
+		setiamp(0, &gzw, 0);
+	}
+	else {
+		setiamp(MAX_PG_IAMP, &gxw, 0);
+		setiamp(MAX_PG_IAMP, &gyw, 0);
+		setiamp(MAX_PG_IAMP, &gzw, 0);
+	}
+
+	/* View loop */
+	for (framen = 0; framen < (ispre) ? (1) : (nframes); framen++) {
+		for (trainn = 0; trainn < ntrains; trainn++) {
+
+			fprintf(stderr, "scan(): playing spin echo tipdown core...\n");
+			boffset( off_tipdowncore );
 			startseq( 0, (short)MAY_PAUSE );
-			
+			settrigger(TRIG_INTERN, 0);
 			fprintf(stderr, "\tDone.\n");
+
+			for (echon = 0; echon < nechoes; echon++) {
+				fprintf(stderr, "scan(): playing refocuser for train %d/%d, echo %d/%d...\n",
+						trainn + 1, ntrains, echon + 1, nechoes);
+
+				dtype = (ispre) ? (DABOFF) : (DABON);	
+				loaddab(&echo1, trainn*nechoes + echon, 0, 1, framen, (TYPDAB_PACKETS)dtype, PSD_LOAD_DAB_ALL);
+
+				/* play refocuser */
+				boffset( off_refocuscore );
+				startseq( 0, (short)MAY_PAUSE );		
+
+				/* play readout gradients */
+				for (n = 0; n < 9; n++) tmpmat[n] = T_all[n][trainn*nechoes + echon];
+				setrotate(tmpmat, 0);
+				boffset( off_seqcore );
+				startseq( 0, (short)MAY_PAUSE );
+				settrigger(TRIG_INTERN, 0);
+				setrotate(T_0, 0);
+
+				fprintf(stderr, "\tDone.\n");
+
+			}
+
+
+			if (tadjust > 0) {
+				fprintf(stderr, "scan(): playing TR deadtime core...\n");
+				boffset( off_tadjustcore );
+				startseq( 0, (short)MAY_PAUSE );
+				settrigger(TRIG_INTERN, 0);
+				fprintf(stderr, "\tDone.\n");
+			}
 
 		}
 	}
 
-	if (tadjust > 0) {
-		fprintf(stderr, "scan(): playing TR deadtime core...\n");
-		boffset( off_tadjustcore );
-		startseq( 0, (short)MAY_PAUSE );
-		fprintf(stderr, "\tDone.\n");
-	}
-
-	rspexit();
+	/* SSP packet to end scan */
+	boffset( off_pass );
+	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
+	settrigger(TRIG_INTERN, 0);
+	startseq(0, MAY_PAUSE);
 
 	return SUCCESS;
-}   /* end scan() */
-
-
-/*************************************************/
-/* Runtime core section executed during prescan. */
-/*************************************************/
-STATUS prescanCore( void )
-{
-	setiamp( 0, &gxw, 0 );
-	setiamp( 0, &gyw, 0 );
-	setiamp( 0, &gzw, 0 );
-	if( scan() == FAILURE )
-	{
-		return rspexit();
-	}
-	setiamp( ia_gxw, &gxw, 0 );
-	setiamp( ia_gyw, &gyw, 0 );
-	setiamp( ia_gzw, &gxw, 0 );
-
-	return SUCCESS;
-}   /* end prescanCore() */
+} /* end scanCore() */
 
 
 /********************************************
