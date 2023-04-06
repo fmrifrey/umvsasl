@@ -40,10 +40,13 @@
 #include "epic_loadcvs.h"
 #include "InitAdvisories.h"
 #include "psdiopt.h"
-#include "psdutil.h"
 #include "psd_proto.h"
 #include "epic_iopt_util.h"
 #include "filter.h"
+/* Compile for both rx28 and mr29: */
+#ifdef psdutil
+#include "psdutil.h"
+#endif
 
 #include "grass.h"
 
@@ -74,8 +77,8 @@ int debugstate = 1;
 @inline Prescan.e PSipgexport
 RF_PULSE_INFO rfpulseInfo[RF_FREE] = { {0,0} };
 
-/* Declare temporary error message string */
-char tmpstr[MAXWAVELEN];
+/* Define temporary error message string */
+char *tmpstr;
 
 /* Declare sequencer hardware limit variables */
 float XGRAD_max;
@@ -115,6 +118,7 @@ float xmtaddScan;
 int obl_debug = 0 with {0, 1, 0, INVIS, "On(=1) to print messages for obloptimize",};
 int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based on actual rotation matrices",};
 int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
+float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
 /* FSE timing cvs */
 int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
@@ -222,6 +226,7 @@ STATUS cvinit( void )
 
 	/* tr */
 	cvdef(optr, 4500);
+	cvmin(optr, avmintr);
 	optr = 4500ms;
 	pitrnub = 2;
 	pitrval2 = PSD_MINIMUMTR;
@@ -229,6 +234,7 @@ STATUS cvinit( void )
 
 	/* te */
 	cvdef(opte, 50);
+	cvmin(opte, avminte);
 	opte = 50ms;
 	pitrnub = 2;
 	pite1val2 = PSD_MINFULLTE;
@@ -246,6 +252,7 @@ STATUS cvinit( void )
 	cvmax(opflip, 130);
 	cvdef(opflip, 90);
 	opflip = 90;
+	pitinub = 0;
 
 	/* hide phase (yres) option */
 	piyresnub = 0;
@@ -351,7 +358,7 @@ STATUS cveval( void )
 	 */
 	if( calcfilter( &echo1_rtfilt,
 				exist(oprbw),
-				exist(opxres),
+				grad_len,
 				OVERWRITE_OPRBW ) == FAILURE)
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
@@ -370,6 +377,9 @@ STATUS cveval( void )
 		return FAILURE;
 	}
 
+	/* For use on the RSP side */
+	echo1bw = echo1_filt->bw;
+
 	/* Get sequencer hardware limits */
 	gettarget(&XGRAD_max, XGRAD, &loggrd);
 	gettarget(&YGRAD_max, YGRAD, &loggrd);
@@ -381,7 +391,7 @@ STATUS cveval( void )
 
 	/* Check if TE is valid */
 	if (opte < avminte) {
-		epic_error(use_ermes, "cveval() Error: opte must be >= %dus", EM_PSD_SUPPORT_FAILURE, 1, FLOAT_ARG, avminte);
+		epic_error(use_ermes, "opte must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avminte);
 		return FAILURE;
 	};
 
@@ -393,7 +403,7 @@ STATUS cveval( void )
 
 	/* Check if TR is valid */
 	if (optr < avmintr) {
-		epic_error(use_ermes, "cveval() Error: optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, 1, INT_ARG, avmintr);
+		epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
 		return FAILURE;
 	};
 
@@ -493,7 +503,7 @@ STATUS predownload( void )
 	pw_gxw = GRAD_UPDATE_TIME*grad_len;
 	pw_gyw = GRAD_UPDATE_TIME*grad_len;
 	pw_gzw = GRAD_UPDATE_TIME*grad_len;
-	
+
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
 	   and assign to the appropriate acquisition pulse for the right 
@@ -566,7 +576,7 @@ STATUS predownload( void )
 	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
 	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
 
-	if( orderslice( TYPNCAT, (int)opslquant, (int)1, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNCAT, ntrains*nechoes, (int)1, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
@@ -603,14 +613,14 @@ STATUS predownload( void )
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "cveval(): calling genspiral()\n");
 	if (genspiral(grad_len, 0) == 0) {
-		epic_error(use_ermes,"cveval() Error: failure to generate spiral waveform", EE_ARGS(0), EE_ARGS(0));
+		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
 	
 	/* Generate view transformations */
 	fprintf(stderr, "cveval(): calling genviews()\n");
 	if (genviews() == 0) {
-		epic_error(use_ermes,"cveval() Error: failure to generate view transformation matrices", EE_ARGS(0), EE_ARGS(0));
+		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
 
@@ -822,6 +832,7 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
    adds more entry points and closes the list. */
 
 int *rf1_freq;
+int *receive_freq1;
 
 
 STATUS psdinit( void )
@@ -835,7 +846,7 @@ STATUS psdinit( void )
 	syncon( &seqcore );		/* Activate sync for core */
 	syncoff( &pass );		/* Deactivate sync during pass */
 	seqCount = 0;		/* Set SPGR sequence counter */
-	settriggerarray( (short)1, rsptrigger );
+	settriggerarray( (short)ntrains*nechoes, rsptrigger );
 	setrotatearray( (short)ntrains*nechoes, rsprot[0] );
 	setrfltrs( (int)filter_echo1, &echo1 );
 
@@ -849,6 +860,20 @@ STATUS scanCore( void );
 /* For Prescan: MPS2 Function */
 STATUS mps2( void )
 {
+	boffset(off_seqcore);
+	
+	/* Initialize RSP parameters */
+	rspent = L_MPS2;	
+	rspdda = 2;
+	rspbas = 0;
+	rspvus = 30000;
+	rspgy1 = 0;
+	rspnex = 2;
+	rspesl = -1;
+	rspasl = pre_slice;
+	rspslq = slquant1;
+	rspsct = 0;
+	
 	if( psdinit() == FAILURE )
 	{
 		return rspexit();
@@ -868,6 +893,20 @@ STATUS mps2( void )
 /* For Prescan: APS2 Function */
 STATUS aps2( void )
 {
+	boffset(off_seqcore);
+	
+	/* Initialize RSP parameters */
+	rspent = L_APS2;	
+	rspdda = 2;
+	rspbas = 0;
+	rspvus = 1024;
+	rspgy1 = 0;
+	rspnex = 2;
+	rspesl = -1;
+	rspasl = -1;
+	rspslq = slquant1;
+	rspsct = 0;
+
 	if( psdinit() == FAILURE )
 	{
 		return FAILURE;
@@ -915,15 +954,20 @@ STATUS scanCore( void )
 	long T_0[9];
 	long tmpmat[9];
 
-	boffset( off_seqcore );	/* start the hardware in the 'core' sequence */
 	setrotatearray( ntrains*nechoes, rsprot[0] );
 	settriggerarray( (short)1, rsptrigger );
 	setssitime( TIMESSI );	/* allow time to update sequencer memory */
     
 	/* Calculate the RF & slice frequencies */
-	setrfconfig(ENBL_RHO1 + ENBL_THETA);
 	rf1_freq = (int *)AllocNode( opslquant * sizeof(int) );
-	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
+	receive_freq1 = (int *)AllocNode( opslquant * sizeof(int) );
+
+	/* Set the Slice Frequency */
+	setupslices( rf1_freq, rsp_info, opslquant, a_gzrf1, (float)1, opfov,
+			TYPTRANSMIT );
+	setupslices( receive_freq1, rsp_info, opslquant,(float)0, echo1bw, opfov,
+			TYPREC);	
+
 	setiamp( ia_rf1,  &rf1, 0 );
 	setfrequency((rf1_freq[opslquant/2] + rf1_freq[opslquant/2 - 1])/2, &rf1, 0);
 	setiphase(0, &rf1, 0);
@@ -936,6 +980,32 @@ STATUS scanCore( void )
 		setiamp(0, &gxw, 0);
 		setiamp(0, &gyw, 0);
 		setiamp(0, &gzw, 0);
+
+		loaddab(&echo1, 0, 0, 0, (int)0, DABOFF, PSD_LOAD_DAB_ALL);
+
+		for (trainn = 0; trainn < rspdda; trainn++) {
+			boffset( off_tipdowncore );
+			startseq( 0, (short)MAY_PAUSE );
+			settrigger(TRIG_INTERN, 0);
+
+			for (echon = 0; echon < nechoes; echon++) {
+				boffset(off_refocuscore);
+				startseq(0, (short)MAY_PAUSE);
+				settrigger(TRIG_INTERN, 0);
+
+				boffset(off_seqcore);
+				startseq( 0, (short)MAY_PAUSE );
+				settrigger(TRIG_INTERN, 0);
+			}
+			
+			if (tadjust > 0) {
+				boffset( off_tadjustcore );
+				startseq( 0, (short)MAY_PAUSE );
+				settrigger(TRIG_INTERN, 0);
+			}
+
+		}
+		
 	}
 	else {
 		setiamp(MAX_PG_IAMP, &gxw, 0);
@@ -957,8 +1027,8 @@ STATUS scanCore( void )
 				fprintf(stderr, "scan(): playing refocuser for train %d/%d, echo %d/%d...\n",
 						trainn + 1, ntrains, echon + 1, nechoes);
 
-				dtype = (ispre) ? (DABOFF) : (DABON);	
-				loaddab(&echo1, trainn*nechoes + echon, 0, 1, framen, (TYPDAB_PACKETS)dtype, PSD_LOAD_DAB_ALL);
+				dtype = DABON;	
+				loaddab(&echo1, 0, 0, 1, framen*ntrains*nechoes + trainn*nechoes + echon, (TYPDAB_PACKETS)dtype, PSD_LOAD_DAB_ALL);
 
 				/* play refocuser */
 				boffset( off_refocuscore );
