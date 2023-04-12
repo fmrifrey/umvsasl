@@ -92,9 +92,8 @@ int Gy[MAXWAVELEN];
 int Gz[MAXWAVELEN];
 int grad_len = 5000;
 
-/* Initialize rotation matrices */
-long tmtxtbl[9][MAXNTRAINS*MAXNECHOES];
-
+/* Declare table of rotation matrices */
+long tmtxtbl[MAXNTRAINS*MAXNECHOES][9];
 
 @cv
 /*********************************************************************
@@ -129,7 +128,7 @@ int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
 
 /* Trajectory cvs */
-int nechoes = 17 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
+int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
 int nframes = 1 with {1, , 1, VIS, "Number of frames to acquire",};
 int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
@@ -325,8 +324,8 @@ cveval( void )
 
 	piuset += use1;
 	cvdesc(opuser1, "Number of echoes in each echo train");
-	cvdef(opuser1, 1);
-	opuser1 = 1;
+	cvdef(opuser1, 16);
+	opuser1 = 16;
 	cvmin(opuser1, 1);
 	nechoes = opuser1;
 
@@ -523,7 +522,7 @@ predownload( void )
        filter selection - LxMGD, RJF */
     setfilter( echo1_filt, SCAN );
     filter_echo1 = echo1_filt->fslot;
-
+    
 @inline Prescan.e PSfilter
 
     /* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
@@ -542,6 +541,15 @@ predownload( void )
     /* Scan Entry Point */
     (void)strcpy( entry_point_table[L_SCAN].epname, "scan" );
     entry_point_table[L_SCAN].epfilter = (unsigned char)echo1_filt->fslot;
+    entry_point_table[L_SCAN].epprexres = grad_len;
+
+    (void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
+    entry_point_table[L_APS2].epfilter = (unsigned char)echo1_filt->fslot;
+    entry_point_table[L_APS2].epprexres = grad_len;
+
+    (void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
+    entry_point_table[L_MPS2].epfilter = (unsigned char)echo1_filt->fslot;
+    entry_point_table[L_MPS2].epprexres = grad_len;
 
     /* First, find the peak B1 for the whole sequence. */
     maxB1Seq = 0.0;
@@ -747,14 +755,13 @@ pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 
-	/***************************************/
-	/* Generate TR deadtime (tadjust) core */
-	/***************************************/
-	fprintf(stderr, "pulsegen(): beginning pulse generation of TR deadtime core (tadjustcore)\n");
+	/**********************************/
+	/* Generate deadtime (empty) core */
+	/**********************************/
+	fprintf(stderr, "pulsegen(): beginning pulse generation of empty core (emptycore)\n");
 
-	fprintf(stderr, "pulsegen(): finalizing TR deadtime core...\n");
-	fprintf(stderr, "\ttotal time: %dus\n", (tadjust > 0) ? (tadjust) : (100));
-	SEQLENGTH(tdjustcore, (tadjust > 0) ? (tadjust) : (100), tadjustcore);
+	fprintf(stderr, "pulsegen(): finalizing empty core...\n");
+	SEQLENGTH(emptycore, 1000, emptycore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -787,9 +794,14 @@ pulsegen( void )
  *********************************************************************/
 extern PSD_EXIT_ARG psdexitarg;
 
+/* Declare rsps */
 int ispre;
 int echon;
 int trainn;
+int framen;
+int n;
+
+/* Inherited from grass.e: */
 int view;
 int slice;
 int dabop;
@@ -835,9 +847,14 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
    lines before the line above.  The code inline'd from Prescan.e
    adds more entry points and closes the list. */
 
+/* Transmit & receive frequencies */
 int *rf1_freq;
+int xmitfreq;
 int *receive_freq1;
+int recfreq;
 
+/* Initial rotation matrix */
+long tmtx0[9];
 
 STATUS
 psdinit( void )
@@ -854,38 +871,29 @@ psdinit( void )
     setrotatearray( (short)ntrains*nechoes, rsprot[0] );
     setrfltrs( (int)filter_echo1, &echo1 );
 
+	/* Store initial rotation matrix */
+	getrotate(tmtx0, 0);
+	
     return SUCCESS;
 }   /* end psdinit() */
 
 
 @inline Prescan.e PScore
 
+STATUS scancore( void );
 
 /* For Prescan: MPS2 Function */
 STATUS
 mps2( void )
 {
-    boffset(off_seqcore);
-    /* Initialize RSP parameters */
-    rspent = L_MPS2;	
-    rspdda = 0;
-    rspbas = 0;
-    rspvus = 30000;
-    rspgy1 = 0;
-    rspnex = 2;
-    rspesl = -1;
-    rspasl = pre_slice;
-    rspslq = slquant1;
-    rspsct = 0;
-	ispre = 1;
-
-
     if( psdinit() == FAILURE )
     {
         return rspexit();
     }
 
-    scan();
+    ispre = 1;
+    rspdda = 0;
+    scancore();
     rspexit();
 
     return SUCCESS;
@@ -895,190 +903,122 @@ mps2( void )
 /* For Prescan: APS2 Function */
 STATUS
 aps2( void )
-{
-    boffset(off_seqcore);
-    /* Initialize RSP parameters */
-    rspent = L_APS2;	
-    rspdda = 2;
-    rspbas = 0;
-    rspvus = 1024;
-    rspgy1 = 0;
-    rspnex = 2;
-    rspesl = -1;
-    rspasl = -1;
-    rspslq = slquant1;
-    rspsct = 0;
-	ispre = 1;
-
-
+{   
     if( psdinit() == FAILURE )
     {
         return rspexit();
     }
 
-    scan();
+    ispre = 1;
+    rspdda = 2;
+    scancore();
     rspexit();
 
     return SUCCESS;
 }   /* end aps2() */
 
-
-/************************************************************************/
-/* 				SCAN FUNCTION				*/
-/************************************************************************/
 STATUS
 scan( void )
-{
-	int framen, echon, trainn, n;
-	long T_0[9];
-	long tmpmat[9];
+{ 
+    if( psdinit() == FAILURE )
+    {
+        return rspexit();
+    }
 
-	setrotatearray( ntrains*nechoes, rsprot[0] );
-	settriggerarray( (short)1, rsptrigger );
-	setssitime( TIMESSI );	/* allow time to update sequencer memory */
-	/* Set the transmit frequency */
-	rf1_freq = (int *)AllocNode( opslquant * sizeof(int) );
-	setupslices( rf1_freq, rsp_info, opslquant, 0, (float)1, opfov, TYPTRANSMIT );
-
-	setiamp( ia_rf1,  &rf1, 0 );
-	setfrequency((rf1_freq[opslquant/2] + rf1_freq[opslquant/2 - 1])/2, &rf1, 0);
-	setiphase(0, &rf1, 0);
-
-	/* Set the receive frequency */
-	receive_freq1 = (int *)AllocNode( opslquant * sizeof(int) );
-	setupslices( receive_freq1, rsp_info, opslquant, (float)0, echo1bw, opfov, TYPREC);	
-	setfrequency(receive_freq1[opslquant/2] + receive_freq1[opslquant/2 - 1]/2, &echo1, 0);
-	setphase(0.0, &echo1, 0);
-
-	/* Get initial rotation matrix */
-	getrotate(T_0, 0);
-
-	if (ispre) {
-		/* Set gradients to 0 amplitude */
-		/*
-		setiamp(0, &gxw, 0);
-		setiamp(0, &gyw, 0);
-		setiamp(0, &gzw, 0);
-		*/
-
-		/* Play disdaq trains */
-		for (trainn = 0; trainn < rspdda; trainn++) {
-			/* Play tipdown core */
-			boffset( off_tipdowncore );
-			startseq( 0, (short)MAY_PAUSE );
-			settrigger(TRIG_INTERN, 0);
-
-			for (echon = 0; echon < nechoes; echon++) {
-				/* Play refocuser core */
-				boffset(off_refocuscore);
-				startseq(0, (short)MAY_PAUSE);
-				settrigger(TRIG_INTERN, 0);
-
-				/* Turn off the acquisition for disdaqs */
-				fprintf(stderr, "loaddab(&echo1, %d, 0, 0, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon);
-				loaddab(&echo1, 
-						echon, 
-						0, 
-						0, 
-						0, 
-						DABOFF,
-						PSD_LOAD_DAB_ALL);
-
-				fprintf(stderr, "\tDone.\n");
-
-				/* Set rotation matrix for current echo */
-				for (n = 0; n < 9; n++)
-					tmpmat[n] = tmtxtbl[n][echon];
-				setrotate(tmpmat, 0);
-
-				/* Play spiral readout core */
-				boffset(off_seqcore);
-				startseq( 0, (short)MAY_PAUSE );
-				settrigger(TRIG_INTERN, 0);
-				
-				/* Restore the baseline transformation matrix */
-				setrotate(T_0, 0);
-			}
-			
-			/* Play tadjust core */
-			if (tadjust > 0) {
-				boffset( off_tadjustcore );
-				startseq( 0, (short)MAY_PAUSE );
-				settrigger(TRIG_INTERN, 0);
-			}
-
-		}
-		
-	}
-	else {
-		/* Restore gradient amplitudes */
-		setiamp(MAX_PG_IAMP, &gxw, 0);
-		setiamp(MAX_PG_IAMP, &gyw, 0);
-		setiamp(MAX_PG_IAMP, &gzw, 0);
-	}
-
-	/* View loop */
-	for (framen = 0; framen < (ispre) ? (1) : (nframes); framen++) {
-		for (trainn = 0; trainn < (ispre) ? (rspvus) : (ntrains); trainn++) {
-
-			/* Play tipdown core */
-			boffset( off_tipdowncore );
-			startseq( 0, (short)MAY_PAUSE );
-			settrigger(TRIG_INTERN, 0);
-
-			for (echon = 0; echon < nechoes; echon++) {
-
-				/* Play refocuser */
-				boffset( off_refocuscore );
-				startseq( 0, (short)MAY_PAUSE );
-				settrigger(TRIG_INTERN, 0);
-				
-				fprintf(stderr, "loaddab(&echo1, %d, 1, DABSTORE, %d, DABON, PSD_LOAD_DAB_ALL)...\n", echon, (ispre) ? (0) : (framen*ntrains + trainn));
-				loaddab(&echo1, 
-					echon,
-					0, 
-					DABSTORE, 
-					(ispre) ? (0) : (framen*ntrains + trainn), 
-					DABON, 
-					PSD_LOAD_DAB_ALL);
-
-				fprintf(stderr, "\tDone.\n");
-
-				/* Set rotation matrix for current echo */
-				for (n = 0; n < 9; n++)
-					tmpmat[n] = tmtxtbl[n][trainn*nechoes + echon];
-				setrotate(tmpmat, 0);
-
-				/* Play spiral readout core */
-				boffset( off_seqcore );
-				startseq( 0, (short)MAY_PAUSE );
-				settrigger(TRIG_INTERN, 0);
-
-				/* Restore the baseline transformation matrix */
-				setrotate(T_0, 0);
-			}
-
-
-			/* Play tadjust core */
-			if (tadjust > 0) {
-				boffset( off_tadjustcore );
-				startseq( 0, (short)MAY_PAUSE );
-				settrigger(TRIG_INTERN, 0);
-			}
-
-		}
-	}
-
-	/* SSP packet to end scan */
-	boffset( off_pass );
-	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
-	settrigger(TRIG_INTERN, 0);
-	startseq(0, MAY_PAUSE);
-
+    ispre = 0;
+    rspdda = 0;
+    scancore();
     rspexit();
 
     return SUCCESS;
-}   /* end scan() */
+}
+
+STATUS
+scancore( void )
+{
+	
+	/* Set transmit frequency and phase */
+	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
+	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
+	xmitfreq = (int)((rf1_freq[opslquant/2] + rf1_freq[opslquant/2-1])/2);
+	setfrequency(xmitfreq, &rf2, 0);
+	setiphase(0, &rf1, 0);
+
+	/* Set receiver frequency and phase */
+	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
+	setupslices(receive_freq1, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
+	recfreq = (int)((receive_freq1[opslquant/2] + receive_freq1[opslquant/2-1])/2);
+	setfrequency(recfreq , &echo1, 0);
+	setphase(0.0, &echo1, 0);
+	
+	if (ispre) { /* Turn off the readout gradients */
+		setiamp(0, &gxw, 0);
+		setiamp(0, &gyw, 0);
+		setiamp(0, &gzw, 0);
+	}
+	else { /* Restore the gradients */
+		setiamp(MAX_PG_IAMP, &gxw, 0);
+		setiamp(MAX_PG_IAMP, &gyw, 0);
+		setiamp(MAX_PG_IAMP, &gzw, 0);
+		scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
+	}
+
+	/* Play a TR */
+	for (trainn = -rspdda; trainn < ((ispre) ? (1000) : (ntrains)); trainn++) {
+		/* Play tipdown core */
+		boffset(off_tipdowncore);
+		startseq(0, MAY_PAUSE);
+		settrigger(TRIG_INTERN, 0);
+
+		/* Play readout (refocusers + spiral gradients */
+		for (echon = 0; echon < nechoes; echon++) {
+
+			/* Play the refocuser core */
+			boffset(off_refocuscore);
+			startseq(0, (short)MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+
+			/* Allocate space in memory for data using loaddab */			
+			if (trainn < 0) /* DISDAQs */
+				loaddab(&echo1, echon, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
+			else if (ispre) /* Prescans (after DISDAQ) */
+				loaddab(&echo1, echon, 0, DABSTORE, 0, DABON, PSD_LOAD_DAB_ALL);
+			else { /* Scan */
+				loaddab(&echo1, echon, 0, DABSTORE, framen*ntrains + trainn + 1, DABON, PSD_LOAD_DAB_ALL);
+				setrotate(tmtxtbl[trainn*nechoes + echon], 0);
+			}
+
+			/* Play the readout core */
+			boffset(off_seqcore);
+			startseq(echon, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+
+			/* Reset the rotation matrix */
+			setrotate(tmtx0, 0);
+		}
+
+		if (tadjust > 0) {
+			/* Set length of emptycore to tadjust */
+			setperiod(tadjust, &emptycore, 0);
+
+			/* Play TR deadtime (emptycore) */
+			boffset(off_emptycore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+		}
+
+	}
+
+	/* Send SSP packet to end scan */
+	boffset( off_pass );
+	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
+	startseq(0, MAY_PAUSE);
+	settrigger(TRIG_INTERN, 0);
+
+	rspexit();
+
+    return SUCCESS;
+}
 	 
 
 /********************************************
