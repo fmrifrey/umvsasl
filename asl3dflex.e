@@ -2,26 +2,20 @@
  * GE Medical Systems
  * Copyright (C) 1996-2003 The General Electric Company
  *
- * File Name : grass.e
+ * File Name : asl3dflex.e
  * Language  : EPIC/ANSI C
  * Date      : 01-Jan-1996
  *
- * This is the solution to the PSD Generation Tutorial: grass.e
- * A Gradient Recalled Acquisition Steady State (GRASS)
+ * An ASL-prepped flexible spiral fse readout sequence (ASL3DFLEX),
+ * built up from grass.e
  */
-/* do not modify anything above this line */
-
-/* MRIhc15728 Added psdiopt.h file*/
-/* 14.5   10/05/2006 TS    MRIhc15304 - Coil info related changes */
-/* PX25  06/Jun/2014 YT    HCSDM00289004 - add APx functions */
 
 @inline epic.h
 @inline intwave.h
 
-
 @global
 /*********************************************************************
- *                    GRASS.E GLOBAL SECTION                         *
+ *                  ASL3DFLEX.E GLOBAL SECTION                       *
  *                                                                   *
  * Common code shared between the Host and IPG PSD processes.  This  *
  * section contains all the #define's, global variables and function *
@@ -31,7 +25,7 @@
 #include <string.h>
 
 #include "em_psd_ermes.in"
-#include "grad_rf_grass.globals.h"
+#include "grad_rf_asl3dflex.globals.h"
 
 #include "stddef_ep.h"
 #include "epicconf.h"
@@ -48,7 +42,7 @@
 #include "epic_iopt_util.h"
 #include "filter.h"
 
-#include "grass.h"
+#include "asl3dflex.h"
 
 /* Define important values */
 #define MAXWAVELEN 50000 /* Maximum wave length for gradients */
@@ -63,7 +57,7 @@ int debugstate = 1;
 
 @ipgexport
 /*********************************************************************
- *                  GRASS.E IPGEXPORT SECTION                        *
+ *                ASL3DFLEX.E IPGEXPORT SECTION                      *
  *                                                                   *
  * Standard C variables of _any_ type common for both the Host and   *
  * IPG PSD processes. Declare here all the complex type, e.g.,       *
@@ -97,7 +91,7 @@ long tmtxtbl[MAXNTRAINS*MAXNECHOES][9];
 
 @cv
 /*********************************************************************
- *                       GRASS.E CV SECTION                          *
+ *                     ASL3DFLEX.E CV SECTION                        *
  *                                                                   *
  * Standard C variables of _limited_ types common for both the Host  *
  * and IPG PSD processes. Declare here all the simple types, e.g,    *
@@ -142,7 +136,7 @@ int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
 @host
 /*********************************************************************
- *                      GRASS.E HOST SECTION                         *
+ *                    ASL3DFLEX.E HOST SECTION                       *
  *                                                                   *
  * Write here the code unique to the Host PSD process. The following *
  * functions must be declared here: cvinit(), cveval(), cvcheck(),   *
@@ -151,7 +145,7 @@ int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
  *********************************************************************/
 #include <math.h>
 #include <stdlib.h>
-#include "grad_rf_grass.h"
+#include "grad_rf_asl3dflex.h"
 #include "psdopt.h"
 #include "sar_pm.h"
 #include "support_func.host.h"
@@ -164,8 +158,8 @@ int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 @inline loadrheader.e rheaderhost
 
 /** Load PSD Header **/
-abstract("grass sequence");
-psdname("grass");
+abstract("asl3dflex sequence");
+psdname("asl3dflex");
 
 int num_conc_grad = 3;          /* always three for grass 	*/
 int entry;
@@ -194,7 +188,7 @@ int sinsmooth(float *x, int N, int L);
 /* Import functions from ktraj.h (using @inline instead of #include since
  * functions reference global variables in this file)
  */
-@inline ktraj.h
+@inline spreadout.h
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -206,8 +200,7 @@ static char supfailfmt[] = "Support routine %s failed";
 /* Invoked once (& only once) when the PSD host process	is started up.	*/
 /* Code which is independent of any OPIO button operation is put here.	*/
 /************************************************************************/
-STATUS
-cvinit( void )
+STATUS cvinit( void )
 {
 
 	/* turn off bandwidth option */
@@ -270,31 +263,31 @@ cvinit( void )
 	pinexnub = 0;
 
 #ifdef ERMES_DEBUG
-    use_ermes = 0;
+	use_ermes = 0;
 #else /* !ERMES_DEBUG */
-    use_ermes = 1;
+	use_ermes = 1;
 #endif /* ERMES_DEBUG */
 
-    configSystem();
-    EpicConf();
-    inittargets(&loggrd, &phygrd);
+	configSystem();
+	EpicConf();
+	inittargets(&loggrd, &phygrd);
 
-    /* Init filter slots */
-    initfilter();
+	/* Init filter slots */
+	initfilter();
 
-    if( obloptimize( &loggrd, &phygrd, scan_info, exist(opslquant),
-                    exist(opplane), exist(opcoax), obl_method, obl_debug,
-                    &opnewgeo, cfsrmode ) == FAILURE )
-    {
-        return FAILURE;
-    }
+	if( obloptimize( &loggrd, &phygrd, scan_info, exist(opslquant),
+				exist(opplane), exist(opcoax), obl_method, obl_debug,
+				&opnewgeo, cfsrmode ) == FAILURE )
+	{
+		return FAILURE;
+	}
 
 
 @inline Prescan.e PScvinit
 
 #include "cvinit.in"	/* Runs the code generated by macros in preproc.*/
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end cvinit() */
 
 @inline InitAdvisories.e InitAdvPnlCVs
@@ -305,16 +298,15 @@ cvinit( void )
 /* CVEVAL should only contain code which impacts the advisory panel--	*/
 /* put other code in cvinit or predownload				*/
 /************************************************************************/
-STATUS
-cveval( void )
+STATUS cveval( void )
 {
 
-    configSystem();
-    InitAdvPnlCVs();
+	configSystem();
+	InitAdvPnlCVs();
 
 	pititle = 1;
 	cvdesc(pititle, "Advanced pulse sequence parameters");
-	
+
 	piuset = use0;
 	cvdesc(opuser0, "Number of frames to acquire");
 	cvdef(opuser0, 1);
@@ -367,72 +359,65 @@ cveval( void )
 	rhrcctrl = 1;
 	rhexecctrl = 11;
 	autolock = 1;
-	
-    /* 
-     * Calculate RF filter and update RBW:
-     *   &echo1_rtfilt: I: all the filter parameters.
-     *   exist(oprbw): I/O: desired and final allowable bw.
-     *   exist(opxres): I: output pts generated by filter.
-     *   OVERWRITE_OPRBW: oprbw will be updated.
-     */
-    if( calcfilter( &echo1_rtfilt,
-                    exist(oprbw),
-                    grad_len,
-                    OVERWRITE_OPRBW ) == FAILURE)
-    {
-        epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-                    EE_ARGS(1), STRING_ARG, "calcfilter:echo1" );
-        return FAILURE;
-    }
 
-    echo1_filt = &echo1_rtfilt;
+	/* 
+	 * Calculate RF filter and update RBW:
+	 *   &echo1_rtfilt: I: all the filter parameters.
+	 *   exist(oprbw): I/O: desired and final allowable bw.
+	 *   exist(opxres): I: output pts generated by filter.
+	 *   OVERWRITE_OPRBW: oprbw will be updated.
+	 */
+	if( calcfilter( &echo1_rtfilt,
+				exist(oprbw),
+				grad_len,
+				OVERWRITE_OPRBW ) == FAILURE)
+	{
+		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
+				EE_ARGS(1), STRING_ARG, "calcfilter:echo1" );
+		return FAILURE;
+	}
 
-    /* Divide by 0 protection */
-    if( (echo1_filt->tdaq == 0) || 
-        floatsAlmostEqualEpsilons(echo1_filt->decimation, 0.0f, 2) ) 
-    {
-        epic_error( use_ermes, "echo1 tdaq or decimation = 0",
-                    EM_PSD_BAD_FILTER, EE_ARGS(0) );
-        return FAILURE;
-    }
+	echo1_filt = &echo1_rtfilt;
 
-    /* For use on the RSP side */
-    echo1bw = echo1_filt->bw;
+	/* Divide by 0 protection */
+	if( (echo1_filt->tdaq == 0) || 
+			floatsAlmostEqualEpsilons(echo1_filt->decimation, 0.0f, 2) ) 
+	{
+		epic_error( use_ermes, "echo1 tdaq or decimation = 0",
+				EM_PSD_BAD_FILTER, EE_ARGS(0) );
+		return FAILURE;
+	}
 
-	a_rf1 = (float)opflip / (float)180;
-	a_rf2 = 2.0 * a_rf1;
-
-	ia_rf1 = a_rf1 * MAX_PG_IAMP;
-	ia_rf2 = a_rf2 * MAX_PG_IAMP;
+	/* For use on the RSP side */
+	echo1bw = echo1_filt->bw;
 
 	/* Calculate minimum te */
 	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;
 
 	/* Calculate minimum tr */
 	avmintr = ((float)nechoes + 0.5) * opte;
-	
+
 	/* Calculate adjust time */
 	tadjust = optr - avmintr;
 
 @inline Prescan.e PScveval
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end cveval() */
 
-void
-getAPxParam(optval   *min,
-            optval   *max,
-            optdelta *delta,
-            optfix   *fix,
-            float    coverage,
-            int      algorithm)
+void getAPxParam(optval   *min,
+		optval   *max,
+		optdelta *delta,
+		optfix   *fix,
+		float    coverage,
+		int      algorithm)
 {
-    /* Need to be filled when APx is supported in this PSD */
+	/* Need to be filled when APx is supported in this PSD */
 }
 
 int getAPxAlgorithm(optparam *optflag, int *algorithm)
 {
-    return APX_CORE_NONE;
+	return APX_CORE_NONE;
 }
 
 /************************************************************************/
@@ -440,22 +425,21 @@ int getAPxAlgorithm(optparam *optflag, int *algorithm)
 /* Executed on each 'next page' to ensure prescription can proceed 	*/
 /* to the next page. 							*/
 /************************************************************************/
-STATUS
-cvcheck( void )
+STATUS cvcheck( void )
 {
 	/* Check if TE is valid */
 	if (opte < avminte) {
 		epic_error(use_ermes, "opte must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avminte);
 		return FAILURE;
 	};
-	
+
 	/* Check if TR is valid */
 	if (optr < avmintr) {
 		epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
 		return FAILURE;
 	};
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end cvcheck() */
 
 
@@ -468,12 +452,11 @@ cvcheck( void )
 /* in this section.  Time anchor settings for pulsegen are done in this */
 /* section too.  				 			*/
 /************************************************************************/
-STATUS
-predownload( void )
+STATUS predownload( void )
 {
-    /*********************************************************************/
+	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
-    /*********************************************************************/
+	/*********************************************************************/
 
 	/* Set the parameters for the spin echo tipdown pulse */
 	a_rf1 = opflip/180.0;
@@ -484,35 +467,35 @@ predownload( void )
 	pw_gzrf1 = 3200;
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
-	
+
 	/* Set the parameters for the tipdown crusher */
 	a_gzrf1crush = 1.5;
 	pw_gzrf1crush = 2*trapramptime + 4;
 	pw_gzrf1crusha = trapramptime;
 	pw_gzrf1crushd = trapramptime;
-	
+
 	/* Set the parameters for the pre-refocuser crusher */
 	a_gzrf2crush1 = 1.5;
 	pw_gzrf2crush1 = 2*trapramptime + 4;
 	pw_gzrf2crush1a = trapramptime;
 	pw_gzrf2crush1d = trapramptime;
-	
+
 	/* Set the parameters for the refocuser pulse */
 	a_rf2 = 2.0*opflip/180.0;
 	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
-	flip_rf2 = opflip;
+	flip_rf2 = 2*opflip;
 	pw_gzrf2 = 3200;
 	pw_gzrf2a = trapramptime;
 	pw_gzrf2d = trapramptime;
-	
+
 	/* Set the parameters for the post-refocuser crusher */
 	a_gzrf2crush2 = 1.5;
 	pw_gzrf2crush2 = 2*trapramptime + 4;
 	pw_gzrf2crush2a = trapramptime;
 	pw_gzrf2crush2d = trapramptime;
-	
+
 	/* Update the pulse parameters */
 	a_gxw = XGRAD_max;
 	a_gyw = YGRAD_max;
@@ -524,123 +507,126 @@ predownload( void )
 	pw_gyw = GRAD_UPDATE_TIME*grad_len;
 	pw_gzw = GRAD_UPDATE_TIME*grad_len;
 
-    /* Set up the filter structures to be downloaded for realtime 
-       filter generation. Get the slot number of the filter in the filter rack 
-       and assign to the appropriate acquisition pulse for the right 
-       filter selection - LxMGD, RJF */
-    setfilter( echo1_filt, SCAN );
-    filter_echo1 = echo1_filt->fslot;
-    
+	/* Set up the filter structures to be downloaded for realtime 
+	   filter generation. Get the slot number of the filter in the filter rack 
+	   and assign to the appropriate acquisition pulse for the right 
+	   filter selection - LxMGD, RJF */
+	setfilter( echo1_filt, SCAN );
+	filter_echo1 = echo1_filt->fslot;
+
 @inline Prescan.e PSfilter
 
-    /* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
-    pislquant = opslquant;	/* # of 2nd pass slices */
-    /* slquant1 = max # of locations in 1 pass */
+	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
+	pislquant = opslquant;	/* # of 2nd pass slices */
 
-    /* For Prescan: Declare the entry point table 	*/
-    if( entrytabinit( entry_point_table, (int)ENTRY_POINT_MAX ) == FAILURE ) 
-    {
-        epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-                    EE_ARGS(1), STRING_ARG, "entrytabinit" );
-        return FAILURE;
-    }
-
-    /* For Prescan: Define the entry points in the table */
-    /* Scan Entry Point */
-    (void)strcpy( entry_point_table[L_SCAN].epname, "scan" );
-    entry_point_table[L_SCAN].epfilter = (unsigned char)echo1_filt->fslot;
-    entry_point_table[L_SCAN].epprexres = grad_len;
-
-    (void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
-    entry_point_table[L_APS2].epfilter = (unsigned char)echo1_filt->fslot;
-    entry_point_table[L_APS2].epprexres = grad_len;
-
-    (void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
-    entry_point_table[L_MPS2].epfilter = (unsigned char)echo1_filt->fslot;
-    entry_point_table[L_MPS2].epprexres = grad_len;
-
-    /* First, find the peak B1 for the whole sequence. */
-    maxB1Seq = 0.0;
-    for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
-    {
-        if( peakB1( &maxB1[entry], entry, RF_FREE, rfpulse ) == FAILURE )
-        {
-            epic_error( use_ermes, "peakB1 failed.", EM_PSD_SUPPORT_FAILURE,
-                        EE_ARGS(1), STRING_ARG, "peakB1" );
-            return FAILURE;
-        }
-        if( maxB1[entry] > maxB1Seq )
-        {
-            maxB1Seq = maxB1[entry];
-        }
-    }
-
-    /* Set xmtadd according to maximum B1 and rescale for powermon,
-       adding additional (audio) scaling if xmtadd is too big.
-       Add in coilatten, too. */
-    xmtaddScan = -200 * log10( maxB1[L_SCAN] / maxB1Seq ) + getCoilAtten(); 
-
-    if( xmtaddScan > cfdbmax )
-    {
-        extraScale = (float)pow( 10.0, (cfdbmax - xmtaddScan) / 200.0 );
-        xmtaddScan = cfdbmax;
-    } 
-    else
-    {
-        extraScale = 1.0;
-    }
-
-    if( setScale( L_SCAN, RF_FREE, rfpulse, maxB1[L_SCAN], 
-                  extraScale) == FAILURE )
-    {
-        epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-                    EE_ARGS(1), STRING_ARG, "setScale" );
-        return FAILURE;
-    }
-
-    ia_rf1 = max_pg_iamp * (*rfpulse[RF1_SLOT].amp);
-    entry_point_table[L_SCAN].epxmtadd = (short)rint( (double)xmtaddScan );
-
-    /* APS2 & MPS2 */
-    entry_point_table[L_APS2] = entry_point_table[L_MPS2] = entry_point_table[L_SCAN];	/* copy scan into APS2 & MPS2 */
-    (void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
-    (void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
-
-    if( orderslice( TYPNCAT, (int)opslquant, (int)1, TRIG_INTERN ) == FAILURE )
-    {
-        epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
-                    EE_ARGS(1), STRING_ARG, "orderslice" );
+	/* For Prescan: Declare the entry point table 	*/
+	if( entrytabinit( entry_point_table, (int)ENTRY_POINT_MAX ) == FAILURE ) 
+	{
+		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
+				EE_ARGS(1), STRING_ARG, "entrytabinit" );
+		return FAILURE;
 	}
 
-    /* nex, exnex, acqs and acq_type are used in the rhheaderinit routine */
-    /* -- to initialize recon header variables */
-    if( floatsAlmostEqualEpsilons(opnex, 1.0, 2) )
-    {
-        baseline = 8;
-        nex = 1;
-        exnex = 1;
-    }
-    else
-    {
-        baseline = 0;
-        nex = opnex;
-        exnex = opnex;
-    }
-    acqs = opslquant;	/* Fixes the # of rhnpasses to the # of passes */
-    acq_type = TYPGRAD;
+	/* For Prescan: Define the entry points in the table */
+	/* Scan Entry Point */
+	(void)strcpy( entry_point_table[L_SCAN].epname, "scan" );
+	entry_point_table[L_SCAN].epfilter = (unsigned char)echo1_filt->fslot;
+	entry_point_table[L_SCAN].epprexres = grad_len;
+
+	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
+	entry_point_table[L_APS2].epfilter = (unsigned char)echo1_filt->fslot;
+	entry_point_table[L_APS2].epprexres = grad_len;
+
+	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
+	entry_point_table[L_MPS2].epfilter = (unsigned char)echo1_filt->fslot;
+	entry_point_table[L_MPS2].epprexres = grad_len;
+
+	/* Turn on RF2 pulse */
+	rfpulse[RF2_SLOT].activity = PSD_APS2_ON + PSD_MPS2_ON + PSD_SCAN_ON;
+
+	/* First, find the peak B1 for the whole sequence. */
+	maxB1Seq = 0.0;
+	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
+	{
+		if( peakB1( &maxB1[entry], entry, RF_FREE, rfpulse ) == FAILURE )
+		{
+			epic_error( use_ermes, "peakB1 failed.", EM_PSD_SUPPORT_FAILURE,
+					EE_ARGS(1), STRING_ARG, "peakB1" );
+			return FAILURE;
+		}
+		if( maxB1[entry] > maxB1Seq )
+		{
+			maxB1Seq = maxB1[entry];
+		}
+	}
+
+	/* Set xmtadd according to maximum B1 and rescale for powermon,
+	   adding additional (audio) scaling if xmtadd is too big.
+	   Add in coilatten, too. */
+	xmtaddScan = -200 * log10( maxB1[L_SCAN] / maxB1Seq ) + getCoilAtten(); 
+
+	if( xmtaddScan > cfdbmax )
+	{
+		extraScale = (float)pow( 10.0, (cfdbmax - xmtaddScan) / 200.0 );
+		xmtaddScan = cfdbmax;
+	} 
+	else
+	{
+		extraScale = 1.0;
+	}
+
+	if( setScale( L_SCAN, RF_FREE, rfpulse, maxB1[L_SCAN], 
+				extraScale) == FAILURE )
+	{
+		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
+				EE_ARGS(1), STRING_ARG, "setScale" );
+		return FAILURE;
+	}
+
+	ia_rf1 = max_pg_iamp * (*rfpulse[RF1_SLOT].amp);
+	ia_rf2 = max_pg_iamp * (*rfpulse[RF2_SLOT].amp);
+	entry_point_table[L_SCAN].epxmtadd = (short)rint( (double)xmtaddScan );
+
+	/* APS2 & MPS2 */
+	entry_point_table[L_APS2] = entry_point_table[L_MPS2] = entry_point_table[L_SCAN];	/* copy scan into APS2 & MPS2 */
+	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
+	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
+
+	if( orderslice( TYPNCAT, (int)opslquant, (int)1, TRIG_INTERN ) == FAILURE )
+	{
+		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
+				EE_ARGS(1), STRING_ARG, "orderslice" );
+	}
+
+	/* nex, exnex, acqs and acq_type are used in the rhheaderinit routine */
+	/* -- to initialize recon header variables */
+	if( floatsAlmostEqualEpsilons(opnex, 1.0, 2) )
+	{
+		baseline = 8;
+		nex = 1;
+		exnex = 1;
+	}
+	else
+	{
+		baseline = 0;
+		nex = opnex;
+		exnex = opnex;
+	}
+	acqs = opslquant;	/* Fixes the # of rhnpasses to the # of passes */
+	acq_type = TYPGRAD;
 @inline loadrheader.e rheaderinit   /* Recon variables */
 
-    scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
+	scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
 
 @inline Prescan.e PSpredownload
-	
+
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "cveval(): calling genspiral()\n");
 	if (genspiral(grad_len, 0) == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-	
+
 	/* Generate view transformations */
 	fprintf(stderr, "cveval(): calling genviews()\n");
 	if (genviews() == 0) {
@@ -648,7 +634,7 @@ predownload( void )
 		return FAILURE;
 	}
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end predownload() */
 
 
@@ -657,7 +643,7 @@ predownload( void )
 
 @pg
 /*********************************************************************
- *                   GRASS.E PULSEGEN SECTION                        *
+ *                 ASL3DFLEX.E PULSEGEN SECTION                      *
  *                                                                   *
  * Write here the functional code that loads hardware sequencer      *
  * memory with data that will allow it to play out the sequence.     *
@@ -667,11 +653,10 @@ predownload( void )
 #include "support_func.h"
 
 
-STATUS
-pulsegen( void )
+STATUS pulsegen( void )
 {
-    sspinit(psd_board_type);
-	
+	sspinit(psd_board_type);
+
 	/* initialize temporary time marker */
 	int tmploc;
 
@@ -700,7 +685,7 @@ pulsegen( void )
 	fprintf(stderr, "pulsegen(): generating data acquisition instruction using ACQUIREDATA()...\n");
 	ACQUIREDATA(echo1, tmploc + psd_grd_wait,,,);
 	fprintf(stderr, "\tDone.\n");
-	
+
 	/* Calculate length of core */
 	tmploc = opte - (pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime);
 
@@ -716,7 +701,7 @@ pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	SLICESELZ(rf1, trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
+	SLICESELZ(rf1, trapramptime, 3200, opslthick*opslquant, opflip, 1, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
@@ -732,7 +717,7 @@ pulsegen( void )
 	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
 	SEQLENGTH(tipdowncore, tmploc, tipdowncore);
 	fprintf(stderr, "\tDone.\n");
-	
+
 
 	/*************************************/
 	/* Generate spin echo refocuser core */
@@ -745,7 +730,7 @@ pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
-	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + gradbufftime + trapramptime, 3200, opslthick, opflip, 1, 1, loggrd);
+	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + gradbufftime + trapramptime, 3200, opslthick*opslquant, opflip, 1, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2a, "gzrf2a", 0), pend( &gzrf2d, "gzrf2d", 0));
 	fprintf(stderr, "\tDone.\n");	
 
@@ -775,12 +760,12 @@ pulsegen( void )
 
 @inline Prescan.e PSpulsegen
 
-    PASSPACK(endpass, 49ms);   /* tell Signa system we're done */
-    SEQLENGTH(pass, 50ms, pass);
+	PASSPACK(endpass, 49ms);   /* tell Signa system we're done */
+	SEQLENGTH(pass, 50ms, pass);
 
-    buildinstr();              /* load the sequencer memory       */
+	buildinstr();              /* load the sequencer memory       */
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end pulsegen() */
 
 
@@ -790,7 +775,7 @@ pulsegen( void )
 
 @rspvar
 /*********************************************************************
- *                     GRASS.E RSPVAR SECTION                        *
+ *                   ASL3DFLEX.E RSPVAR SECTION                      *
  *                                                                   *
  * Declare here the real time variables that can be viewed and modi- *
  * fied while the IPG PSD process is running. Only limited standard  *
@@ -835,7 +820,7 @@ int seqCount;
 
 @rsp
 /*********************************************************************
- *                     GRASS.E RSP SECTION                           *
+ *                   ASL3DFLEX.E RSP SECTION                         *
  *                                                                   *
  * Write here the functional code for the real time processing (IPG  *
  * side). You may declare standard C variables, but of limited types *
@@ -845,9 +830,9 @@ int seqCount;
 
 /* For IPG Simulator: will generate the entry point list in the IPG tool */
 const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
-    "scan", 
-    "aps2",
-    "mps2",
+	"scan", 
+	"aps2",
+	"mps2",
 @inline Prescan.e PSeplist
 };
 
@@ -864,35 +849,33 @@ int recfreq;
 /* Initial transformation matrix */
 long tmtx0[9];
 
-STATUS
-psdinit( void )
+STATUS psdinit( void )
 {
-    /* Initialize everything to a known state */
-    setrfconfig( ENBL_RHO1 + ENBL_THETA );
-    setssitime( TIMESSI/GRAD_UPDATE_TIME );
-    rspqueueinit( 200 );	/* Initialize to 200 entries */
-    scopeon( &seqcore );	/* Activate scope for core */
-    syncon( &seqcore );		/* Activate sync for core */
-    syncoff( &pass );		/* Deactivate sync during pass */
-    seqCount = 0;		/* Set SPGR sequence counter */
-    settriggerarray( (short)nechoes, rsptrigger );
-    setrotatearray( (short)nechoes, rsprot[0] );
-    setrfltrs( (int)filter_echo1, &echo1 );
-    scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
+	/* Initialize everything to a known state */
+	setrfconfig( ENBL_RHO1 + ENBL_THETA );
+	setssitime( TIMESSI/GRAD_UPDATE_TIME );
+	rspqueueinit( 200 );	/* Initialize to 200 entries */
+	scopeon( &seqcore );	/* Activate scope for core */
+	syncon( &seqcore );		/* Activate sync for core */
+	syncoff( &pass );		/* Deactivate sync during pass */
+	seqCount = 0;		/* Set SPGR sequence counter */
+	settriggerarray( (short)nechoes, rsptrigger );
+	setrotatearray( (short)nechoes, rsprot[0] );
+	setrfltrs( (int)filter_echo1, &echo1 );
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
 
-    /* Store initial transformation matrix */
-    getrotate(tmtx0, 0);
+	/* Store initial transformation matrix */
+	getrotate(tmtx0, 0);
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end psdinit() */
 
 
 @inline Prescan.e PScore
 
-STATUS
-scancore( void )
+STATUS scancore( void )
 {
-	
+
 	/* Set transmit frequency and phase */
 	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
@@ -906,7 +889,7 @@ scancore( void )
 	recfreq = (int)((receive_freq1[opslquant/2] + receive_freq1[opslquant/2-1])/2);
 	setfrequency(recfreq , &echo1, 0);
 	setphase(0.0, &echo1, 0);
-	
+
 	if (ispre || kill_grads) {
 		/* Turn off the gradients */
 		setiamp(0, &gxw, 0);
@@ -975,63 +958,57 @@ scancore( void )
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 
-	rspexit();
-
-    return SUCCESS;
+	return SUCCESS;
 }
 
 /* For Prescan: MPS2 Function */
-STATUS
-mps2( void )
+STATUS mps2( void )
 {
-    if( psdinit() == FAILURE )
-    {
-        return rspexit();
-    }
+	if( psdinit() == FAILURE )
+	{
+		return rspexit();
+	}
 
-    ispre = 1;
-    rspdda = 0;
-    scancore();
-    rspexit();
+	ispre = 1;
+	rspdda = 0;
+	scancore();
+	rspexit();
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end mps2() */
 
 
 /* For Prescan: APS2 Function */
-STATUS
-aps2( void )
+STATUS aps2( void )
 {   
-    if( psdinit() == FAILURE )
-    {
-        return rspexit();
-    }
+	if( psdinit() == FAILURE )
+	{
+		return rspexit();
+	}
 
-    ispre = 1;
-    rspdda = 2;
-    scancore();
-    rspexit();
+	ispre = 1;
+	rspdda = 2;
+	scancore();
+	rspexit();
 
-    return SUCCESS;
+	return SUCCESS;
 }   /* end aps2() */
 
-STATUS
-scan( void )
+STATUS scan( void )
 { 
-    if( psdinit() == FAILURE )
-    {
-        return rspexit();
-    }
+	if( psdinit() == FAILURE )
+	{
+		return rspexit();
+	}
 
-    ispre = 0;
-    rspdda = 0;
-    scancore();
-    rspexit();
+	ispre = 0;
+	rspdda = 0;
+	scancore();
+	rspexit();
 
-    return SUCCESS;
+	return SUCCESS;
 }
 
-	 
 
 /********************************************
  * dummylinks
@@ -1039,11 +1016,10 @@ scan( void )
  * This routine just pulls in routines from
  * the archive files by making a dummy call.
  ********************************************/
-void
-dummylinks( void )
+void dummylinks( void )
 {
-    epic_loadcvs( "thefile" );            /* for downloading CVs */
+	epic_loadcvs( "thefile" );            /* for downloading CVs */
 }
 
-/************************ END OF GRASS.E ******************************/
+/************************ END OF ASL3DFLEX.E ******************************/
 

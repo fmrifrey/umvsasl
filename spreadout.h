@@ -232,7 +232,7 @@ int genviews() {
 
 			/* Save the matrix to the table of matrices */
 			for (n = 0; n < 9; n++)
-				T_all[n][trainn*nechoes + echon] = (long)round(MAX_PG_IAMP*T[n]);
+				tmtxtbl[trainn*nechoes + echon][n] = (long)round(MAX_PG_IAMP*T[n]);
 		}
 	}
 

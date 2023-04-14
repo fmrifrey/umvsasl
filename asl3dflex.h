@@ -20,8 +20,8 @@
  */
 
 
-#ifndef grass_h
-#define grass_h
+#ifndef asl3dflex_h
+#define asl3dflex_h
 
 /*
  * @host section
@@ -38,7 +38,7 @@ STATUS psdinit( void );
 STATUS mps2( void );
 STATUS aps2( void );
 STATUS scan( void );
-STATUS prescanCore( void );
+STATUS scancore( void );
 void dummylinks( void );
 
 #endif /* grass_h */

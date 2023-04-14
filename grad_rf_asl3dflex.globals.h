@@ -20,11 +20,12 @@
 /*@End*********************************************************/
 
 /* only do this once in any given compilation.*/
-#ifndef  grad_rf_grass_globals_INCL
-#define  grad_rf_grass_globals_INCL
+#ifndef  grad_rf_asl3dflex_globals_INCL
+#define  grad_rf_asl3dflex_globals_INCL
 
 #define RF1_SLOT 0
-#define RF_FREE1 1
+#define RF2_SLOT 1
+#define RF_FREE1 2
 
 #define GX1_SLOT 0
 #define GXW2_SLOT 1
