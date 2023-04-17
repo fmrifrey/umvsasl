@@ -350,15 +350,20 @@ STATUS cveval( void )
 	gettarget(&ZGRAD_max, ZGRAD, &loggrd);
 	gettarget(&THETA_max, THETA, &loggrd);
 
+	/* Set recon header variables:
+	 *   rhptsize: number of bytes per data point
+	 *   rhfrsize: number of data points per acquisition
+	 *   rhrawsize: total number of bytes to allocate
+	 *   rhrcctrl: recon image control (bitmap)
+	 *   rhexecctrl: recon executive control (bitmap)
+	 */ 
 	cvmax(rhfrsize, 32767);
 	rhfrsize = grad_len;
 	cvmax(rhnframes, 32767);
 	rhnframes = 2*ceil((nframes + 1)/2);
-	rhrawsize = 2*rhptsize*rhfrsize * nframes * nechoes * ntrains;
-
-	rhrcctrl = 1;
-	rhexecctrl = 11;
-	autolock = 1;
+	rhrawsize = 2*rhptsize*rhfrsize * (nframes + 1) * nechoes * ntrains;
+	rhrcctrl = 128; /* bit 7 (2^7 = 128) skips all recon */
+	rhexecctrl = 10; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
 
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -393,9 +398,13 @@ STATUS cveval( void )
 
 	/* Calculate minimum te */
 	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;
+	sprintf(tmpstr, "opte must be >= %dus", avminte);
+	errorstring(opte, tmpstr);
 
 	/* Calculate minimum tr */
 	avmintr = ((float)nechoes + 0.5) * opte;
+	sprintf(tmpstr, "optr must be >= %dus", avmintr);
+	errorstring(optr, tmpstr);
 
 	/* Calculate adjust time */
 	tadjust = optr - avmintr;
@@ -951,13 +960,16 @@ STATUS scancore( void )
 
 		}
 	}
+	fprintf(stderr, "\nSuccessful end of frame loop! ... yay ... ")
 
 	/* Send SSP packet to end scan */
 	boffset( off_pass );
 	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
-	startseq(0, MAY_PAUSE);
+	/* startseq(0, MAY_PAUSE);  */
 	settrigger(TRIG_INTERN, 0);
+	startseq(0, MAY_PAUSE);  
 
+	fprintf(stderr, "\nSuccessful triggering of mysterious things... all done ")
 	return SUCCESS;
 }
 
