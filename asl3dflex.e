@@ -78,16 +78,41 @@ char *tmpstr;
 float XGRAD_max;
 float YGRAD_max;
 float ZGRAD_max;
+float RHO_max;
 float THETA_max;
 
-/* Declare gradient waveform arrays */
+/* Declare readout gradient waveform arrays */
 int Gx[MAXWAVELEN];
 int Gy[MAXWAVELEN];
 int Gz[MAXWAVELEN];
 int grad_len = 5000;
 
-/* Declare table of rotation matrices */
+/* Declare table of readout gradient transformation matrices */
 long tmtxtbl[MAXNTRAINS*MAXNECHOES][9];
+
+/* Declare ASL prep waveform arrays */
+int prep1_rho_lbl[MAXWAVELEN];
+int prep1_theta_lbl[MAXWAVELEN];
+int prep1_grad_lbl[MAXWAVELEN];
+int prep1_rho_ctl[MAXWAVELEN];
+int prep1_theta_ctl[MAXWAVELEN];
+int prep1_grad_ctl[MAXWAVELEN];
+int prep1_len = 5000;
+
+int prep2_rho_lbl[MAXWAVELEN];
+int prep2_theta_lbl[MAXWAVELEN];
+int prep2_grad_lbl[MAXWAVELEN];
+int prep2_rho_ctl[MAXWAVELEN];
+int prep2_theta_ctl[MAXWAVELEN];
+int prep2_grad_ctl[MAXWAVELEN];
+int prep2_len = 5000;
+
+/* Declare tables of asl prep pulse labeling schemes */
+int prep1_lbltbl[MAXWAVELEN];
+int prep1_pldtbl[MAXWAVELEN];
+
+int prep2_lbltbl[MAXWAVELEN];
+int prep2_pldtbl[MAXWAVELEN];
 
 @cv
 /*********************************************************************
@@ -133,6 +158,27 @@ int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals
 float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
+
+/* ASL prep pulse cvs */
+int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are played)",};
+
+int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)",};
+int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
+int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
+int prep1_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 1: maximum RF amplitude",};
+int prep1_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
+int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
+int prep1_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 1st background suppression delay (0 = no pulse)",};
+int prep1_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 2nd background suppression delay (0 = no pulse)",};
+
+int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)",};
+int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
+int prep2_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 2: number of cycles",};
+int prep2_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 2: maximum RF amplitude",};
+int prep2_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
+int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
+int prep2_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 1st background suppression delay (0 = no pulse)",};
+int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppression delay (0 = no pulse)",};
 
 @host
 /*********************************************************************
@@ -180,15 +226,21 @@ float PHI = (1.0 + sqrt(5.0)) / 2.0; /* 1d golden ratio */
 float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
 
-/* Declare function prototypes from ktraj.h */
+/* Declare function prototypes from spreadout.h */
 int genspiral(int N, int itr);
 int genviews();
 int sinsmooth(float *x, int N, int L);
 
-/* Import functions from ktraj.h (using @inline instead of #include since
- * functions reference global variables in this file)
+/* Declare function prototypes from aslprep.h */
+int readprep(int id, int len
+		int *rho_lbl, int *theta_lbl, int *rho_lbl,
+		int *rho_ctl, int *theta_ctl, int *rho_ctl); 
+
+/* Import functions from spreadout.h and aslprep.h (using @inline instead of #include since
+ * functions reference global variables in those files)
  */
 @inline spreadout.h
+@inline aslprep.h
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -348,6 +400,7 @@ STATUS cveval( void )
 	gettarget(&XGRAD_max, XGRAD, &loggrd);
 	gettarget(&YGRAD_max, YGRAD, &loggrd);
 	gettarget(&ZGRAD_max, ZGRAD, &loggrd);
+	gettarget(&RHO_max, RHO, &loggrd);
 	gettarget(&THETA_max, THETA, &loggrd);
 
 	cvmax(rhfrsize, 32767);
@@ -356,9 +409,8 @@ STATUS cveval( void )
 	rhnframes = 2*ceil((nframes + 1)/2);
 	rhrawsize = 2*rhptsize*rhfrsize * nframes * nechoes * ntrains;
 
-	rhrcctrl = 1;
-	rhexecctrl = 11;
-	autolock = 1;
+	rhrcctrl = 128;
+	rhexecctrl = 10;
 
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -633,6 +685,26 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
+
+	/* Read in asl prep pulses */
+	fprintf(stderr, "cveval(): calling readprep() to read in ASL prep 1 pulse\n");
+	if (readprep(prep1_id, &prep1_len,
+		prep1_rho_lbl, prep1_theta_lbl, prep1_grad_lbl,
+		prep1_rho_ctl, prep1_theta_ctl, prep1_grad_ctl) == 0)
+	{
+		epic_error(use_ermes,"failure to read in ASL prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+	
+	fprintf(stderr, "cveval(): calling readprep() to read in ASL prep 2 pulse\n");
+	if (readprep(prep2_id, &prep2_len,
+		prep2_rho_lbl, prep2_theta_lbl, prep2_grad_lbl,
+		prep2_rho_ctl, prep2_theta_ctl, prep2_grad_ctl) == 0)
+	{
+		epic_error(use_ermes,"failure to read in ASL prep 2 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+	
 
 	return SUCCESS;
 }   /* end predownload() */

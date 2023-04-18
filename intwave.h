@@ -31,7 +31,6 @@ insert: predownload =>{
 	res_$[int_name] = $[int_res];
 	gettarget(&target, $[int_wgname], &$[int_loggrd]);
 	ia_$[int_name] = (a_$[int_name] / target) * MAX_PG_IAMP;
-	/*pw_$[int_name] = (int) $[int_pw] ;*/
   	pw_$[int_name] = (int) res_$[int_name] * GRAD_UPDATE_TIME;
 }
 }
@@ -54,12 +53,8 @@ subst:{
 	  movewaveimm(iw_buf,&$[int_name],(int)0,res_$[int_name],TOHARDWARE);
 	  setweos(EOS_DEAD,&$[int_name],res_$[int_name]-1);
 
-
-
-	  /* LHG 10.26.15  */
 	  createinstr(&$[int_name], (LONG)($[int_pos]) , pw_$[int_name], ia_$[int_name]);
 	  if (($[int_wgname]==TYPRHO1)) 
-			/* || ($[int_wgname]==TYPRHO2) || ($[int_wgname]==TYPTHETA) || ($[int_wgname]==TYPOMEGA))*/
 	  {
 		  addrfbits(&$[int_name], 0 , (LONG)($[int_pos]) , pw_$[int_name]);
 	  }
