@@ -350,21 +350,6 @@ STATUS cveval( void )
 	gettarget(&ZGRAD_max, ZGRAD, &loggrd);
 	gettarget(&THETA_max, THETA, &loggrd);
 
-	/* Set recon header variables:
-	 *   rhptsize: number of bytes per data point
-	 *   rhfrsize: number of data points per acquisition
-	 *   rhrawsize: total number of bytes to allocate
-	 *   rhrcctrl: recon image control (bitmap)
-	 *   rhexecctrl: recon executive control (bitmap)
-	 */ 
-	cvmax(rhfrsize, 32767);
-	rhfrsize = grad_len;
-	cvmax(rhnframes, 32767);
-	rhnframes = 2*ceil((nframes + 1)/2);
-	rhrawsize = 2*rhptsize*rhfrsize * (nframes + 1) * nechoes * ntrains;
-	rhrcctrl = 128; /* bit 7 (2^7 = 128) skips all recon */
-	rhexecctrl = 10; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
-
 	/* 
 	 * Calculate RF filter and update RBW:
 	 *   &echo1_rtfilt: I: all the filter parameters.
@@ -466,6 +451,21 @@ STATUS predownload( void )
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
 	/*********************************************************************/
+	
+	/* Generate initial spiral trajectory */
+	fprintf(stderr, "cveval(): calling genspiral()\n");
+	if (genspiral(grad_len, 0) == 0) {
+		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+
+	/* Generate view transformations */
+	fprintf(stderr, "cveval(): calling genviews()\n");
+	if (genviews() == 0) {
+		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+
 
 	/* Set the parameters for the spin echo tipdown pulse */
 	a_rf1 = opflip/180.0;
@@ -624,24 +624,28 @@ STATUS predownload( void )
 	acqs = opslquant;	/* Fixes the # of rhnpasses to the # of passes */
 	acq_type = TYPGRAD;
 @inline loadrheader.e rheaderinit   /* Recon variables */
+	
+	/* Set recon header variables:
+	 *   rhptsize: number of bytes per data point
+	 *   rhfrsize: number of data points per acquisition
+	 *   rhrawsize: total number of bytes to allocate
+	 *   rhrcctrl: recon image control (bitmap)
+	 *   rhexecctrl: recon executive control (bitmap)
+	 */ 
+	cvmax(rhfrsize, 32767);
+	cvmax(rhnframes, 32767);
+	cvmax(rhnslices, 32767);
+
+	rhfrsize = grad_len;
+	rhnframes = 2*ceil((nframes + 1)/2);
+	rhnslices = nechoes * ntrains;
+	rhrcctrl = 128; /* bit 7 (2^7 = 128) skips all recon */
+	rhexecctrl = 10; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
+
 
 	scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
 
 @inline Prescan.e PSpredownload
-
-	/* Generate initial spiral trajectory */
-	fprintf(stderr, "cveval(): calling genspiral()\n");
-	if (genspiral(grad_len, 0) == 0) {
-		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-		return FAILURE;
-	}
-
-	/* Generate view transformations */
-	fprintf(stderr, "cveval(): calling genviews()\n");
-	if (genviews() == 0) {
-		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-		return FAILURE;
-	}
 
 	return SUCCESS;
 }   /* end predownload() */
@@ -797,7 +801,6 @@ STATUS pulsegen( void )
 extern PSD_EXIT_ARG psdexitarg;
 
 /* Declare rsps */
-int ispre;
 int echon;
 int trainn;
 int framen;
@@ -885,6 +888,10 @@ STATUS psdinit( void )
 STATUS scancore( void )
 {
 
+	/* Determine total # of frames/trains based on entry point */
+	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
+	int total_trains = (rspent == L_SCAN) ? (ntrains) : (1000);
+
 	/* Set transmit frequency and phase */
 	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
@@ -899,7 +906,7 @@ STATUS scancore( void )
 	setfrequency(recfreq , &echo1, 0);
 	setphase(0.0, &echo1, 0);
 
-	if (ispre || kill_grads) {
+	if (rspent != L_SCAN || kill_grads) {
 		/* Turn off the gradients */
 		setiamp(0, &gxw, 0);
 		setiamp(0, &gyw, 0);
@@ -913,9 +920,9 @@ STATUS scancore( void )
 	}
 
 	/* Loop through frames */
-	for (framen = 0; framen < ((ispre) ? (1) : (nframes)); framen++) {
+	for (framen = 0; framen < total_frames; framen++) {
 		/* Loop through echo trains */
-		for (trainn = -rspdda; trainn < ((ispre) ? (1000) : (ntrains)); trainn++) {
+		for (trainn = -rspdda; trainn < total_trains; trainn++) {
 			/* Play tipdown core */
 			boffset(off_tipdowncore);
 			startseq(0, MAY_PAUSE);
@@ -928,13 +935,41 @@ STATUS scancore( void )
 				startseq(echon, (short)MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 
-				/* Allocate space in memory for data using loaddab */			
-				if (trainn < 0) /* DISDAQs */
-					loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
-				else if (ispre) /* Prescans (after DISDAQ) */
-					loaddab(&echo1, 0, 0, DABSTORE, 0, DABON, PSD_LOAD_DAB_ALL);
-				else /* Scan */
-					loaddab(&echo1, echon, 0, DABSTORE, framen*ntrains + trainn + 1, DABON, PSD_LOAD_DAB_ALL);
+				/* Determine space in memory for data storage */	
+				if (trainn < 0) { /* turn DAB off for disdaqs */
+					fprintf(stderr, "scancore(): Playing DISDAQ echo %d / %d...\n",
+						echon, nechoes);
+					loaddab(&echo1,
+						0,
+						0,
+						DABSTORE,
+						0,
+						DABOFF,
+						PSD_LOAD_DAB_ALL);
+				}	
+				else if (rspent == L_SCAN) { /* load DAB for SCAN process */
+					fprintf(stderr, "scancore(): Playing scan frame %d / %d, train %d / %d, echo %d / %d...\n",
+						framen, nframes, trainn, ntrains, echon, nechoes);
+					loaddab(&echo1,
+						0,
+						0,
+						DABSTORE,
+						framen*ntrains*nechoes + trainn*nechoes + echon + 1,
+						DABON,
+						PSD_LOAD_DAB_ALL);
+				}
+				else { /* load DAB for prescan processes */
+					fprintf(stderr, "scancore(): Playing prescan echo %d / %d...\n",
+						echon, nechoes);
+					loaddab(&echo1,
+						0,
+						0,
+						DABSTORE,
+						0,
+						/* DABON for all APS, or first echo of MPS: */
+						(rspent == L_APS2 || echon == 0) ? (DABON) : (DABOFF),
+						PSD_LOAD_DAB_ALL);
+				}
 
 				/* Set the transformation matrix */
 				setrotate(tmtxtbl[(trainn < 0) ? (0) : (trainn*nechoes + echon)], echon);
@@ -960,16 +995,17 @@ STATUS scancore( void )
 
 		}
 	}
-	fprintf(stderr, "\nSuccessful end of frame loop! ... yay ... ")
+	
+	fprintf(stderr, "scancore(): reached end of frame loop, sending endpass packet... \n");
 
 	/* Send SSP packet to end scan */
 	boffset( off_pass );
 	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
-	/* startseq(0, MAY_PAUSE);  */
 	settrigger(TRIG_INTERN, 0);
 	startseq(0, MAY_PAUSE);  
+	
+	fprintf(stderr, "Done.\n");
 
-	fprintf(stderr, "\nSuccessful triggering of mysterious things... all done ")
 	return SUCCESS;
 }
 
@@ -981,7 +1017,7 @@ STATUS mps2( void )
 		return rspexit();
 	}
 
-	ispre = 1;
+	rspent = L_MPS2;
 	rspdda = 0;
 	scancore();
 	rspexit();
@@ -998,7 +1034,7 @@ STATUS aps2( void )
 		return rspexit();
 	}
 
-	ispre = 1;
+	rspent = L_APS2;
 	rspdda = 2;
 	scancore();
 	rspexit();
@@ -1013,7 +1049,7 @@ STATUS scan( void )
 		return rspexit();
 	}
 
-	ispre = 0;
+	rspent = L_SCAN;
 	rspdda = 0;
 	scancore();
 	rspexit();
