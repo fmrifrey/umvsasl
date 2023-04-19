@@ -692,6 +692,7 @@ STATUS predownload( void )
 	rhfrsize = grad_len;
 	rhnframes = 2*ceil((nframes + 1)/2);
 	rhnslices = nechoes * ntrains;
+	rhrawsize = 2*rhptsize*rhfrsize * rhnframes * rhnslices;
 	rhrcctrl = 128; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 10; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
 
