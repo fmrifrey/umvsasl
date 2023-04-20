@@ -633,8 +633,8 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((nframes + 1)/2);
-	rhnslices = nechoes*ntrains;
+	rhnframes = 2*ceil((nframes*ntrains + 1)/2);
+	rhnslices = nechoes;
 	rhrawsize = 2*rhptsize*rhfrsize * rhnframes * rhnslices;
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
@@ -948,10 +948,10 @@ STATUS scancore( void )
 					fprintf(stderr, "scancore(): Playing scan frame %d / %d, train %d / %d, echo %d / %d...\n",
 						framen, nframes, trainn, ntrains, echon, nechoes);
 					loaddab(&echo1,
-						trainn*nechoes + echon,
+						echon,
 						0,
 						DABSTORE,
-						framen + 1,
+						framen*ntrains + trainn + 1,
 						DABON,
 						PSD_LOAD_DAB_ALL);
 
