@@ -633,7 +633,7 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil(nframes*ntrains/2);
+	rhnframes = 2*ceil((nframes*ntrains + 1)/2);
 	rhnslices = nechoes;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices;
 	
@@ -978,6 +978,10 @@ STATUS scancore( void )
 
 				/* Reset the rotation matrix */
 				setrotate(tmtx0, echon);
+			
+				/* Negate the 180 amplitude for CPMG scheme */
+				getiamp(&chopamp, &rf2, 0);
+				setiamp(-chopamp, &rf2, 0);
 			}
 
 			if (tadjust > 0) {
@@ -989,6 +993,10 @@ STATUS scancore( void )
 				startseq(0, MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 			}
+				
+			/* Reset the 180 amplitude to its absolute value */
+			getiamp(&chopamp, &rf2, 0);
+			setiamp((int)fabs((float)chopamp), &rf2, 0);
 
 		}
 	}
