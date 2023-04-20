@@ -633,9 +633,9 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((nframes*ntrains + 1)/2);
+	rhnframes = 2*ceil(nframes*ntrains/2);
 	rhnslices = nechoes;
-	rhrawsize = 2*rhptsize*rhfrsize * rhnframes * rhnslices;
+	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices;
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
