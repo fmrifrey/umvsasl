@@ -522,7 +522,7 @@ STATUS predownload( void )
 @inline Prescan.e PSfilter
 
 	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
-	pislquant = opslquant;	/* # of 2nd pass slices */
+	pislquant = nechoes;	/* # of 2nd pass slices */
 
 	/* For Prescan: Declare the entry point table 	*/
 	if( entrytabinit( entry_point_table, (int)ENTRY_POINT_MAX ) == FAILURE ) 
@@ -597,7 +597,7 @@ STATUS predownload( void )
 	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
 	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
 
-	if( orderslice( TYPNCAT, (int)opslquant, (int)opslquant, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNCAT, (int)nechoes, (int)nechoes, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
@@ -617,7 +617,7 @@ STATUS predownload( void )
 		nex = opnex;
 		exnex = opnex;
 	}
-	acqs = opslquant;	/* Fixes the # of rhnpasses to the # of passes */
+	acqs = nechoes;	/* Fixes the # of rhnpasses to the # of passes */
 	acq_type = TYPGRAD;
 @inline loadrheader.e rheaderinit   /* Recon variables */
 	
@@ -640,7 +640,7 @@ STATUS predownload( void )
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
 
-	scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
+	scalerotmats( rsprot, &loggrd, &phygrd, (int)(nechoes), obl_debug );
 
 @inline Prescan.e PSpredownload
 
