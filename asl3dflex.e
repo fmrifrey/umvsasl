@@ -330,7 +330,7 @@ STATUS cveval( void )
 
 	piuset += use3;
 	cvdesc(opuser3, "Initial spiral trajectory type");
-	cvdef(opuser3, 1);
+	cvdef(opuser3, 4);
 	opuser3 = 4;
 	cvmin(opuser3, 1);
 	cvmax(opuser3, 4);
@@ -339,7 +339,7 @@ STATUS cveval( void )
 	piuset += use4;
 	cvdesc(opuser4, "3d trajectory transformations type");
 	cvdef(opuser4, 3);
-	opuser4 = 1;
+	opuser4 = 3;
 	cvmin(opuser4, 1);
 	cvmax(opuser4, 4);
 	sptype3d = opuser4;
@@ -597,7 +597,7 @@ STATUS predownload( void )
 	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
 	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
 
-	if( orderslice( TYPNCAT, (int)opslquant, (int)1, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNCAT, (int)opslquant, (int)opslquant, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
@@ -634,11 +634,11 @@ STATUS predownload( void )
 
 	rhfrsize = grad_len;
 	rhnframes = 2*ceil((nframes + 1)/2);
-	rhnslices = nechoes * ntrains;
+	rhnslices = nechoes*ntrains;
 	rhrawsize = 2*rhptsize*rhfrsize * rhnframes * rhnslices;
-	rhrcctrl = 128; /* bit 7 (2^7 = 128) skips all recon */
-	rhexecctrl = 10; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
-
+	
+	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
+	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
 
 	scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
 
@@ -948,18 +948,21 @@ STATUS scancore( void )
 					fprintf(stderr, "scancore(): Playing scan frame %d / %d, train %d / %d, echo %d / %d...\n",
 						framen, nframes, trainn, ntrains, echon, nechoes);
 					loaddab(&echo1,
-						0,
+						trainn*nechoes + echon,
 						0,
 						DABSTORE,
-						framen*ntrains*nechoes + trainn*nechoes + echon + 1,
+						framen + 1,
 						DABON,
 						PSD_LOAD_DAB_ALL);
+
+					/* Set the transformation matrix */
+					setrotate(tmtxtbl[trainn*nechoes + echon], echon);
 				}
 				else { /* load DAB for prescan processes */
 					fprintf(stderr, "scancore(): Playing prescan echo %d / %d...\n",
 						echon, nechoes);
 					loaddab(&echo1,
-						0,
+						echon,
 						0,
 						DABSTORE,
 						0,
@@ -967,9 +970,6 @@ STATUS scancore( void )
 						(rspent == L_APS2 || echon == 0) ? (DABON) : (DABOFF),
 						PSD_LOAD_DAB_ALL);
 				}
-
-				/* Set the transformation matrix */
-				setrotate(tmtxtbl[(trainn < 0) ? (0) : (trainn*nechoes + echon)], echon);
 
 				/* Play the readout core */
 				boffset(off_seqcore);
