@@ -383,13 +383,9 @@ STATUS cveval( void )
 
 	/* Calculate minimum te */
 	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;
-	sprintf(tmpstr, "opte must be >= %dus", avminte);
-	errorstring(opte, tmpstr);
 
 	/* Calculate minimum tr */
 	avmintr = ((float)nechoes + 0.5) * opte;
-	sprintf(tmpstr, "optr must be >= %dus", avmintr);
-	errorstring(optr, tmpstr);
 
 	/* Calculate adjust time */
 	tadjust = optr - avmintr;
