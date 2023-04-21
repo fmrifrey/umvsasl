@@ -473,14 +473,14 @@ STATUS predownload( void )
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
 
-	/* Set the parameters for the tipdown crusher */
-	a_gzrf1crush = 1.5;
-	pw_gzrf1crush = 2*trapramptime + 4;
-	pw_gzrf1crusha = trapramptime;
-	pw_gzrf1crushd = trapramptime;
+	/* Set the parameters for the tipdown gradient rewinder */
+	pw_gzrf1r = 2*trapramptime + 4;
+	pw_gzrf1ra = trapramptime;
+	pw_gzrf1rd = trapramptime;
+	a_gzrf1r = -a_gzrf1 * (pw_gzrf1 + 0.5*(pw_gzrf1a + pw_gzrf1d)) / (pw_gzrf1r + 0.5*(pw_gzrf1ra + pw_gzrf1rd));
 
 	/* Set the parameters for the pre-refocuser crusher */
-	a_gzrf2crush1 = 1.5;
+	a_gzrf2crush1 = SLEWMAX * ((float)trapramptime * 1e-6); /* Maximum slew limited amplitude */
 	pw_gzrf2crush1 = 2*trapramptime + 4;
 	pw_gzrf2crush1a = trapramptime;
 	pw_gzrf2crush1d = trapramptime;
@@ -496,10 +496,10 @@ STATUS predownload( void )
 	pw_gzrf2d = trapramptime;
 
 	/* Set the parameters for the post-refocuser crusher */
-	a_gzrf2crush2 = 1.5;
-	pw_gzrf2crush2 = 2*trapramptime + 4;
-	pw_gzrf2crush2a = trapramptime;
-	pw_gzrf2crush2d = trapramptime;
+	a_gzrf2crush2 = a_gzrf2crush1;
+	pw_gzrf2crush2 = pw_gzrf2crush1;
+	pw_gzrf2crush2a = pw_gzrf2crush1a;
+	pw_gzrf2crush2d = pw_gzrf2crush1d;
 
 	/* Update the pulse parameters */
 	a_gxw = XGRAD_max;
@@ -715,9 +715,9 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
-	fprintf(stderr, "pulsegen(): generating rf1 crusher...\n");
-	TRAPEZOID(ZGRAD, gzrf1crush, pend( &gzrf1d, "gzrf1d", 0 ) + gradbufftime, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1crusha, "gzrf1crusha", 0), pend( &gzrf1crushd, "gzrf1crushd", 0));
+	fprintf(stderr, "pulsegen(): generating rf1 gradient rewinder...\n");
+	TRAPEZOID(ZGRAD, gzrf1r, pend( &gzrf1d, "gzrf1d", 0 ) + gradbufftime, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1ra, "gzrf1ra", 0), pend( &gzrf1rd, "gzrf1rd", 0));
 	fprintf(stderr, "\tDone.\n");	
 
 	/* Calculate length of core */	
