@@ -126,7 +126,7 @@ int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
-int nframes = 1 with {1, , 1, VIS, "Number of frames to acquire",};
+int nframes = 2 with {1, , 2, VIS, "Number of frames to acquire",};
 int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
 float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
@@ -311,8 +311,8 @@ STATUS cveval( void )
 
 	piuset = use0;
 	cvdesc(opuser0, "Number of frames to acquire");
-	cvdef(opuser0, 1);
-	opuser0 = 1;
+	cvdef(opuser0, 2);
+	opuser0 = 2;
 	cvmin(opuser0, 1);
 	nframes = opuser0;
 
@@ -647,7 +647,7 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((nframes + 1)/2);
+	rhnframes = 2*ceil((float)nframes/2.0);
 	rhnecho = ntrains;
 	rhnslices = nechoes;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
