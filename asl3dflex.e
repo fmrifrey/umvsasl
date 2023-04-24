@@ -120,6 +120,7 @@ float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
 int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer space (us)",};
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
+int dolongrf = 0 with {0, , 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -468,20 +469,26 @@ STATUS predownload( void )
 	thk_rf1 = opslthick*opslquant;
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
+	cyc_rf1 = 2;
+	if (dolongrf) {
+		res_rf1 *= 2;
+		pw_rf1 *= 2;
+		cyc_rf1 *= 2;
+	}
 	flip_rf1 = opflip;
-	pw_gzrf1 = 3200;
+	pw_gzrf1 = pw_rf1;
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
 
 	/* Set the parameters for the tipdown gradient rewinder */
-	pw_gzrf1r = 2*trapramptime + 4;
+	pw_gzrf1r = 20;
 	pw_gzrf1ra = trapramptime;
 	pw_gzrf1rd = trapramptime;
-	a_gzrf1r = -a_gzrf1 * (pw_gzrf1 + 0.5*(pw_gzrf1a + pw_gzrf1d)) / (pw_gzrf1r + 0.5*(pw_gzrf1ra + pw_gzrf1rd));
+	a_gzrf1r = -0.5*a_gzrf1 * (pw_gzrf1 + pw_gzrf1a) / (pw_gzrf1r + pw_gzrf1ra);
 
 	/* Set the parameters for the pre-refocuser crusher */
-	a_gzrf2crush1 = SLEWMAX * ((float)trapramptime * 1e-6); /* Maximum slew limited amplitude */
-	pw_gzrf2crush1 = 2*trapramptime + 4;
+	a_gzrf2crush1 = 1.5;
+	pw_gzrf2crush1 = 20;
 	pw_gzrf2crush1a = trapramptime;
 	pw_gzrf2crush1d = trapramptime;
 
@@ -490,8 +497,14 @@ STATUS predownload( void )
 	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
+	cyc_rf2 = 2;
+	if (dolongrf) {
+		res_rf2 *= 2;
+		pw_rf2 *= 2;
+		cyc_rf2 *= 2;
+	}
 	flip_rf2 = 2*opflip;
-	pw_gzrf2 = 3200;
+	pw_gzrf2 = pw_rf2;
 	pw_gzrf2a = trapramptime;
 	pw_gzrf2d = trapramptime;
 
@@ -633,9 +646,10 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((nframes*ntrains + 1)/2);
+	rhnframes = 2*ceil((nframes + 1)/2);
+	rhnecho = ntrains;
 	rhnslices = nechoes;
-	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices;
+	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
@@ -893,8 +907,10 @@ STATUS scancore( void )
 	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
 	xmitfreq = (int)((rf1_freq[opslquant/2] + rf1_freq[opslquant/2-1])/2);
+	setfrequency(xmitfreq, &rf1, 0);
+	setphase(0.0, &rf1, 0);
 	setfrequency(xmitfreq, &rf2, 0);
-	setiphase(0, &rf1, 0);
+	setphase(M_PI/2, &rf2, 0);
 
 	/* Set receiver frequency and phase */
 	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
@@ -949,9 +965,9 @@ STATUS scancore( void )
 						framen, nframes, trainn, ntrains, echon, nechoes);
 					loaddab(&echo1,
 						echon,
-						0,
+						trainn,
 						DABSTORE,
-						framen*ntrains + trainn + 1,
+						framen + 1,
 						DABON,
 						PSD_LOAD_DAB_ALL);
 
@@ -963,7 +979,7 @@ STATUS scancore( void )
 						echon, nechoes);
 					loaddab(&echo1,
 						echon,
-						0,
+						0, /* also try trainn */
 						DABSTORE,
 						0,
 						/* DABON for all APS, or first echo of MPS: */
