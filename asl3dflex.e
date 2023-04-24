@@ -145,16 +145,18 @@ float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
 int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer space (us)",};
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
+int dolongrf = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
+int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
-int nframes = 1 with {1, , 1, VIS, "Number of frames to acquire",};
+int nframes = 2 with {1, , 2, VIS, "Number of frames to acquire",};
 int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
 float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
+int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
 float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
@@ -361,8 +363,8 @@ STATUS cveval( void )
 
 	piuset = use0;
 	cvdesc(opuser0, "Number of frames to acquire");
-	cvdef(opuser0, 1);
-	opuser0 = 1;
+	cvdef(opuser0, 2);
+	opuser0 = 2;
 	cvmin(opuser0, 1);
 	nframes = opuser0;
 
@@ -382,7 +384,7 @@ STATUS cveval( void )
 
 	piuset += use3;
 	cvdesc(opuser3, "Initial spiral trajectory type");
-	cvdef(opuser3, 1);
+	cvdef(opuser3, 4);
 	opuser3 = 4;
 	cvmin(opuser3, 1);
 	cvmax(opuser3, 4);
@@ -391,7 +393,7 @@ STATUS cveval( void )
 	piuset += use4;
 	cvdesc(opuser4, "3d trajectory transformations type");
 	cvdef(opuser4, 3);
-	opuser4 = 1;
+	opuser4 = 3;
 	cvmin(opuser4, 1);
 	cvmax(opuser4, 4);
 	sptype3d = opuser4;
@@ -436,13 +438,9 @@ STATUS cveval( void )
 
 	/* Calculate minimum te */
 	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;
-	sprintf(tmpstr, "opte must be >= %dus", avminte);
-	errorstring(opte, tmpstr);
 
 	/* Calculate minimum tr */
 	avmintr = ((float)nechoes + 0.5) * opte;
-	sprintf(tmpstr, "optr must be >= %dus", avmintr);
-	errorstring(optr, tmpstr);
 
 	/* Calculate adjust time */
 	tadjust = optr - avmintr;
@@ -525,20 +523,26 @@ STATUS predownload( void )
 	thk_rf1 = opslthick*opslquant;
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
+	cyc_rf1 = 2;
+	if (dolongrf) {
+		res_rf1 *= 2;
+		pw_rf1 *= 2;
+		cyc_rf1 *= 2;
+	}
 	flip_rf1 = opflip;
-	pw_gzrf1 = 3200;
+	pw_gzrf1 = pw_rf1;
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
 
-	/* Set the parameters for the tipdown crusher */
-	a_gzrf1crush = 1.5;
-	pw_gzrf1crush = 2*trapramptime + 4;
-	pw_gzrf1crusha = trapramptime;
-	pw_gzrf1crushd = trapramptime;
+	/* Set the parameters for the tipdown gradient rewinder */
+	pw_gzrf1r = 20;
+	pw_gzrf1ra = trapramptime;
+	pw_gzrf1rd = trapramptime;
+	a_gzrf1r = -0.5*a_gzrf1 * (pw_gzrf1 + pw_gzrf1a) / (pw_gzrf1r + pw_gzrf1ra);
 
 	/* Set the parameters for the pre-refocuser crusher */
 	a_gzrf2crush1 = 1.5;
-	pw_gzrf2crush1 = 2*trapramptime + 4;
+	pw_gzrf2crush1 = 20;
 	pw_gzrf2crush1a = trapramptime;
 	pw_gzrf2crush1d = trapramptime;
 
@@ -547,16 +551,22 @@ STATUS predownload( void )
 	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
+	cyc_rf2 = 2;
+	if (dolongrf) {
+		res_rf2 *= 2;
+		pw_rf2 *= 2;
+		cyc_rf2 *= 2;
+	}
 	flip_rf2 = 2*opflip;
-	pw_gzrf2 = 3200;
+	pw_gzrf2 = pw_rf2;
 	pw_gzrf2a = trapramptime;
 	pw_gzrf2d = trapramptime;
 
 	/* Set the parameters for the post-refocuser crusher */
-	a_gzrf2crush2 = 1.5;
-	pw_gzrf2crush2 = 2*trapramptime + 4;
-	pw_gzrf2crush2a = trapramptime;
-	pw_gzrf2crush2d = trapramptime;
+	a_gzrf2crush2 = a_gzrf2crush1;
+	pw_gzrf2crush2 = pw_gzrf2crush1;
+	pw_gzrf2crush2a = pw_gzrf2crush1a;
+	pw_gzrf2crush2d = pw_gzrf2crush1d;
 
 	/* Update the pulse parameters */
 	a_gxw = XGRAD_max;
@@ -579,7 +589,7 @@ STATUS predownload( void )
 @inline Prescan.e PSfilter
 
 	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
-	pislquant = opslquant;	/* # of 2nd pass slices */
+	pislquant = nechoes;	/* # of 2nd pass slices */
 
 	/* For Prescan: Declare the entry point table 	*/
 	if( entrytabinit( entry_point_table, (int)ENTRY_POINT_MAX ) == FAILURE ) 
@@ -654,7 +664,7 @@ STATUS predownload( void )
 	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
 	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
 
-	if( orderslice( TYPNCAT, (int)opslquant, (int)1, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNCAT, (int)nechoes, (int)nechoes, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
@@ -674,7 +684,7 @@ STATUS predownload( void )
 		nex = opnex;
 		exnex = opnex;
 	}
-	acqs = opslquant;	/* Fixes the # of rhnpasses to the # of passes */
+	acqs = nechoes;	/* Fixes the # of rhnpasses to the # of passes */
 	acq_type = TYPGRAD;
 @inline loadrheader.e rheaderinit   /* Recon variables */
 	
@@ -690,14 +700,15 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((nframes + 1)/2);
-	rhnslices = nechoes * ntrains;
-	rhrawsize = 2*rhptsize*rhfrsize * rhnframes * rhnslices;
-	rhrcctrl = 128; /* bit 7 (2^7 = 128) skips all recon */
-	rhexecctrl = 10; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
+	rhnframes = 2*ceil((float)nframes/2.0);
+	rhnecho = ntrains;
+	rhnslices = nechoes;
+	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
+	
+	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
+	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
 
-
-	scalerotmats( rsprot, &loggrd, &phygrd, (int)(opslquant), obl_debug );
+	scalerotmats( rsprot, &loggrd, &phygrd, (int)(nechoes), obl_debug );
 
 @inline Prescan.e PSpredownload
 
@@ -792,9 +803,9 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
-	fprintf(stderr, "pulsegen(): generating rf1 crusher...\n");
-	TRAPEZOID(ZGRAD, gzrf1crush, pend( &gzrf1d, "gzrf1d", 0 ) + gradbufftime, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1crusha, "gzrf1crusha", 0), pend( &gzrf1crushd, "gzrf1crushd", 0));
+	fprintf(stderr, "pulsegen(): generating rf1 gradient rewinder...\n");
+	TRAPEZOID(ZGRAD, gzrf1r, pend( &gzrf1d, "gzrf1d", 0 ) + gradbufftime, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1ra, "gzrf1ra", 0), pend( &gzrf1rd, "gzrf1rd", 0));
 	fprintf(stderr, "\tDone.\n");	
 
 	/* Calculate length of core */	
@@ -970,8 +981,10 @@ STATUS scancore( void )
 	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
 	xmitfreq = (int)((rf1_freq[opslquant/2] + rf1_freq[opslquant/2-1])/2);
+	setfrequency(xmitfreq, &rf1, 0);
+	setphase(0.0, &rf1, 0);
 	setfrequency(xmitfreq, &rf2, 0);
-	setiphase(0, &rf1, 0);
+	setphase(M_PI/2, &rf2, 0);
 
 	/* Set receiver frequency and phase */
 	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
@@ -1025,28 +1038,28 @@ STATUS scancore( void )
 					fprintf(stderr, "scancore(): Playing scan frame %d / %d, train %d / %d, echo %d / %d...\n",
 						framen, nframes, trainn, ntrains, echon, nechoes);
 					loaddab(&echo1,
-						0,
-						0,
+						echon,
+						trainn,
 						DABSTORE,
-						framen*ntrains*nechoes + trainn*nechoes + echon + 1,
+						framen + 1,
 						DABON,
 						PSD_LOAD_DAB_ALL);
+
+					/* Set the transformation matrix */
+					setrotate(tmtxtbl[trainn*nechoes + echon], echon);
 				}
 				else { /* load DAB for prescan processes */
 					fprintf(stderr, "scancore(): Playing prescan echo %d / %d...\n",
 						echon, nechoes);
 					loaddab(&echo1,
-						0,
-						0,
+						echon,
+						0, /* also try trainn */
 						DABSTORE,
 						0,
 						/* DABON for all APS, or first echo of MPS: */
 						(rspent == L_APS2 || echon == 0) ? (DABON) : (DABOFF),
 						PSD_LOAD_DAB_ALL);
 				}
-
-				/* Set the transformation matrix */
-				setrotate(tmtxtbl[(trainn < 0) ? (0) : (trainn*nechoes + echon)], echon);
 
 				/* Play the readout core */
 				boffset(off_seqcore);
@@ -1055,6 +1068,12 @@ STATUS scancore( void )
 
 				/* Reset the rotation matrix */
 				setrotate(tmtx0, echon);
+			
+				/* Negate the 180 amplitude for CPMG scheme */
+				if (dophasecycle) {
+					getiamp(&chopamp, &rf2, 0);
+					setiamp(-chopamp, &rf2, 0);
+				}
 			}
 
 			if (tadjust > 0) {
@@ -1066,6 +1085,10 @@ STATUS scancore( void )
 				startseq(0, MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 			}
+				
+			/* Reset the 180 amplitude to its absolute value */
+			getiamp(&chopamp, &rf2, 0);
+			setiamp((int)fabs((float)chopamp), &rf2, 0);
 
 		}
 	}
