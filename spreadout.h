@@ -205,8 +205,13 @@ int genviews() {
 				case 3 :
 				case 4 : /* Double axis rotations */
 					rx = 2.0 * M_PI * (float)(trainn*nechoes + echon) / PHI;
-					ry = acos(fmod(1.0 - 2.0*(float)(trainn*nechoes + echon + 0.5), 1.0));
-					ry *= 1.0 / (float)(ntrains * nechoes);
+					ry = acos(fmod(1 - 2*(trainn*nechoes + echon + 0.5) / (float)(ntrains*nechoes), 1));
+					rz = 0.0;
+					dz = 1.0;
+					break;
+				case 5: /* Debugging case */
+					rx = M_PI * (float)(echon) / nechoes;
+					ry = M_PI * (float)(trainn) / ntrains;
 					rz = 0.0;
 					dz = 1.0;
 					break;
@@ -225,14 +230,14 @@ int genviews() {
 			multmat(3,3,3,Rx,T,T);
 			multmat(3,3,3,Ry,T,T);
 			multmat(3,3,3,Rz,T,T);
-			
-			/* Save the matrix to file */
-			printmat(fID,3,3,T);
-			fprintf(fID,"\n");
 
 			/* Save the matrix to the table of matrices */
-			for (n = 0; n < 9; n++)
+			fprintf(fID, "%d \t%d \t%f \t%f \t%f \t%f \t", trainn, echon, rx, ry, rz, dz);
+			for (n = 0; n < 9; n++) {
+				fprintf(fID, "%f \t", T[n]);
 				tmtxtbl[trainn*nechoes + echon][n] = (long)round(MAX_PG_IAMP*T[n]);
+			}
+			fprintf(fID, "\n");
 		}
 	}
 

@@ -120,7 +120,8 @@ float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
 int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer space (us)",};
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
-int dolongrf = 0 with {0, , 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
+int dolongrf = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
+int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -130,7 +131,7 @@ int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)
 float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axises), 4 = rotating orbitals (2 axises)",};
+int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
 float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
@@ -996,8 +997,10 @@ STATUS scancore( void )
 				setrotate(tmtx0, echon);
 			
 				/* Negate the 180 amplitude for CPMG scheme */
-				getiamp(&chopamp, &rf2, 0);
-				setiamp(-chopamp, &rf2, 0);
+				if (dophasecycle) {
+					getiamp(&chopamp, &rf2, 0);
+					setiamp(-chopamp, &rf2, 0);
+				}
 			}
 
 			if (tadjust > 0) {
