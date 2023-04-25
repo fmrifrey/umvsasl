@@ -117,7 +117,7 @@ int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
 /* FSE timing cvs */
-int trapramptime = 100 with {100, , 100, INVIS, "Trapezoidal gradient ramp time (us)",};
+int trapramptime = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
 int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer space (us)",};
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
 int dolongrf = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
@@ -182,12 +182,12 @@ float PHI = (1.0 + sqrt(5.0)) / 2.0; /* 1d golden ratio */
 float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
 
-/* Declare function prototypes from spreadout.h */
+/* Declare function prototypes from ktraj.h */
 int genspiral(int N, int itr);
 int genviews();
 int sinsmooth(float *x, int N, int L);
 
-/* Import functions from spreadout.h (using @inline instead of #include since
+/* Import functions from ktraj.h (using @inline instead of #include since
  * functions reference global variables in this file)
  */
 @inline spreadout.h
@@ -276,6 +276,14 @@ STATUS cvinit( void )
 
 	/* Init filter slots */
 	initfilter();
+	
+	if (_psd_rf_wait.fixedflag == 0)  { /* sets psd_grd_wait and psd_rf_wait */
+		if (setsysparms() == FAILURE)  {
+			epic_error(use_ermes,"Support routine setsysparams failed",
+					EM_PSD_SUPPORT_FAILURE,1, STRING_ARG,"setsysparms");
+			return FAILURE;
+		}
+	}
 
 	if( obloptimize( &loggrd, &phygrd, scan_info, exist(opslquant),
 				exist(opplane), exist(opcoax), obl_method, obl_debug,
@@ -647,8 +655,8 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((float)nframes/2.0);
-	rhnecho = ntrains;
+	rhnframes = 2*ceil((float)nframes*ntrains/2.0);
+	rhnecho = 1;
 	rhnslices = nechoes;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
 	
@@ -765,7 +773,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 	/* Calculate length of core */
-	tmploc = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime + 4*trapramptime;
+	tmploc = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime + 6*trapramptime;
 
 	fprintf(stderr, "pulsegen(): finalizing spin echo refocuser core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
@@ -966,9 +974,9 @@ STATUS scancore( void )
 						framen, nframes, trainn, ntrains, echon, nechoes);
 					loaddab(&echo1,
 						echon,
-						trainn,
+						0,
 						DABSTORE,
-						framen + 1,
+						framen*ntrains + trainn + 1,
 						DABON,
 						PSD_LOAD_DAB_ALL);
 
