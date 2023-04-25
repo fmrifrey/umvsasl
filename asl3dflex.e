@@ -384,7 +384,7 @@ STATUS cveval( void )
 	echo1bw = echo1_filt->bw;
 
 	/* Calculate minimum te */
-	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len;
+	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len + 2*TIMESSI;
 
 	/* Calculate minimum tr */
 	avmintr = ((float)nechoes + 0.5) * opte;
@@ -482,14 +482,14 @@ STATUS predownload( void )
 	pw_gzrf1d = trapramptime;
 
 	/* Set the parameters for the tipdown gradient rewinder */
-	pw_gzrf1r = 20;
+	pw_gzrf1r = 100;
 	pw_gzrf1ra = trapramptime;
 	pw_gzrf1rd = trapramptime;
 	a_gzrf1r = -0.5*a_gzrf1 * (pw_gzrf1 + pw_gzrf1a) / (pw_gzrf1r + pw_gzrf1ra);
 
 	/* Set the parameters for the pre-refocuser crusher */
 	a_gzrf2crush1 = 1.5;
-	pw_gzrf2crush1 = 20;
+	pw_gzrf2crush1 = 100;
 	pw_gzrf2crush1a = trapramptime;
 	pw_gzrf2crush1d = trapramptime;
 
@@ -690,7 +690,7 @@ STATUS pulsegen( void )
 	/* Generate spiral readout core */
 	/********************************/
 	/* Calculate start of spiral */
-	tmploc = (opte - (pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime + 4*trapramptime) - GRAD_UPDATE_TIME*grad_len)/2;
+	tmploc = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*gradbufftime - 3*trapramptime - pw_gzrf2crush1 - TIMESSI;
 
 	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE()...\n");
 	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
@@ -712,7 +712,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 	/* Calculate length of core */
-	tmploc = opte - (pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*gradbufftime);
+	tmploc = opte - pw_gzrf2 - 4*gradbufftime - 6*trapramptime - 2*pw_gzrf2crush1 - 2*TIMESSI;
 
 	fprintf(stderr, "pulsegen(): finalizing spiral readout core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
@@ -736,7 +736,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");	
 
 	/* Calculate length of core */	
-	tmploc = opte/2 - pw_rf2/2 - 2*gradbufftime - pw_gzrf2crush1;
+	tmploc = opte/2 + pw_rf1/2 - pw_rf2/2 - 2*gradbufftime - 2*trapramptime - pw_gzrf2crush1 - TIMESSI;
 
 	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", tmploc);
@@ -1003,9 +1003,9 @@ STATUS scancore( void )
 				}
 			}
 
-			if (tadjust > 0) {
+			if (tadjust > TIMESSI) {
 				/* Set length of emptycore to tadjust */
-				setperiod(tadjust, &emptycore, 0);
+				setperiod(tadjust - TIMESSI, &emptycore, 0);
 
 				/* Play TR deadtime (emptycore) */
 				boffset(off_emptycore);
