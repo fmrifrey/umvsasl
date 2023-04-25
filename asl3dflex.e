@@ -182,12 +182,12 @@ float PHI = (1.0 + sqrt(5.0)) / 2.0; /* 1d golden ratio */
 float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
 
-/* Declare function prototypes from ktraj.h */
+/* Declare function prototypes from spreadout.h */
 int genspiral(int N, int itr);
 int genviews();
 int sinsmooth(float *x, int N, int L);
 
-/* Import functions from ktraj.h (using @inline instead of #include since
+/* Import functions from spreadout.h (using @inline instead of #include since
  * functions reference global variables in this file)
  */
 @inline spreadout.h

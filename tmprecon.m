@@ -11,16 +11,13 @@ ndat = phdr.rdb.frame_size;
 nechoes = phdr.rdb.nslices;
 ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
 ntrains = phdr.rdb.nechoes;
-nframes = phdr.rdb.nframes - 1;
+nframes = phdr.rdb.nframes;
 tr = phdr.image.tr*1e-3;
 dim = phdr.image.dim_X;
 fov = phdr.image.dfov/10;
 
-% Correct the size
-raw = raw(1:ndat,1:ntrains,1:nechoes,1:nframes,1:ncoils);
-
 % Allocate space for entire trajectory
-ktraj_all = zeros(ndat,3,ntrains,nechoes);
+ktraj_all = zeros(ndat,3,nechoes,ntrains);
 
 % Transform each view
 for trainn = 1:ntrains
@@ -29,7 +26,7 @@ for trainn = 1:ntrains
         mtxi = (trainn-1)*nechoes + echon;
         
         % Transform the trajectory
-        ktraj_all(:,:,trainn,echon) = ktraj*T(:,:,mtxi)';
+        ktraj_all(:,:,echon,trainn) = ktraj*T(:,:,mtxi)';
     end
 end
     
@@ -52,6 +49,10 @@ W = Gdiag(dcf(:)./Gm.arg.basis.transform);
 % Recon
 im = zeros(dim,dim,dim,ncoils);
 for coiln = 1:ncoils
-    data = reshape(raw(:,:,:,1,coiln),[],1);
+    data = reshape(raw(:,1,:,:,coiln),[],1);
     im(:,:,:,coiln) = reshape(Gm' * (W*data(:)),dim,dim,dim);
 end
+
+im_rms = sqrt(mean(im.^2,4));
+figure, lbview(im_rms);
+figure, orthoview(im_rms);
