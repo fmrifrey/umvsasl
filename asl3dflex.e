@@ -663,6 +663,13 @@ STATUS predownload( void )
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
 
+	/* Save values to rhusers */
+	rhuser0 = nframes;
+	rhuser1 = ntrains;
+	rhuser2 = nechoes;
+	rhuser3 = R_accel;
+	rhuser4 = THETA_accel;
+
 	scalerotmats( rsprot, &loggrd, &phygrd, (int)(nechoes), obl_debug );
 
 @inline Prescan.e PSpredownload
