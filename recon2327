@@ -1,0 +1,12 @@
+#!/bin/bash
+
+pnum=$1;
+enum=$4;
+snum=$5;
+
+newdir=/usr/g/mrraw/data_e$(enum)_s$(snum)
+
+mkdir $(newdir)
+mv /usr/g/mrraw/ktraj.txt $(newdir)/ktraj$(pnum).txt
+mv /usr/g/mrraw/kviews.txt $(newdir)/kviews$(pnum).txt
+mv /usr/g/mrraw/P$(pnum).7 $(newdir)

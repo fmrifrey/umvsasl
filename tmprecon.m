@@ -56,12 +56,12 @@ W = Gdiag(dcf(:)./Gm.arg.basis.transform);
 
 if ~exist('smap','var')
     % Recon
-    im = zeros(dim,dim,dim,ncoils);
+    imc = zeros(dim,dim,dim,ncoils);
     for coiln = 1:ncoils
         data = reshape(raw(1,:,:,:,coiln),[],1);
-        im(:,:,:,coiln) = reshape(Gm' * (W*data(:)),dim,dim,dim);
+        imc(:,:,:,coiln) = reshape(Gm' * (W*data(:)),dim,dim,dim);
     end
-    im = sqrt(mean(im.^2,4));
+    im = sqrt(mean(imc.^2,4));
 else
     % Incorporate sensitivity encoding into system matrix
     Ac = repmat({[]},ncoils,1);

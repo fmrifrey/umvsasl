@@ -122,6 +122,7 @@ int gradbufftime = TIMESSI with {TIMESSI, , TIMESSI, INVIS, "Gradient IPG buffer
 int tadjust = 0 with {0, , 0, INVIS, "Deadtime after readout to fill the TR (us)",};
 int dolongrf = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
 int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
+float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -246,16 +247,21 @@ STATUS cvinit( void )
 
 	/* flip angle */
 	cvmin(opflip, 50);
-	cvmax(opflip, 130);
-	cvdef(opflip, 90);
-	opflip = 90;
-	pitinub = 0;
+	cvmax(opflip, 180);
+	cvdef(opflip, 180);
+	opflip = 180;
+	pifanub = 5;
+	pifaval2 = 180;
+	pifaval3 = 160;
+	pifaval4 = 140;
+	pifaval5 = 120;
+	pifaval6 = 100;
 
 	/* hide phase (yres) option */
 	piyresnub = 0;
 
-	/* show flip angle menu */
-	pifanub = 2;
+	/* Hide inversion time */
+	pitinub = 0;
 
 	/* hide second bandwidth option */
 	pircb2nub = 0;
@@ -479,7 +485,7 @@ STATUS predownload( void )
 	}
 
 	/* Set the parameters for the spin echo tipdown pulse */
-	a_rf1 = opflip/180.0;
+	a_rf1 = 0.5;
 	thk_rf1 = opslthick*opslquant;
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
@@ -489,7 +495,7 @@ STATUS predownload( void )
 		pw_rf1 *= 2;
 		cyc_rf1 *= 2;
 	}
-	flip_rf1 = opflip;
+	flip_rf1 = 90;
 	pw_gzrf1 = pw_rf1;
 	pw_gzrf1a = trapramptime;
 	pw_gzrf1d = trapramptime;
@@ -507,7 +513,7 @@ STATUS predownload( void )
 	pw_gzrf2crush1d = trapramptime;
 
 	/* Set the parameters for the refocuser pulse */
-	a_rf2 = 2.0*opflip/180.0;
+	a_rf2 = opflip/180.0;
 	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
@@ -517,7 +523,7 @@ STATUS predownload( void )
 		pw_rf2 *= 2;
 		cyc_rf2 *= 2;
 	}
-	flip_rf2 = 2*opflip;
+	flip_rf2 = opflip;
 	pw_gzrf2 = pw_rf2;
 	pw_gzrf2a = trapramptime;
 	pw_gzrf2d = trapramptime;
@@ -746,7 +752,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	SLICESELZ(rf1, trapramptime, 3200, opslthick*opslquant, opflip, 1, 1, loggrd);
+	SLICESELZ(rf1, trapramptime, 3200, opslthick*opslquant, 90, 1, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
@@ -920,6 +926,8 @@ STATUS psdinit( void )
 STATUS scancore( void )
 {
 
+	float rf2fac;
+
 	/* Determine total # of frames/trains based on entry point */
 	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
 	int total_trains = (rspent == L_SCAN) ? (ntrains) : (1000);
@@ -940,7 +948,7 @@ STATUS scancore( void )
 	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
 	for (slice = 0; slice < opslquant; slice++) rsp_info[slice].rsprloc = 0;
 	setupslices(receive_freq1, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
-	if (opslquant%2 == 1)
+	if (opslquant % 2 == 1)
 		recfreq = (int)((receive_freq1[opslquant/2] + receive_freq1[opslquant/2-1])/2);
 	else
 		recfreq = (int)receive_freq1[(opslquant+1)/2];
@@ -971,10 +979,22 @@ STATUS scancore( void )
 
 			/* Play readout (refocusers + spiral gradients */
 			for (echon = 0; echon < nechoes; echon++) {
+				
+				/* Get the refocuser amplitude and set the amplitude based on variable flip angle */
+				getiamp(&chopamp, &rf2, 0);
+				if (echon == 0)
+					rf2fac = 1.0;
+				else
+					rf2fac = varflipfac + (float)(echon - 1)/(float)(nechoes - 1) * (1 - varflipfac);
+				setiamp((int)(rf2fac*chopamp), &rf2, 0);
+
 				/* Play the refocuser core */
 				boffset(off_refocuscore);
 				startseq(echon, (short)MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
+
+				/* Reset the pulse amplitude */
+				setiamp(chopamp, &rf2, 0);
 
 				/* Determine space in memory for data storage */	
 				if (trainn < 0) { /* turn DAB off for disdaqs */
@@ -1028,6 +1048,7 @@ STATUS scancore( void )
 					getiamp(&chopamp, &rf2, 0);
 					setiamp(-chopamp, &rf2, 0);
 				}
+
 			}
 
 			if (tadjust > TIMESSI) {
