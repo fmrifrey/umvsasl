@@ -339,7 +339,7 @@ STATUS cveval( void )
 	ntrains = opuser2;
 
 	piuset += use3;
-	cvdesc(opuser3, "Initial spiral trajectory type");
+	cvdesc(opuser3, "2D: 1=out 2=in 3=out-in 4=in-out");
 	cvdef(opuser3, 4);
 	opuser3 = 4;
 	cvmin(opuser3, 1);
@@ -347,7 +347,7 @@ STATUS cveval( void )
 	sptype2d = opuser3;
 
 	piuset += use4;
-	cvdesc(opuser4, "3d trajectory transformations type");
+	cvdesc(opuser4, "3D: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
 	cvdef(opuser4, 3);
 	opuser4 = 3;
 	cvmin(opuser4, 1);
@@ -390,9 +390,6 @@ STATUS cveval( void )
 
 	/* For use on the RSP side */
 	echo1bw = echo1_filt->bw;
-
-	/* Calculate minimum te */
-	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len + 2*TIMESSI;
 
 	/* Calculate minimum tr */
 	avmintr = ((float)nechoes + 0.5) * opte;
@@ -465,13 +462,21 @@ STATUS predownload( void )
 		return FAILURE;
 	}
 
+	/* Calculate minimum te */
+	avminte = pw_rf2 + 4*gradbufftime + 4*trapramptime + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len + 2*TIMESSI + 2*psd_grd_wait;
+	avminte = 1e3*ceil(avminte*1e-3 + 1);
+
+	/* Make sure opte fits */
+	if (opte < avminte || opte == PSD_MINFULLTE) {
+		opte = avminte;
+	}
+
 	/* Generate view transformations */
 	fprintf(stderr, "cveval(): calling genviews()\n");
 	if (genviews() == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-
 
 	/* Set the parameters for the spin echo tipdown pulse */
 	a_rf1 = opflip/180.0;
@@ -922,7 +927,10 @@ STATUS scancore( void )
 	/* Set transmit frequency and phase */
 	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
-	xmitfreq = (int)((rf1_freq[opslquant/2] + rf1_freq[opslquant/2-1])/2);
+	if (opslquant%2 == 1)
+		xmitfreq = (int)((rf1_freq[opslquant/2] + rf1_freq[opslquant/2-1])/2);
+	else
+		xmitfreq = (int)rf1_freq[(opslquant+1)/2];
 	setfrequency(xmitfreq, &rf1, 0);
 	setphase(0.0, &rf1, 0);
 	setfrequency(xmitfreq, &rf2, 0);
@@ -930,8 +938,12 @@ STATUS scancore( void )
 
 	/* Set receiver frequency and phase */
 	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
+	for (slice = 0; slice < opslquant; slice++) rsp_info[slice].rsprloc = 0;
 	setupslices(receive_freq1, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
-	recfreq = (int)((receive_freq1[opslquant/2] + receive_freq1[opslquant/2-1])/2);
+	if (opslquant%2 == 1)
+		recfreq = (int)((receive_freq1[opslquant/2] + receive_freq1[opslquant/2-1])/2);
+	else
+		recfreq = (int)receive_freq1[(opslquant+1)/2];
 	setfrequency(recfreq , &echo1, 0);
 	setphase(0.0, &echo1, 0);
 

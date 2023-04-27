@@ -5,6 +5,7 @@
 int eye(float *M, int n);
 int genrotmat(char axis, float angle, float* R);
 int multmat(int M, int N, int P, float* mat1, float* mat2, float* mat3);
+int orthonormalize(float* mat, int M, int N, int dir);
 int printmat(FILE *fID, int M, int N, float* mat);
 int conv(float* x, int lenx, float* h, int lenh, float* y);
 int diff(float* x, int lenx, float di, float* y);
@@ -84,6 +85,24 @@ int multmat(int M, int N, int P, float* mat1, float* mat2, float* mat3) {
 
 	for (v = 0; v < M*P; v++)
 		mat3[v] = mat4[v];
+
+	return 1;
+}
+
+int orthonormalize(float* mat, int M, int N) {
+
+	int row, col, n;
+	float norm;
+	float tmpmat[M*N];
+	for (n = 0; n < M*N; n++) tmpmat[n] = mat[n];
+	for (col = 0; col < N; col++) {
+		norm = 0;
+		for (row = 0; row < M; row++)
+			norm += pow(tmpmat[col*M + row], 2);
+		norm = sqrt(norm);
+		for (row = 0; row < M; row++)
+			mat[col*M + row] = tmpmat[col*M + row] / norm;
+	}
 
 	return 1;
 }
