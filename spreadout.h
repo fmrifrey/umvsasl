@@ -179,8 +179,9 @@ int genviews() {
 	/* Initialize z translation to identity matrix */
 	eye(Tz, 3);
 
-	/* Get original transformation matrix in float vals */
+	/* Get original transformation matrix */
 	for (n = 0; n < 9; n++) T_0[n] = (float)rsprot[0][n] / MAX_PG_WAMP;
+	orthonormalize(T_0, 3, 3);
 
 	/* Loop through all views */
 	for (trainn = 0; trainn < ntrains; trainn++) {
