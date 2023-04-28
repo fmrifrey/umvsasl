@@ -345,7 +345,7 @@ STATUS cveval( void )
 	ntrains = opuser2;
 
 	piuset += use3;
-	cvdesc(opuser3, "2D: 1=out 2=in 3=out-in 4=in-out");
+	cvdesc(opuser3, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
 	cvdef(opuser3, 4);
 	opuser3 = 4;
 	cvmin(opuser3, 1);
@@ -353,13 +353,34 @@ STATUS cveval( void )
 	sptype2d = opuser3;
 
 	piuset += use4;
-	cvdesc(opuser4, "3D: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
+	cvdesc(opuser4, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
 	cvdef(opuser4, 3);
 	opuser4 = 3;
 	cvmin(opuser4, 1);
 	cvmax(opuser4, 4);
 	sptype3d = opuser4;
 
+	piuset += use5;
+	cvdesc(opuser5, "Spiral radial acceleration factor");
+	cvdef(opuser5, 0.7);
+	opuser5 = 0.7;
+	cvmin(opuser5, 0.1);
+	cvmax(opuser5, 2);
+	R_accel = opuser5;
+	
+	piuset += use6;
+	cvdesc(opuser6, "Spiral angular acceleration factor");
+	cvdef(opuser6, 0.7);
+	opuser6 = 0.7;
+	cvmin(opuser6, 0.1);
+	THETA_accel = opuser6;
+
+	piuset += use7;
+	cvdesc(opuser7, "Recon script ID #");
+	cvdef(opuser7, 2327);
+	opuser7 = 2327;
+	rhrecon = opuser7;
+	
 	/* Get sequencer hardware limits */
 	gettarget(&XGRAD_max, XGRAD, &loggrd);
 	gettarget(&YGRAD_max, YGRAD, &loggrd);
