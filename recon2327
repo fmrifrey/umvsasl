@@ -1,12 +1,12 @@
-#!/bin/bash
+#!/bin/tcsh -f
 
-pnum=$1;
-enum=$4;
-snum=$5;
+set pfile=`printf '%05d' $1`
+set exam=`printf '%05d' $4`
+set series=`printf '%05d' $5`
 
-newdir=/usr/g/mrraw/data_e$(enum)_s$(snum)
+mkdir /usr/g/mrraw/data_e${exam}_s${series}_${pfile}
+cp /usr/g/bin/ktraj.txt /usr/g/mrraw/data_e${exam}_s${series}_${pfile}
+cp /usr/g/bin/kviews.txt /usr/g/mrraw/data_e${exam}_s${series}_${pfile}
+mv /usr/g/mrraw/P${pfile}.7 /usr/g/mrraw/data_e${exam}_s${series}_${pfile}
 
-mkdir $(newdir)
-mv /usr/g/mrraw/ktraj.txt $(newdir)/ktraj$(pnum).txt
-mv /usr/g/mrraw/kviews.txt $(newdir)/kviews$(pnum).txt
-mv /usr/g/mrraw/P$(pnum).7 $(newdir)
+xmessage -timeout 2 Moved pfile: P${pfile}.7 and trajectory files to /usr/g/mrraw/data_e${exam}_s${series}_${pfile}
