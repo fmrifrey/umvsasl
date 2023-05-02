@@ -1,8 +1,7 @@
-nramp = 0;
+nramp = 50;
 
 % Load in kspace trajectory & view transformation matrices
 ktraj = load('ktraj.txt');
-ktraj = ktraj(nramp+1:end-nramp,:);
 kviews = load('kviews.txt');
 
 % Reshape transformation matrices as an array of 3x3 matrices
@@ -10,19 +9,18 @@ T = permute(reshape(kviews(:,end-8:end)',3,3,[]),[2,1,3]);
 
 % Load in raw data
 [raw,phdr] = readpfile;
-ndat = phdr.rdb.frame_size - 2*nramp;
+ndat = phdr.rdb.frame_size;
 nechoes = phdr.rdb.user2;
 ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
 ntrains = phdr.rdb.user1;
 nframes = phdr.rdb.user0;
-raw = raw(nramp+1:end-nramp,1:nframes*ntrains,:,:,:);
 tr = phdr.image.tr*1e-3;
 dim = phdr.image.dim_X;
 fov = phdr.image.dfov/10;
 
 % reshape: ndat x ntrains*nframes x nechoes x 1 x ncoils
 %           --> ndat x ntrains x nframes x nechoes x ncoils
-raw = reshape(raw,ndat,ntrains,nframes,nechoes,ncoils);
+raw = reshape(raw,ndat,ntrains,nframes + mod(nframes,2),nechoes,ncoils);
 % permute: ndat x ntrains x nframes x nechoes x ncoils
 %           --> nframes x ndat x nechoes x ntrains x ncoils
 raw = permute(raw,[3,1,4,2,5]);
@@ -40,6 +38,12 @@ for trainn = 1:ntrains
         ktraj_all(:,:,echon,trainn) = ktraj*T(:,:,mtxi)';
     end
 end
+
+if exist('delay','var')
+    raw = circshift(raw,[delay,0,0,0,0]);    
+end
+raw = raw(1:nframes,nramp+1:end-nramp,:,:,:,:);
+ktraj_all = ktraj_all(nramp+1:end-nramp,:,:,:);
     
 % Create Gmri object
 kspace = [reshape(ktraj_all(:,1,:,:),[],1), ...
@@ -85,5 +89,6 @@ else
     writenii('senseang', angle(im));
 end
 
+close all
 figure, lbview(im);
 figure, orthoview(im);

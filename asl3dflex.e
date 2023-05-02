@@ -581,6 +581,9 @@ STATUS predownload( void )
 		return FAILURE;
 	}
 
+	/* Scale the transformation matrices */
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
+
 	/* Read in asl prep pulses */
 	fprintf(stderr, "predownload(): calling readprep() to read in ASL prep 1 pulse\n");
 	if (readprep(prep1_id, &prep1_len,
@@ -855,7 +858,7 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((float)nframes*ntrains/2.0);
+	rhnframes = nframes + (nframes % 2);
 	rhnecho = 1;
 	rhnslices = nechoes;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
@@ -869,8 +872,6 @@ STATUS predownload( void )
 	rhuser2 = nechoes;
 	rhuser3 = R_accel;
 	rhuser4 = THETA_accel;
-
-	scalerotmats( rsprot, &loggrd, &phygrd, (int)(nechoes), obl_debug );
 
 @inline Prescan.e PSpredownload	
 
@@ -1194,7 +1195,6 @@ STATUS psdinit( void )
 	settriggerarray( (short)nechoes, rsptrigger );
 	setrotatearray( (short)nechoes, rsprot[0] );
 	setrfltrs( (int)filter_echo1, &echo1 );
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
 
 	/* Store initial transformation matrix */
 	getrotate(tmtx0, 0);
