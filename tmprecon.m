@@ -1,5 +1,8 @@
+nramp = 0;
+
 % Load in kspace trajectory & view transformation matrices
 ktraj = load('ktraj.txt');
+ktraj = ktraj(nramp+1:end-nramp,:);
 kviews = load('kviews.txt');
 
 % Reshape transformation matrices as an array of 3x3 matrices
@@ -7,12 +10,12 @@ T = permute(reshape(kviews(:,end-8:end)',3,3,[]),[2,1,3]);
 
 % Load in raw data
 [raw,phdr] = readpfile;
-ndat = phdr.rdb.frame_size;
+ndat = phdr.rdb.frame_size - 2*nramp;
 nechoes = phdr.rdb.user2;
 ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
 ntrains = phdr.rdb.user1;
 nframes = phdr.rdb.user0;
-raw = raw(:,1:nframes*ntrains,:,:,:);
+raw = raw(nramp+1:end-nramp,1:nframes*ntrains,:,:,:);
 tr = phdr.image.tr*1e-3;
 dim = phdr.image.dim_X;
 fov = phdr.image.dfov/10;
@@ -62,6 +65,7 @@ if ~exist('smap','var')
         imc(:,:,:,coiln) = reshape(Gm' * (W*data(:)),dim,dim,dim);
     end
     im = sqrt(mean(imc.^2,4));
+    writenii('rmsmag',abs(im));
 else
     % Incorporate sensitivity encoding into system matrix
     Ac = repmat({[]},ncoils,1);
@@ -77,6 +81,8 @@ else
     data = reshape(raw(1,:,:,:,:),[],1);
     im = A' * reshape(W * data, [], 1);
     im = embed(im,true(dim*ones(1,3)));
+    writenii('sensemag', abs(im));
+    writenii('senseang', angle(im));
 end
 
 figure, lbview(im);
