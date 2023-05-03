@@ -72,7 +72,7 @@ int debugstate = 1;
 RF_PULSE_INFO rfpulseInfo[RF_FREE] = { {0,0} };
 
 /* Define temporary error message string */
-char *tmpstr;
+char tmpstr[200];
 
 /* Declare sequencer hardware limit variables */
 float XGRAD_max;
@@ -118,7 +118,7 @@ int prep1_pldtbl[MAXWAVELEN];
 int prep2_lbltbl[MAXWAVELEN];
 int prep2_pldtbl[MAXWAVELEN];
 
-int t_adjusttbl[MAXWAVELEN];
+int tadjusttbl[MAXWAVELEN];
 
 /* Declare core duration variables */
 int dur_blksatcore;
@@ -254,6 +254,8 @@ int sinsmooth(float *x, int N, int L);
 int readprep(int id, int *len,
 		int *rho_lbl, int *theta_lbl, int *grad_lbl,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
+int readschedule(int id, int* var, char* varname, int lines);
+int calctadjust();
 int genschedule(int mod, int pld, int* lbltbl, int* pldtbl);
 
 /* Import functions from spreadout.h and aslprep.h (using @inline instead of #include since
@@ -552,7 +554,6 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
-	int framen;
 
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
@@ -583,6 +584,71 @@ STATUS predownload( void )
 
 	/* Scale the transformation matrices */
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
+	
+	if (schedule_id > 0) { /* Read in schedules from file */
+		
+		sprintf(tmpstr, "prep1_pldtbl");
+		if (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes) == -1) {
+			epic_error(use_ermes, "file does not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}		
+
+		sprintf(tmpstr, "prep1_lbltbl");
+		if (readschedule(schedule_id, prep1_lbltbl, tmpstr, nframes) == -1) {
+			epic_error(use_ermes, "file does not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
+			return FAILURE;
+		}		
+		
+		sprintf(tmpstr, "prep2_pldtbl");
+		if (readschedule(schedule_id, prep2_pldtbl, tmpstr, nframes) == -1) {
+			epic_error(use_ermes, "file not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
+			return FAILURE;
+		}		
+		
+		sprintf(tmpstr, "prep2_lbltbl");
+		if (readschedule(schedule_id, prep2_lbltbl, tmpstr, nframes) == -1) {
+			epic_error(use_ermes, "file not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
+			return FAILURE;
+		}		
+			
+		sprintf(tmpstr, "doblksat");
+		readschedule(schedule_id, &doblksat, tmpstr, nframes);
+		
+		sprintf(tmpstr, "prep1_id");
+		readschedule(schedule_id, &prep1_id, tmpstr, nframes);
+		
+		sprintf(tmpstr, "prep2_id");
+		readschedule(schedule_id, &prep2_id, tmpstr, nframes);
+
+		sprintf(tmpstr, "tadjusttbl");	
+		switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
+			case -1:
+				epic_error(use_ermes, "file not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
+				return FAILURE;
+			case 0:
+				/* Calculate tadjust schedule if file not found */
+				calctadjust();
+				break;
+		}
+
+	}
+	else { /* Generate schedules */
+
+		fprintf(stderr, "predownload(): generating labeling schedule for prep 1 pulse\n");
+		if (genschedule(prep1_mod, prep1_pld, prep1_lbltbl, prep1_pldtbl) == 0) {
+			epic_error(use_ermes,"failure to generate labeling schedule for prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}
+
+		fprintf(stderr, "predownload(): generating labeling schedule for prep 2 pulse\n");
+		if (genschedule(prep2_mod, prep2_pld, prep2_lbltbl, prep2_pldtbl) == 0) {
+			epic_error(use_ermes,"failure to generate labeling schedule for prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}
+		
+		/* Calculate tadjust schedule */
+		calctadjust();
+	}
 
 	/* Read in asl prep pulses */
 	fprintf(stderr, "predownload(): calling readprep() to read in ASL prep 1 pulse\n");
@@ -772,39 +838,7 @@ STATUS predownload( void )
 	a_blksatgrad = 0.5;
 	pw_blksatgrad = 5000;
 	pw_blksatgrada = trap_ramp_time;
-	pw_blksatgradd = trap_ramp_time;
-
-	if (schedule_id == 0) { /* Generate labeling schedules */
-		fprintf(stderr, "predownload(): generating labeling schedule for prep 1 pulse\n");
-		if (genschedule(prep1_mod, prep1_pld, prep1_lbltbl, prep1_pldtbl) == 0) {
-			epic_error(use_ermes,"failure to generate labeling schedule for prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-			return FAILURE;
-		}
-
-		fprintf(stderr, "predownload(): generating labeling schedule for prep 2 pulse\n");
-		if (genschedule(prep2_mod, prep2_pld, prep2_lbltbl, prep2_pldtbl) == 0) {
-			epic_error(use_ermes,"failure to generate labeling schedule for prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-			return FAILURE;
-		}
-
-		/* Calculate adjust times */
-		for (framen = 0; framen < nframes; framen++) {
-			avmintr = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
-			avmintr += dur_fatsatcore;
-			avmintr += dur_blksatcore;
-			avmintr += (prep1_id > 0) ? (dur_prep1core + prep1_pldtbl[framen]) : (0);
-			avmintr += (prep2_id > 0) ? (dur_prep2core + prep2_pldtbl[framen]) : (0);
-			if (optr < avmintr) {
-				epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
-				return FAILURE;
-			}
-			else
-				t_adjusttbl[framen] = optr - avmintr;
-		}
-	}
-	else { /* Read in schedules from file */
-	}
-	
+	pw_blksatgradd = trap_ramp_time;	
 
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
@@ -1276,9 +1310,9 @@ STATUS scancore( void )
 				settrigger(TRIG_INTERN, 0);	
 			}		
 
-			if (t_adjusttbl[framen] > TIMESSI) {
+			if (tadjusttbl[framen] > TIMESSI) {
 				/* Set length of emptycore to tadjust */
-				setperiod(t_adjusttbl[framen] - TIMESSI, &emptycore, 0);
+				setperiod(tadjusttbl[framen] - TIMESSI, &emptycore, 0);
 
 				/* Play TR deadtime (emptycore) */
 				boffset(off_emptycore);

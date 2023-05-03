@@ -1,4 +1,6 @@
-nramp = 50;
+im = rec(2,100);
+    
+function im = rec(delay,nramp,smap)
 
 % Load in kspace trajectory & view transformation matrices
 ktraj = load('ktraj.txt');
@@ -15,7 +17,7 @@ ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
 ntrains = phdr.rdb.user1;
 nframes = phdr.rdb.user0;
 tr = phdr.image.tr*1e-3;
-dim = phdr.image.dim_X;
+dim = 2*phdr.image.dim_X;
 fov = phdr.image.dfov/10;
 
 % reshape: ndat x ntrains*nframes x nechoes x 1 x ncoils
@@ -39,9 +41,7 @@ for trainn = 1:ntrains
     end
 end
 
-if exist('delay','var')
-    raw = circshift(raw,[delay,0,0,0,0]);    
-end
+raw = circshift(raw,[0,delay,0,0,0]);
 raw = raw(1:nframes,nramp+1:end-nramp,:,:,:,:);
 ktraj_all = ktraj_all(nramp+1:end-nramp,:,:,:);
     
@@ -61,7 +61,7 @@ Gm = Gmri(kspace, true(dim*ones(1,3)), ...
 dcf = pipedcf(Gm.Gnufft);
 W = Gdiag(dcf(:)./Gm.arg.basis.transform);
 
-if ~exist('smap','var')
+if nargin < 3 || isempty(smap)
     % Recon
     imc = zeros(dim,dim,dim,ncoils);
     for coiln = 1:ncoils
@@ -89,6 +89,8 @@ else
     writenii('senseang', angle(im));
 end
 
-close all
 figure, lbview(im);
-figure, orthoview(im);
+title(sprintf("delay = %d", delay));
+% figure, orthoview(im);
+
+end
