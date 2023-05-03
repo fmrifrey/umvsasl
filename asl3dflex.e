@@ -892,7 +892,7 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = nframes + (nframes % 2);
+	rhnframes = ntrains*nframes + (ntrains*nframes % 2);
 	rhnecho = 1;
 	rhnslices = nechoes;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
@@ -961,7 +961,7 @@ STATUS pulsegen( void )
 	INTWAVE(ZGRAD, prep1gradlbl, 0, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_grad_lbl, 1, loggrd); 
 	
 	/* Calculate total core length */
-	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + grad_buff_time;
+	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
 
 	fprintf(stderr, "pulsegen(): finalizing prep1 label core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_prep1core);

@@ -6,8 +6,8 @@ int readprep(int id, int *len,
 	/* Declare variables */
 	char fname[80];
 	FILE *fID;
-	char buff[2];
-	int i;
+	char buff[MAXWAVELEN];
+	int i, tmplen;
 	float lblval, ctlval;
 	
 	if (id == 0) {
@@ -25,6 +25,7 @@ int readprep(int id, int *len,
 
 	/* Read in RF magnitude from rho file */
 	sprintf(fname, "./aslprep/pulses/%05d/rho.txt", id);
+	fprintf(stderr, "readprep(): opening %s...\n", fname);
 	fID = fopen(fname, "r");
 
 	/* Check if rho file was read successfully */
@@ -42,7 +43,7 @@ int readprep(int id, int *len,
 		i++;
 	}
 	fclose(fID);
-	*len = i;
+	tmplen = i;
 	
 	/* Read in RF phase from theta file */
 	sprintf(fname, "./aslprep/pulses/%05d/theta.txt", id);
@@ -65,8 +66,8 @@ int readprep(int id, int *len,
 	fclose(fID);
 
 	/* Check that length is consistent */
-	if (*len != i) {
-		fprintf(stderr, "readprep(): length of theta file (%d) is not consistent with rho file length (%d)\n", i, *len);
+	if (tmplen != i) {
+		fprintf(stderr, "readprep(): length of theta file (%d) is not consistent with rho file length (%d)\n", i, tmplen);
 		return 0;
 	}
 	
@@ -91,10 +92,12 @@ int readprep(int id, int *len,
 	fclose(fID);
 
 	/* Check that length is consistent */
-	if (*len != i) {
-		fprintf(stderr, "readprep(): length of grad file (%d) is not consistent with rho/theta file length (%d)\n", i, *len);
+	if (tmplen != i) {
+		fprintf(stderr, "readprep(): length of grad file (%d) is not consistent with rho/theta file length (%d)\n", i, tmplen);
 		return 0;
 	}
+
+	*len = tmplen;
 
 	return 1;
 }
