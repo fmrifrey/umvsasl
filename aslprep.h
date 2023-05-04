@@ -36,7 +36,7 @@ int readprep(int id, int *len,
 
 	/* Loop through points in rho file */
 	i = 0;
-	while (fgets(buff, 2, fID)) {
+	while (fgets(buff, MAXWAVELEN, fID)) {
 		sscanf(buff, "%1f %1f", &lblval, &ctlval);
 		rho_lbl[i] = (int)lblval;
 		rho_ctl[i] = (int)ctlval;
@@ -57,7 +57,7 @@ int readprep(int id, int *len,
 
 	/* Loop through points in theta file */
 	i = 0;
-	while (fgets(buff, 2, fID)) {
+	while (fgets(buff, MAXWAVELEN, fID)) {
 		sscanf(buff, "%1f %1f", &lblval, &ctlval);
 		theta_lbl[i] = (int)lblval;
 		theta_ctl[i] = (int)ctlval;
@@ -83,7 +83,7 @@ int readprep(int id, int *len,
 
 	/* Loop through points in theta file */
 	i = 0;
-	while (fgets(buff, 2, fID)) {
+	while (fgets(buff, MAXWAVELEN, fID)) {
 		sscanf(buff, "%1f %1f", &lblval, &ctlval);
 		grad_lbl[i] = (int)lblval;
 		grad_ctl[i] = (int)ctlval;
@@ -96,6 +96,8 @@ int readprep(int id, int *len,
 		fprintf(stderr, "readprep(): length of grad file (%d) is not consistent with rho/theta file length (%d)\n", i, tmplen);
 		return 0;
 	}
+	
+	fclose(fID);
 
 	*len = tmplen;
 
