@@ -1,7 +1,6 @@
-[~,imc] = rec(2,400);
+[~,imc] = rec(2,800);
 smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
-im = rec(2,400,smap);
-lbview(im);
+im = rec(2,800);    
 
 function [im,imc] = rec(delay,nramp,smap)
 
@@ -68,16 +67,16 @@ dcf = pipedcf(Gm.Gnufft);
 W = Gdiag(dcf(:)./Gm.arg.basis.transform);
 
 im = zeros([dim*ones(1,3),nframes]);
-imc = zeros([dim*ones(1,3),ncoils,nframes]);
+imc = zeros([dim*ones(1,3),nframes,ncoils]);
 for framen = 1:nframes
     
     if nargin < 3 || isempty(smap) % Coil-wise recon with RMS coil combo
         for coiln = 1:ncoils
         % Recon data
             data = reshape(raw(1,:,:,:,coiln),[],1);
-            imc(:,:,:,coiln,framen) = reshape(Gm' * (W*data(:)),dim,dim,dim);
+            imc(:,:,:,framen,coiln) = reshape(Gm' * (W*data(:)),dim,dim,dim);
         end
-        im(:,:,:,framen) = sqrt(mean(imc(:,:,:,:,framen).^2,4));
+        im(:,:,:,framen) = sqrt(mean(imc(:,:,:,:,ncoil).^2,5));
     
     else % CG-SENSE recon
         
@@ -102,7 +101,8 @@ for framen = 1:nframes
     
 end
 
-% Save only first frame of imc
-imc = imc(:,:,:,:,1);
+figure, lbview(im);
+title(sprintf("delay = %d", delay));
+imc = imc(:,:,:,:,:);
 
 end
