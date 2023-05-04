@@ -1,6 +1,7 @@
-im = rec(2,100);
+[~,imc] = rec(2,800);
+smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
     
-function im = rec(delay,nramp,smap)
+function [im,imc] = rec(delay,nramp,smap)
 
 % Load in kspace trajectory & view transformation matrices
 ktraj = load('ktraj.txt');
@@ -17,12 +18,12 @@ ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
 ntrains = phdr.rdb.user1;
 nframes = phdr.rdb.user0;
 tr = phdr.image.tr*1e-3;
-dim = 2*phdr.image.dim_X;
+dim = phdr.image.dim_X;
 fov = phdr.image.dfov/10;
 
 % reshape: ndat x ntrains*nframes x nechoes x 1 x ncoils
 %           --> ndat x ntrains x nframes x nechoes x ncoils
-raw = reshape(raw,ndat,ntrains,nframes + mod(nframes,2),nechoes,ncoils);
+raw = reshape(raw,ndat,ntrains,[],nechoes,ncoils);
 % permute: ndat x ntrains x nframes x nechoes x ncoils
 %           --> nframes x ndat x nechoes x ntrains x ncoils
 raw = permute(raw,[3,1,4,2,5]);
