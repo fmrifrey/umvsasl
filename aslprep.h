@@ -8,7 +8,7 @@ int readprep(int id, int *len,
 	FILE *fID;
 	char buff[MAXWAVELEN];
 	int i, tmplen;
-	float lblval, ctlval;
+	double lblval, ctlval;
 	
 	if (id == 0) {
 		/* Set all values to zero and return */
@@ -37,7 +37,7 @@ int readprep(int id, int *len,
 	/* Loop through points in rho file */
 	i = 0;
 	while (fgets(buff, MAXWAVELEN, fID)) {
-		sscanf(buff, "%1f %1f", &lblval, &ctlval);
+		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		rho_lbl[i] = (int)lblval;
 		rho_ctl[i] = (int)ctlval;
 		i++;
@@ -58,7 +58,7 @@ int readprep(int id, int *len,
 	/* Loop through points in theta file */
 	i = 0;
 	while (fgets(buff, MAXWAVELEN, fID)) {
-		sscanf(buff, "%1f %1f", &lblval, &ctlval);
+		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		theta_lbl[i] = (int)lblval;
 		theta_ctl[i] = (int)ctlval;
 		i++;
@@ -84,7 +84,7 @@ int readprep(int id, int *len,
 	/* Loop through points in theta file */
 	i = 0;
 	while (fgets(buff, MAXWAVELEN, fID)) {
-		sscanf(buff, "%1f %1f", &lblval, &ctlval);
+		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		grad_lbl[i] = (int)lblval;
 		grad_ctl[i] = (int)ctlval;
 		i++;
@@ -97,8 +97,6 @@ int readprep(int id, int *len,
 		return 0;
 	}
 	
-	fclose(fID);
-
 	*len = tmplen;
 
 	return 1;
@@ -108,6 +106,7 @@ int readschedule(int id, int* var, char* varname, int lines) {
 
 	FILE* fID;
 	char fname[200];
+	int val;
 
 	/* Open the schedule file */
 	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
@@ -120,7 +119,10 @@ int readschedule(int id, int* var, char* varname, int lines) {
 
 	/* Read in the array */
 	int i = 0;
-	while (fscanf(fID, "%d\n", &var[i]) != EOF) i++;
+	while (fscanf(fID, "%d\n", &val) != EOF) {
+		var[i] = val;
+		i++;
+	}
 	fclose(fID);
 
 	/* If only 1 line is read in (scalar --> array) */
