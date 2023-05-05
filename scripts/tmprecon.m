@@ -2,8 +2,9 @@
 smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
 im = rec(2,400,smap);
 lbview(im);
+writenii('im',abs(im));
 
-function [im,imc] = rec(delay,nramp,smap)
+function [im,imc] = rec(delay,nramp,smap,nframes)
 
 % Load in kspace trajectory & view transformation matrices
 ktraj = load('ktraj.txt');
@@ -18,7 +19,9 @@ ndat = phdr.rdb.frame_size;
 nechoes = phdr.rdb.user2;
 ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
 ntrains = phdr.rdb.user1;
-nframes = phdr.rdb.user0;
+if nargin < 4 || isempty(nframes)
+    nframes = phdr.rdb.user0;
+end
 tr = phdr.image.tr*1e-3;
 dim = phdr.image.dim_X;
 fov = phdr.image.dfov/10;
@@ -29,6 +32,10 @@ raw = reshape(raw,ndat,ntrains,[],nechoes,ncoils);
 % permute: ndat x ntrains x nframes x nechoes x ncoils
 %           --> nframes x ndat x nechoes x ntrains x ncoils
 raw = permute(raw,[3,1,4,2,5]);
+
+for echon = 1:nechoes
+    raw(:,:,echon,:,:) = raw(:,:,echon,:,:)*-1;
+end
 
 % Allocate space for entire trajectory
 ktraj_all = zeros(ndat,3,nechoes,ntrains);
@@ -67,40 +74,44 @@ Gm = Gmri(kspace, true(dim*ones(1,3)), ...
 dcf = pipedcf(Gm.Gnufft);
 W = Gdiag(dcf(:)./Gm.arg.basis.transform);
 
+% Initialize matrices
 im = zeros([dim*ones(1,3),nframes]);
 imc = zeros([dim*ones(1,3),ncoils,nframes]);
-for framen = 1:nframes
+
+if nargin < 3 || isempty(smap) % Coil-wise recon with RMS coil combo
     
-    if nargin < 3 || isempty(smap) % Coil-wise recon with RMS coil combo
-        for coiln = 1:ncoils
-        % Recon data
+    for framen = 1:nframes
+        parfor coiln = 1:ncoils
+            % Recon data
             data = reshape(raw(1,:,:,:,coiln),[],1);
             imc(:,:,:,coiln,framen) = reshape(Gm' * (W*data(:)),dim,dim,dim);
         end
         im(:,:,:,framen) = sqrt(mean(imc(:,:,:,:,framen).^2,4));
+    end
     
-    else % CG-SENSE recon
-        
-        % Incorporate sensitivity encoding into system matrix
-        Ac = repmat({[]},ncoils,1);
-        for coiln = 1:ncoils
-            tmp = smap(:,:,:,coiln);
-            tmp = Gdiag(tmp(true(dim*ones(1,3))),'mask',true(dim*ones(1,3)));
-            Ac{coiln} = Gm * tmp;
-        end
-        A = block_fatrix(Ac, 'type', 'col');
-        
-        % Reshape density weighting matrix
-        W = Gdiag(repmat(dcf(:)./Gm.arg.basis.transform,1,ncoils));
-        
-        % Recon data
-        data = reshape(raw(1,:,:,:,:),[],1);
+else % CG-SENSE recon
+    
+    % Incorporate sensitivity encoding into system matrix
+    Ac = repmat({[]},ncoils,1);
+    for coiln = 1:ncoils
+        tmp = smap(:,:,:,coiln);
+        tmp = Gdiag(tmp(true(dim*ones(1,3))),'mask',true(dim*ones(1,3)));
+        Ac{coiln} = Gm * tmp;
+    end
+    A = block_fatrix(Ac, 'type', 'col');
+    
+    % Reshape density weighting matrix
+    W = Gdiag(repmat(dcf(:)./Gm.arg.basis.transform,1,ncoils));
+    
+    % Recon data
+    parfor framen = 1:nframes
+        data = reshape(raw(framen,:,:,:,:),[],1);
         im(:,:,:,framen) = embed(A' * reshape(W * data, [], 1), ...
             true(dim*ones(1,3)));
-        
     end
     
 end
+
 
 % Save only first frame of imc
 imc = imc(:,:,:,:,1);

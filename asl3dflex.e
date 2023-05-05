@@ -581,9 +581,6 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-
-	/* Scale the transformation matrices */
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
 	
 	if (schedule_id > 0) { /* Read in schedules from file */
 		
@@ -914,7 +911,8 @@ STATUS predownload( void )
 	rhuser3 = R_accel;
 	rhuser4 = THETA_accel;
 
-	scalerotmats( rsprot, &loggrd, &phygrd, (int)(nechoes), obl_debug );
+	/* Scale the transformation matrices */
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
 
 @inline Prescan.e PSpredownload	
 
@@ -1238,7 +1236,6 @@ STATUS psdinit( void )
 	settriggerarray( (short)nechoes, rsptrigger );
 	setrotatearray( (short)nechoes, rsprot[0] );
 	setrfltrs( (int)filter_echo1, &echo1 );
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
 
 	/* Store initial transformation matrix */
 	getrotate(tmtx0, 0);
