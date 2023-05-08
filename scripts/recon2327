@@ -5,8 +5,8 @@ set exam=`printf '%05d' $4`
 set series=`printf '%05d' $5`
 
 mkdir /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
-cp /usr/g/bin/ktraj.txt /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
-cp /usr/g/bin/kviews.txt /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
+cp /usr/g/bin/ktraj.txt /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}/ktraj${pfile}.txt
+cp /usr/g/bin/kviews.txt /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}/kviews${pfile}.txt
 mv /usr/g/mrraw/P${pfile}.7 /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
 
 xmessage -timeout 2 Moved pfile: P${pfile}.7 and trajectory files to /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}

@@ -156,11 +156,13 @@ int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based o
 int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
-/* FSE timing cvs */
+/* FSE cvs */
 int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
 int dolongrf = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
 int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
+int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
+float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 
 /* Trajectory cvs */
@@ -316,16 +318,16 @@ STATUS cvinit( void )
 	pixresnub = 0; /* hide option */
 
 	/* flip angle */
-	cvmin(opflip, 50);
-	cvmax(opflip, 180);
-	cvdef(opflip, 180);
-	opflip = 180;
+	cvmin(opflip, 0.0);
+	cvmax(opflip, 360.0);
+	cvdef(opflip, 90.0);
+	opflip = 90.0;
 	pifanub = 5;
-	pifaval2 = 180;
-	pifaval3 = 160;
-	pifaval4 = 140;
-	pifaval5 = 120;
-	pifaval6 = 100;
+	pifaval2 = 70.0;
+	pifaval3 = 80.0;
+	pifaval4 = 90.0;
+	pifaval5 = 100.0;
+	pifaval6 = 110.0;
 
 	/* hide phase (yres) option */
 	piyresnub = 0;
@@ -713,12 +715,18 @@ STATUS predownload( void )
 					EE_ARGS(1), STRING_ARG, "peakB1" );
 			return FAILURE;
 		}
+	}
+	
+	maxB1[L_SCAN] *= (dolongrf) ? (1) : (2);
+
+	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
+	{
+		
 		if( maxB1[entry] > maxB1Seq )
 		{
 			maxB1Seq = maxB1[entry];
 		}
 	}
-	maxB1Seq *= (dolongrf) ? (1) : (2);
 
 	/* Set xmtadd according to maximum B1 and rescale for powermon,
 	   adding additional (audio) scaling if xmtadd is too big.
@@ -734,7 +742,7 @@ STATUS predownload( void )
 	{
 		extraScale = 1.0;
 	}
-
+	
 	if( setScale( L_SCAN, RF_FREE, rfpulse, maxB1[L_SCAN], 
 				extraScale) == FAILURE )
 	{
@@ -745,12 +753,11 @@ STATUS predownload( void )
 
 	/* Set the parameters for the fat sat pulse */
 	a_fatsatrf = 0.5 * 440 / 1250;
-	ia_fatsatrf = (int)(a_fatsatrf * (float)max_pg_iamp);
 	pw_fatsatrf = 4 * round(cyc_fatsatrf*1e6 / 440);
 	res_fatsatrf = pw_fatsatrf / 2;	
 
 	/* Set the parameters for the spin echo tipdown pulse */
-	a_rf1 = 0.5;
+	a_rf1 = opflip/180;
 	thk_rf1 = opslthick*opslquant;
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
@@ -760,7 +767,7 @@ STATUS predownload( void )
 		pw_rf1 *= 2;
 		cyc_rf1 *= 2;
 	}
-	flip_rf1 = 90;
+	flip_rf1 = opflip;
 	pw_gzrf1 = pw_rf1;
 	pw_gzrf1a = trap_ramp_time;
 	pw_gzrf1d = trap_ramp_time;
@@ -778,7 +785,7 @@ STATUS predownload( void )
 	pw_gzrf2crush1d = trap_ramp_time;
 
 	/* Set the parameters for the refocuser pulse */
-	a_rf2 = opflip/180.0;
+	a_rf2 = opflip2/180.0;
 	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
@@ -788,7 +795,7 @@ STATUS predownload( void )
 		pw_rf2 *= 2;
 		cyc_rf2 *= 2;
 	}
-	flip_rf2 = opflip;
+	flip_rf2 = opflip2;
 	pw_gzrf2 = pw_rf2;
 	pw_gzrf2a = trap_ramp_time;
 	pw_gzrf2d = trap_ramp_time;
@@ -843,6 +850,19 @@ STATUS predownload( void )
 	pw_blksatgrad = 5000;
 	pw_blksatgrada = trap_ramp_time;
 	pw_blksatgradd = trap_ramp_time;	
+	
+	/* Force the sequence to be a simple SPULS (pulse and acquire) using rf2 */
+	if (doSPULS)
+	{
+		kill_grads = 1; /* No kspace encoding */
+		a_rf1 = 0; /* No tip down */
+		a_fatsatrf = 0; /* No fat sat */
+		a_gzrf2crush1 = 0; /* No crushers */
+		a_gzrf2crush2 = 0;
+		doblksat = 0; /* No bulk saturation */
+		varflipfac = 1; /* No variable flip angle */
+	}
+
 
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
@@ -851,8 +871,9 @@ STATUS predownload( void )
 	setfilter( echo1_filt, SCAN );
 	filter_echo1 = echo1_filt->fslot;
 
-	ia_rf1 = max_pg_iamp * (*rfpulse[RF1_SLOT].amp);
-	ia_rf2 = max_pg_iamp * (*rfpulse[RF2_SLOT].amp);
+	ia_rf1 = (int)(max_pg_iamp * a_rf1);
+	ia_rf2 = (int)(max_pg_iamp * a_rf2);
+	ia_fatsatrf = (int)(a_fatsatrf * (float)max_pg_iamp);
 	entry_point_table[L_SCAN].epxmtadd = (short)rint( (double)xmtaddScan );
 
 	/* APS2 & MPS2 */
