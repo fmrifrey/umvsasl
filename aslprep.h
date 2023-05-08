@@ -6,7 +6,7 @@ int readprep(int id, int *len,
 	/* Declare variables */
 	char fname[80];
 	FILE *fID;
-	char buff[MAXWAVELEN];
+	char buff[200];
 	int i, tmplen;
 	double lblval, ctlval;
 	
@@ -36,7 +36,7 @@ int readprep(int id, int *len,
 
 	/* Loop through points in rho file */
 	i = 0;
-	while (fgets(buff, MAXWAVELEN, fID)) {
+	while (fgets(buff, 200, fID)) {
 		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		rho_lbl[i] = (int)lblval;
 		rho_ctl[i] = (int)ctlval;
@@ -57,7 +57,7 @@ int readprep(int id, int *len,
 
 	/* Loop through points in theta file */
 	i = 0;
-	while (fgets(buff, MAXWAVELEN, fID)) {
+	while (fgets(buff, 200, fID)) {
 		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		theta_lbl[i] = (int)lblval;
 		theta_ctl[i] = (int)ctlval;
@@ -83,7 +83,7 @@ int readprep(int id, int *len,
 
 	/* Loop through points in theta file */
 	i = 0;
-	while (fgets(buff, MAXWAVELEN, fID)) {
+	while (fgets(buff, 200, fID)) {
 		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		grad_lbl[i] = (int)lblval;
 		grad_ctl[i] = (int)ctlval;
@@ -107,6 +107,9 @@ int readschedule(int id, int* var, char* varname, int lines) {
 	FILE* fID;
 	char fname[200];
 	int val;
+	
+	if (id == 0)
+		return 0;
 
 	/* Open the schedule file */
 	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
@@ -138,7 +141,7 @@ int readschedule(int id, int* var, char* varname, int lines) {
 	return 1;
 }
 
-int calctadjust() {
+int gentadjusttbl() {
 	
 	int framen;
 
@@ -160,14 +163,12 @@ int calctadjust() {
 	return 1;
 }
 
-int genschedule(int mod, int pld, int* lbltbl, int* pldtbl)
+int genlbltbl(int mod, int* lbltbl)
 {
 	int framen;
 
 	/* Loop through frames */
 	for (framen = 0; framen < nframes; framen++) {
-		/* Set PLD */
-		pldtbl[framen] = pld;
 
 		/* Set labeling scheme */
 		if (framen < nm0frames)

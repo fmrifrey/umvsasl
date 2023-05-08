@@ -1,6 +1,18 @@
-[~,imc] = rec(2,400,[],1);
+im = [];
+for i = -4:4
+    im = cat(4,im,rec(i,500,[],1));
+end
 %%
-smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
+for i = 1:9
+    lbview(im,'frame',i)
+    title(sprintf('delay = %d', i-5))
+    pause()
+end
+%%
+[im,imc] = rec(2,400);
+writenii('im',abs(im));
+%%
+% smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
 im = rec(2,400,smap);
 lbview(im);
 writenii('im',abs(im));
@@ -80,7 +92,7 @@ if nargin < 3 || isempty(smap) % Coil-wise recon with RMS coil combo
     for framen = 1:nframes
         parfor coiln = 1:ncoils
             % Recon data
-            data = reshape(raw(1,:,:,:,coiln),[],1);
+            data = reshape(raw(framen,:,:,:,coiln),[],1);
             imc(:,:,:,coiln,framen) = reshape(Gm' * (W*data(:)),dim,dim,dim);
         end
         im(:,:,:,framen) = sqrt(mean(imc(:,:,:,:,framen).^2,4));

@@ -48,6 +48,7 @@
 #define MAXWAVELEN 50000 /* Maximum wave length for gradients */
 #define MAXNTRAINS 50 /* Maximum number of echo trains per frame */
 #define MAXNECHOES 50 /* Maximum number of echoes per echo train */
+#define MAXNFRAMES 1000 /* Maximum number of temporal frames */
 #define MAXITR 50 /* Maximum number of iterations for iterative processes */
 #define GAMMA 26754 /* Gyromagnetic ratio */
 #define TIMESSI 400 /* SSP instruction time */
@@ -112,18 +113,24 @@ int prep2_grad_ctl[MAXWAVELEN];
 int prep2_len = 5000;
 
 /* Declare tables of asl prep pulse labeling schemes */
-int prep1_lbltbl[MAXWAVELEN];
-int prep1_pldtbl[MAXWAVELEN];
+int prep1_lbltbl[MAXNFRAMES];
+int prep1_pldtbl[MAXNFRAMES];
+int prep1_tbgs1tbl[MAXNFRAMES];
+int prep1_tbgs2tbl[MAXNFRAMES];
 
-int prep2_lbltbl[MAXWAVELEN];
-int prep2_pldtbl[MAXWAVELEN];
+int prep2_lbltbl[MAXNFRAMES];
+int prep2_pldtbl[MAXNFRAMES];
+int prep2_tbgs1tbl[MAXNFRAMES];
+int prep2_tbgs2tbl[MAXNFRAMES];
 
-int tadjusttbl[MAXWAVELEN];
+int tadjusttbl[MAXNFRAMES];
+int doblksattbl[MAXNFRAMES];
 
 /* Declare core duration variables */
 int dur_blksatcore;
 int dur_prep1core;
 int dur_prep2core;
+int dur_bkgsupcore;
 int dur_fatsatcore;
 int dur_tipdowncore;
 int dur_refocuscore;
@@ -257,8 +264,8 @@ int readprep(int id, int *len,
 		int *rho_lbl, int *theta_lbl, int *grad_lbl,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
 int readschedule(int id, int* var, char* varname, int lines);
-int calctadjust();
-int genschedule(int mod, int pld, int* lbltbl, int* pldtbl);
+int gentadjusttbl();
+int genlbltbl(int mod, int* lbltbl);
 
 /* Import functions from spreadout.h and aslprep.h (using @inline instead of #include since
  * functions reference global variables in those files)
@@ -400,82 +407,94 @@ STATUS cveval( void )
 
 	pititle = 1;
 	cvdesc(pititle, "Advanced pulse sequence parameters");
-
+	
 	piuset = use0;
-	cvdesc(opuser0, "Number of frames to acquire");
-	cvdef(opuser0, 2);
-	opuser0 = 2;
-	cvmin(opuser0, 1);
-	nframes = opuser0;
+	cvdesc(opuser0, "Refocuser flip angle (deg)");
+	cvdef(opuser0, 120);
+	opuser0 = 120;
+	cvmin(opuser0, 0);
+	cvmax(opuser0, 360);
+	opflip2 = opuser0;
 
-	piuset += use1;
-	cvdesc(opuser1, "Number of echoes in each echo train");
-	cvdef(opuser1, 16);
-	opuser1 = 16;
+	piuset = use1;
+	cvdesc(opuser1, "Number of frames to acquire");
+	cvdef(opuser1, 2);
+	opuser1 = 2;
 	cvmin(opuser1, 1);
-	nechoes = opuser1;
+	cvmax(opuser2, MAXNFRAMES);
+	nframes = opuser1;
 
 	piuset += use2;
-	cvdesc(opuser2, "Number of echo trains");
-	cvdef(opuser2, 1);
-	opuser2 = 1;
+	cvdesc(opuser2, "Number of echoes in each echo train");
+	cvdef(opuser2, 16);
+	opuser2 = 16;
 	cvmin(opuser2, 1);
-	ntrains = opuser2;
+	cvmax(opuser2, MAXNECHOES);
+	nechoes = opuser2;
 
 	piuset += use3;
-	cvdesc(opuser3, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser3, 4);
-	opuser3 = 4;
+	cvdesc(opuser3, "Number of echo trains");
+	cvdef(opuser3, 1);
+	opuser3 = 1;
 	cvmin(opuser3, 1);
-	cvmax(opuser3, 4);
-	sptype2d = opuser3;
+	cvmax(opuser3, MAXNTRAINS);
+	ntrains = opuser3;
 
 	piuset += use4;
-	cvdesc(opuser4, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
-	cvdef(opuser4, 3);
-	opuser4 = 3;
+	cvdesc(opuser4, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
+	cvdef(opuser4, 4);
+	opuser4 = 4;
 	cvmin(opuser4, 1);
 	cvmax(opuser4, 4);
-	sptype3d = opuser4;
+	sptype2d = opuser4;
 
 	piuset += use5;
-	cvdesc(opuser5, "Spiral radial acceleration factor");
-	cvdef(opuser5, 0.7);
-	opuser5 = 0.7;
-	cvmin(opuser5, 0.1);
-	cvmax(opuser5, 2);
-	R_accel = opuser5;
-	
+	cvdesc(opuser5, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
+	cvdef(opuser5, 3);
+	opuser5 = 3;
+	cvmin(opuser5, 1);
+	cvmax(opuser5, 4);
+	sptype3d = opuser5;
+
 	piuset += use6;
-	cvdesc(opuser6, "Spiral angular acceleration factor");
+	cvdesc(opuser6, "Spiral radial acceleration factor");
 	cvdef(opuser6, 0.7);
 	opuser6 = 0.7;
 	cvmin(opuser6, 0.1);
-	THETA_accel = opuser6;
-
+	cvmax(opuser6, 2);
+	R_accel = opuser6;
+	
 	piuset += use7;
-	cvdesc(opuser7, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser7, 0.6);
+	cvdesc(opuser7, "Spiral angular acceleration factor");
+	cvdef(opuser7, 0.7);
+	opuser7 = 0.7;
 	cvmin(opuser7, 0.1);
-	cvmax(opuser7, 1.0);
-	opuser7 = 0.6;
-	varflipfac = opuser7;
+	cvmax(opuser7, 20);
+	THETA_accel = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "Recon script ID #");
-	cvdef(opuser8, 2327);
-	cvmin(opuser8, 0);
-	cvmax(opuser8, 9999);
-	opuser8 = 2327;
-	rhrecon = opuser8;
-	
+	cvdesc(opuser8, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser8, 0.6);
+	cvmin(opuser8, 0.1);
+	cvmax(opuser8, 1.0);
+	opuser8 = 0.6;
+	varflipfac = opuser8;
+
 	piuset += use9;
-	cvdesc(opuser9, "ASL prep schedule ID #");
-	cvdef(opuser9, 0);
+	cvdesc(opuser9, "Recon script ID #");
+	cvdef(opuser9, 2327);
 	cvmin(opuser9, 0);
 	cvmax(opuser9, 9999);
-	opuser9 = 0;
-	schedule_id = opuser9;
+	opuser9 = 2327;
+	rhrecon = opuser9;
+	
+	piuset += use10;
+	cvdesc(opuser10, "ASL prep schedule ID #");
+	cvdef(opuser10, 0);
+	cvmin(opuser10, 0);
+	cvmax(opuser10, 9999);
+	opuser10 = 0;
+	schedule_id = opuser10;
 	
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -557,6 +576,8 @@ STATUS cvcheck( void )
 STATUS predownload( void )
 {
 
+	int framen;
+
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
 	/*********************************************************************/
@@ -583,77 +604,142 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-	
-	if (schedule_id > 0) { /* Read in schedules from file */
-		
-		sprintf(tmpstr, "prep1_pldtbl");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		if (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes) == -1) {
-			epic_error(use_ermes, "file does not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-			return FAILURE;
-		}		
 
-		sprintf(tmpstr, "prep1_lbltbl");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		if (readschedule(schedule_id, prep1_lbltbl, tmpstr, nframes) == -1) {
-			epic_error(use_ermes, "file does not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
-			return FAILURE;
-		}		
-		
-		sprintf(tmpstr, "prep2_pldtbl");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		if (readschedule(schedule_id, prep2_pldtbl, tmpstr, nframes) == -1) {
-			epic_error(use_ermes, "file not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
-			return FAILURE;
-		}		
-		
-		sprintf(tmpstr, "prep2_lbltbl");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		if (readschedule(schedule_id, prep2_lbltbl, tmpstr, nframes) == -1) {
-			epic_error(use_ermes, "file not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
-			return FAILURE;
-		}		
-			
-		sprintf(tmpstr, "doblksat");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		readschedule(schedule_id, &doblksat, tmpstr, 1);
-		
-		sprintf(tmpstr, "prep1_id");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		readschedule(schedule_id, &prep1_id, tmpstr, 1);
-		
-		sprintf(tmpstr, "prep2_id");
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		readschedule(schedule_id, &prep2_id, tmpstr, 1);
+	/* Read in prep1_id (scalar) */
+	sprintf(tmpstr, "prep1_id");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	readschedule(schedule_id, &prep1_id, tmpstr, 1);
 
-		sprintf(tmpstr, "tadjusttbl");	
-		fprintf(stderr, "predownload(): reading in %s using readschedule()\n", tmpstr);	
-		switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
-			case -1:
-				epic_error(use_ermes, "file not have enough lines", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));	
-				return FAILURE;
-			case 0:
-				calctadjust();
-				break;
-		}
-
+	/* Read in prep1_pldtbl schedule */
+	sprintf(tmpstr, "prep1_pldtbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep1_pldtbl[framen] = prep1_pld;
+			break;
+		case -1:
+			return FAILURE;
 	}
-	else { /* Generate schedules */
-
-		fprintf(stderr, "predownload(): generating labeling schedule for prep 1 pulse\n");
-		if (genschedule(prep1_mod, prep1_pld, prep1_lbltbl, prep1_pldtbl) == 0) {
-			epic_error(use_ermes,"failure to generate labeling schedule for prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+	
+	/* Read in prep1_lbltbl schedule */
+	sprintf(tmpstr, "prep1_lbltbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_lbltbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			genlbltbl(prep1_mod, prep1_lbltbl);
+			break;
+		case -1:
 			return FAILURE;
-		}
-
-		fprintf(stderr, "predownload(): generating labeling schedule for prep 2 pulse\n");
-		if (genschedule(prep2_mod, prep2_pld, prep2_lbltbl, prep2_pldtbl) == 0) {
-			epic_error(use_ermes,"failure to generate labeling schedule for prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+	}
+	
+	/* Read in prep1_tbgs1tbl schedule */
+	sprintf(tmpstr, "prep1_tbgs1tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_tbgs1tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep1_tbgs1tbl[framen] = (framen >= nm0frames) (prep1_tbgs1) : (0);
+			break;
+		case -1:
 			return FAILURE;
-		}
-		
-		/* Calculate tadjust schedule */
-		calctadjust();
+	}
+	
+	/* Read in prep1_tbgs2tbl schedule */
+	sprintf(tmpstr, "prep1_tbgs2tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_tbgs2tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep1_tbgs2tbl[framen] = (framen >= nm0frames) (prep1_tbgs2) : (0);
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_id (scalar) */
+	sprintf(tmpstr, "prep2_id");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	readschedule(schedule_id, &prep2_id, tmpstr, 1);
+	
+	/* Read in prep2_pldtbl schedule */
+	sprintf(tmpstr, "prep2_pldtbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_pldtbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep2_pldtbl[framen] = prep2_pld;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_lbltbl schedule */
+	sprintf(tmpstr, "prep2_lbltbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_lbltbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			genlbltbl(prep2_mod, prep2_lbltbl);
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_tbgs1tbl schedule */
+	sprintf(tmpstr, "prep2_tbgs1tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_tbgs1tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep2_tbgs1tbl[framen] = (framen >= nm0frames) (prep2_tbgs1) : (0);
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_tbgs2tbl schedule */
+	sprintf(tmpstr, "prep2_tbgs2tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_tbgs2tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep2_tbgs2tbl[framen] = (framen >= nm0frames) (prep2_tbgs2) : (0);
+			break;
+		case -1:
+			return FAILURE;
+	}
+
+	/* Read in tadjusttbl schedule */
+	sprintf(tmpstr, "tadjusttbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			gentadjusttbl();
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in doblksattbl schedule */
+	sprintf(tmpstr, "doblksattbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, doblksattbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				doblksattbl[framen] = (framen >= nm0frames) ? (1) : (0);
+			break;
+		case -1:
+			return FAILURE;
 	}
 
 	/* Read in asl prep pulses */
@@ -839,15 +925,23 @@ STATUS predownload( void )
 	a_prep2gradctl = prep2_gmax / ZGRAD_max; 
 	ia_prep2gradctl = (int)ceil(a_prep2gradctl * (float)max_pg_iamp);
 
+	/* Update the background suppression pulse parameters */
+	a_bkgsuprho = 1.0;
+	res_bkgsuprho = 500;
+	pw_bkgsuprho = 5000;
+	a_bkgsuptheta = 1.0;
+	res_bkgsuptheta = res_bkgsuprho;
+	pw_bkgsuptheta = pw_bkgsuprho;
+	
 	/* Update the bulk saturation pulse parameters */
 	a_blksatrho = 1.0;
-	res_blksatrho = 250;
-	pw_blksatrho = GRAD_UPDATE_TIME*res_blksatrho;
+	res_blksatrho = res_bkgsuprho/2;
+	pw_blksatrho = pw_bkgsuprho/2;
 	a_blksattheta = 1.0;
 	res_blksattheta = res_blksatrho;
-	pw_blksatrho = pw_blksatrho;
+	pw_blksattheta = pw_blksatrho;
 	a_blksatgrad = 0.5;
-	pw_blksatgrad = 5000;
+	pw_blksatgrad = 500;
 	pw_blksatgrada = trap_ramp_time;
 	pw_blksatgradd = trap_ramp_time;	
 	
@@ -967,8 +1061,8 @@ STATUS pulsegen( void )
 	/* Generate bulk saturation core */
 	/*********************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of bulk saturation core (blksatcore)\n");
-	EXTWAVE(RHO, blksatrho, psd_rf_wait, 250*GRAD_UPDATE_TIME, 1.0, 250, sech_7360.rho, , loggrd);
-	EXTWAVE(THETA, blksattheta, psd_rf_wait, 250*GRAD_UPDATE_TIME, 1.0, 250, sech_7360.theta, , loggrd);
+	EXTWAVE(RHO, blksatrho, psd_rf_wait, 5000, 1.0, 250, sech_7360.rho, , loggrd);
+	EXTWAVE(THETA, blksattheta, psd_rf_wait, 5000, 1.0, 250, sech_7360.theta, , loggrd);
 	TRAPEZOID(ZGRAD, blksatgrad, pend( &blksatrho, "blksatrho", 0) + grad_buff_time + trap_ramp_time, 0, 0, loggrd);
 
 	/* Calculate total core length */
@@ -1040,6 +1134,23 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\ttotal time: %dus\n", dur_prep2core);
 	SEQLENGTH(prep2ctlcore, dur_prep2core, prep2ctlcore);
 	fprintf(stderr, "\tDone.\n");
+	
+	
+	/****************************************/
+	/* Generate background suppression core */
+	/****************************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of bulk saturation core (bkgsupcore)\n");
+	EXTWAVE(RHO, bkgsuprho, psd_rf_wait, 5000, 1.0, 500, sech_7360.rho, , loggrd);
+	EXTWAVE(THETA, bkgsuptheta, psd_rf_wait, 5000, 1.0, 500, sech_7360.theta, , loggrd);
+
+	/* Calculate total core length */
+	dur_bkgsupcore = pw_bkgsuprho + psd_rf_wait + grad_buff_time;
+	
+	fprintf(stderr, "pulsegen(): finalizing bulk saturation core...\n");
+	fprintf(stderr, "\ttotal time: %dus\n", dur_bkgsupcore);
+	SEQLENGTH(bkgsupcore, dur_bkgsupcore, bkgsupcore);
+	fprintf(stderr, "\tDone.\n");
+
 
 	/*********************************/
 	/* Generate fat saturation pulse */
@@ -1271,6 +1382,7 @@ STATUS scancore( void )
 {
 
 	float rf2fac;
+	int ttmp;
 
 	/* Determine total # of frames/trains based on entry point */
 	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
@@ -1322,7 +1434,7 @@ STATUS scancore( void )
 		/* Loop through echo trains */
 		for (trainn = -rspdda; trainn < total_trains; trainn++) {
 		
-			if (doblksat) {
+			if (doblksattbl[framen] > 0) {
 				fprintf(stderr, "scancore(): playing bulk saturation core (%d us)\n", dur_blksatcore);
 				/* Play bulk saturation pulse */	
 				boffset(off_blksatcore);
@@ -1375,10 +1487,53 @@ STATUS scancore( void )
 				startseq(0, MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 
-				/* Play pld */
+				/* Play pld and background suppression */
 				if (prep1_pldtbl[framen] > TIMESSI) {
-					fprintf(stderr, "scancore(): playing prep 1 post-label delay (%d us)...\n", prep1_pldtbl[framen]);
-					setperiod(prep1_pldtbl[framen], &emptycore, 0);
+				
+					/* Initialize pld before subtracting out tbgs timing */
+					ttmp = prep1_pldtbl[framen];
+						
+					if (prep1_tbgs1tbl[framen] > 0) {
+						/* Play first background suppression delay/pulse */
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 delay (%d us)...\n", prep1_tbgs1tbl[framen]);
+						setperiod(prep1_tbgs1tbl[framen], &emptycore, 0);
+						ttmp -= prep1_tbgs1tbl[framen];
+						boffset(off_emptycore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+						
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						ttmp -= dur_bkgsupcore;
+						boffset(off_bkgsupcore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+					}
+					
+					if (prep1_tbgs2tbl[framen] > 0) {
+						/* Play 2nd background suppression delay/pulse */
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 2 delay (%d us)...\n", prep1_tbgs2tbl[framen]);
+						setperiod(prep1_tbgs2tbl[framen], &emptycore, 0);
+						ttmp -= prep1_tbgs2tbl[framen];
+						boffset(off_emptycore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+						
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						ttmp -= dur_bkgsupcore;
+						boffset(off_bkgsupcore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+					}
+					
+					/* Check that ttmp is non-negative */
+					if (ttmp < 0) {
+						fprintf(stderr, "scancore(): invalid pld and background suppression time combination for frame %d...\n", framen);
+						rspexit();
+					}
+
+					/* Play remaining PLD deadtime */
+					fprintf(stderr, "scancore(): playing prep 1 post-label delay (%d us), total end delay = %d us...\n", prep1_pldtbl[framen], ttmp);
+					setperiod(ttmp, &emptycore, 0);
 					boffset(off_emptycore);
 					startseq(0, MAY_PAUSE);
 					settrigger(TRIG_INTERN, 0);
@@ -1389,30 +1544,73 @@ STATUS scancore( void )
 			/* Play prep2 core */
 			if (prep2_id > 0) {
 				if (rspent != L_SCAN || prep2_lbltbl[framen] == -1) {
-					fprintf(stderr, "scancore(): playing deadtime in place of prep 2 pulse (%d us)...\n", dur_prep2core);
+					fprintf(stderr, "scancore(): playing deadtime in place of prep 1 pulse (%d us)...\n", dur_prep2core);
 					setperiod(dur_prep2core, &emptycore, 0);
 					boffset(off_emptycore);
 				}
 				else if (prep2_lbltbl[framen] == 0) { /* control */
-					fprintf(stderr, "scancore(): playing prep 2 control pulse (%d us)...\n", dur_prep2core);
+					fprintf(stderr, "scancore(): playing prep 1 control pulse (%d us)...\n", dur_prep2core);
 					boffset(off_prep2ctlcore);
 				}
 				else if (prep2_lbltbl[framen] == 1){ /* label */
-					fprintf(stderr, "scancore(): playing prep 2 label pulse (%d us)...\n", dur_prep2core);
+					fprintf(stderr, "scancore(): playing prep 1 label pulse (%d us)...\n", dur_prep2core);
 					boffset(off_prep2lblcore);
 				}
 				else {
-					fprintf(stderr, "scancore(): invalid pulse 2 type: %d for frame %d...\n", prep2_lbltbl[framen], framen);
+					fprintf(stderr, "scancore(): invalid pulse 1 type: %d for frame %d...\n", prep2_lbltbl[framen], framen);
 					rspexit();
 				}
 				
 				startseq(0, MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 
-				/* Play pld */
+				/* Play pld and background suppression */
 				if (prep2_pldtbl[framen] > TIMESSI) {
-					fprintf(stderr, "scancore(): playing prep 2 post-label delay (%d us)...\n", prep2_pldtbl[framen]);
-					setperiod(prep2_pldtbl[framen], &emptycore, 0);
+				
+					/* Initialize pld before subtracting out tbgs timing */
+					ttmp = prep2_pldtbl[framen];
+						
+					if (prep2_tbgs1tbl[framen] > 0) {
+						/* Play first background suppression delay/pulse */
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 delay (%d us)...\n", prep2_tbgs1tbl[framen]);
+						setperiod(prep2_tbgs1tbl[framen], &emptycore, 0);
+						ttmp -= prep2_tbgs1tbl[framen];
+						boffset(off_emptycore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+						
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						ttmp -= dur_bkgsupcore;
+						boffset(off_bkgsupcore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+					}
+					
+					if (prep2_tbgs2tbl[framen] > 0) {
+						/* Play 2nd background suppression delay/pulse */
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 2 delay (%d us)...\n", prep2_tbgs2tbl[framen]);
+						setperiod(prep2_tbgs2tbl[framen], &emptycore, 0);
+						ttmp -= prep2_tbgs2tbl[framen];
+						boffset(off_emptycore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+						
+						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						ttmp -= dur_bkgsupcore;
+						boffset(off_bkgsupcore);
+						startseq(0, MAY_PAUSE);
+						settrigger(TRIG_INTERN, 0);
+					}
+					
+					/* Check that ttmp is non-negative */
+					if (ttmp < 0) {
+						fprintf(stderr, "scancore(): invalid pld and background suppression time combination for frame %d...\n", framen);
+						rspexit();
+					}
+
+					/* Play remaining PLD deadtime */
+					fprintf(stderr, "scancore(): playing prep 1 post-label delay (%d us), total end delay = %d us...\n", prep2_pldtbl[framen], ttmp);
+					setperiod(ttmp, &emptycore, 0);
 					boffset(off_emptycore);
 					startseq(0, MAY_PAUSE);
 					settrigger(TRIG_INTERN, 0);
