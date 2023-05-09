@@ -126,16 +126,6 @@ int prep2_tbgs2tbl[MAXNFRAMES];
 int tadjusttbl[MAXNFRAMES];
 int doblksattbl[MAXNFRAMES];
 
-/* Declare core duration variables */
-int dur_blksatcore;
-int dur_prep1core;
-int dur_prep2core;
-int dur_bkgsupcore;
-int dur_fatsatcore;
-int dur_tipdowncore;
-int dur_refocuscore;
-int dur_seqcore;
-
 @cv
 /*********************************************************************
  *                     ASL3DFLEX.E CV SECTION                        *
@@ -207,6 +197,16 @@ int prep2_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 2: maximum gradient amplit
 int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep2_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 1st background suppression delay (0 = no pulse)",};
 int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppression delay (0 = no pulse)",};
+
+/* Declare core duration variables */
+int dur_blksatcore = 0 with {0, , 0, INVIS, "Duration of the bulk saturation core (us)",};
+int dur_prep1core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 1 cores (us)",};
+int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
+int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
+int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
+int dur_tipdowncore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
+int dur_refocuscore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)",};
+int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
 
 @host
 /*********************************************************************
@@ -416,7 +416,7 @@ STATUS cveval( void )
 	cvmax(opuser0, 360);
 	opflip2 = opuser0;
 
-	piuset = use1;
+	piuset += use1;
 	cvdesc(opuser1, "Number of frames to acquire");
 	cvdef(opuser1, 2);
 	opuser1 = 2;
@@ -592,6 +592,7 @@ STATUS predownload( void )
 	/* Calculate minimum te */
 	avminte = pw_rf2 + 4*psd_grd_wait + 4*trap_ramp_time + pw_gzrf2crush1 + pw_gzrf2crush2 + GRAD_UPDATE_TIME*grad_len + 2*TIMESSI + 2*psd_grd_wait;
 	avminte = 1e3*ceil(avminte*1e-3 + 1);
+	cvmin(opte, avminte);
 
 	/* Make sure opte fits */
 	if (opte < avminte || opte == PSD_MINFULLTE) {
@@ -642,7 +643,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs1tbl[framen] = (framen >= nm0frames) (prep1_tbgs1) : (0);
+				prep1_tbgs1tbl[framen] = (framen >= nm0frames) ? (prep1_tbgs1) : (0);
 			break;
 		case -1:
 			return FAILURE;
@@ -655,7 +656,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs2tbl[framen] = (framen >= nm0frames) (prep1_tbgs2) : (0);
+				prep1_tbgs2tbl[framen] = (framen >= nm0frames) ? (prep1_tbgs2) : (0);
 			break;
 		case -1:
 			return FAILURE;
@@ -698,7 +699,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs1tbl[framen] = (framen >= nm0frames) (prep2_tbgs1) : (0);
+				prep2_tbgs1tbl[framen] = (framen >= nm0frames) ? (prep2_tbgs1) : (0);
 			break;
 		case -1:
 			return FAILURE;
@@ -711,19 +712,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs2tbl[framen] = (framen >= nm0frames) (prep2_tbgs2) : (0);
-			break;
-		case -1:
-			return FAILURE;
-	}
-
-	/* Read in tadjusttbl schedule */
-	sprintf(tmpstr, "tadjusttbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			gentadjusttbl();
+				prep2_tbgs2tbl[framen] = (framen >= nm0frames) ? (prep2_tbgs2) : (0);
 			break;
 		case -1:
 			return FAILURE;
@@ -737,6 +726,32 @@ STATUS predownload( void )
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
 				doblksattbl[framen] = (framen >= nm0frames) ? (1) : (0);
+			break;
+		case -1:
+			return FAILURE;
+	}
+
+	/* Read in tadjusttbl schedule */
+	sprintf(tmpstr, "tadjusttbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++) {
+				avmintr = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+				avmintr += dur_fatsatcore;
+				avmintr += dur_blksatcore;
+				if (prep1_id > 0)
+					avmintr += dur_prep1core + prep1_pldtbl[framen];
+				if (prep2_id > 0)
+					avmintr += dur_prep2core + prep2_pldtbl[framen];
+				if (optr < avmintr) {
+					epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
+					return FAILURE;
+				}
+				else
+					tadjusttbl[framen] = optr - avmintr;
+			}
 			break;
 		case -1:
 			return FAILURE;
@@ -759,6 +774,19 @@ STATUS predownload( void )
 	{
 		epic_error(use_ermes,"failure to read in ASL prep 2 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
+	}
+
+	/* Determine total scan time */
+	pitscan = 0;
+	for (framen  = 0; framen < nframes; framen++) {
+		pitscan = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+		pitscan += dur_fatsatcore;
+		pitscan += dur_blksatcore;
+		if (prep1_id > 0)
+			pitscan += dur_prep1core + prep1_pldtbl[framen];
+		if (prep2_id > 0)
+			pitscan += dur_prep2core + prep2_pldtbl[framen];
+		pitscan += tadjusttbl[framen];
 	}
 	
 @inline Prescan.e PSfilter

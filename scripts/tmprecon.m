@@ -1,43 +1,41 @@
-im = [];
-for i = -4:4
-    im = cat(4,im,rec(i,500,[],1));
-end
-%%
-for i = 1:9
-    lbview(im,'frame',i)
-    title(sprintf('delay = %d', i-5))
-    pause()
-end
-%%
-[im,imc] = rec(2,400);
-writenii('im',abs(im));
-%%
-% smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
-im = rec(2,400,smap);
+im = rec(2,400);
 lbview(im);
 writenii('im',abs(im));
 
-function [im,imc] = rec(delay,nramp,smap,nframes)
+function [im,imc] = rec(delay,nramp,smap,nframes,ver)
 
 % Load in kspace trajectory & view transformation matrices
-ktraj = load('ktraj.txt');
-kviews = load('kviews.txt');
+ktraj = dir('ktraj*.txt');
+ktraj = load(ktraj(1).name);
+kviews = dir('kviews*.txt');
+kviews = load(kviews(1).name);
 
 % Reshape transformation matrices as an array of 3x3 matrices
 T = permute(reshape(kviews(:,end-8:end)',3,3,[]),[2,1,3]);
 
 % Load in raw data
 [raw,phdr] = readpfile;
-ndat = phdr.rdb.frame_size;
-nechoes = phdr.rdb.user2;
-ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
-ntrains = phdr.rdb.user1;
-if nargin < 4 || isempty(nframes)
-    nframes = phdr.rdb.user0;
+if (nargin < 5 || isempty(ver) || ver = 1) % new sequence
+	ndat = phdr.rdb.frame_size;
+	nechoes = phdr.rdb.user2;
+	ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
+	ntrains = phdr.rdb.user1;
+	if nargin < 4 || isempty(nframes)
+		nframes = phdr.rdb.user0;
+	end
+	tr = phdr.image.tr*1e-3;
+	dim = phdr.image.dim_X;
+	fov = phdr.image.dfov/10;
+else % old sequence
+	ndat = phdr.rdb.frame_size;
+	nechoes = phdr.rdb.nslices;
+	ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
+	ntrains = phdr.image.user0;
+	nframes = phdr.rdb.nframes / ntrains;
+	tr = phdr.image.tr*1e-3;
+	dim = phdr.image.dim_X;
+	fov = phdr.image.dfov/10;
 end
-tr = phdr.image.tr*1e-3;
-dim = phdr.image.dim_X;
-fov = phdr.image.dfov/10;
 
 % reshape: ndat x ntrains*nframes x nechoes x 1 x ncoils
 %           --> ndat x ntrains x nframes x nechoes x ncoils

@@ -141,28 +141,6 @@ int readschedule(int id, int* var, char* varname, int lines) {
 	return 1;
 }
 
-int gentadjusttbl() {
-	
-	int framen;
-
-	/* Calculate adjust times */
-	for (framen = 0; framen < nframes; framen++) {
-		avmintr = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
-		avmintr += dur_fatsatcore;
-		avmintr += dur_blksatcore;
-		avmintr += (prep1_id > 0) ? (dur_prep1core + prep1_pldtbl[framen]) : (0);
-		avmintr += (prep2_id > 0) ? (dur_prep2core + prep2_pldtbl[framen]) : (0);
-		if (optr < avmintr) {
-			epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
-			return FAILURE;
-		}
-		else
-			tadjusttbl[framen] = optr - avmintr;
-	}
-
-	return 1;
-}
-
 int genlbltbl(int mod, int* lbltbl)
 {
 	int framen;
