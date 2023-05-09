@@ -313,9 +313,8 @@ STATUS cvinit( void )
 	cvdef(opte, 50);
 	cvmin(opte, avminte);
 	opte = 50ms;
-	pitrnub = 2;
-	pite1val2 = PSD_MINFULLTE;
-	pite1val3 = 100ms;
+	pite1nub = 2;
+	pite1val2 = 100ms;
 
 	/* frequency (xres) */
 	cvmin(opxres, 32);
@@ -329,12 +328,8 @@ STATUS cvinit( void )
 	cvmax(opflip, 360.0);
 	cvdef(opflip, 90.0);
 	opflip = 90.0;
-	pifanub = 5;
-	pifaval2 = 70.0;
-	pifaval3 = 80.0;
-	pifaval4 = 90.0;
-	pifaval5 = 100.0;
-	pifaval6 = 110.0;
+	pifanub = 2;
+	pifaval2 = 90.0;
 
 	/* hide phase (yres) option */
 	piyresnub = 0;
@@ -777,9 +772,11 @@ STATUS predownload( void )
 	}
 
 	/* Determine total scan time */
+	pidmode = PSD_CLOCK_NORM;
+	pitslice = optr;
 	pitscan = 0;
 	for (framen  = 0; framen < nframes; framen++) {
-		pitscan = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+		pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
 		pitscan += dur_fatsatcore;
 		pitscan += dur_blksatcore;
 		if (prep1_id > 0)
@@ -788,6 +785,8 @@ STATUS predownload( void )
 			pitscan += dur_prep2core + prep2_pldtbl[framen];
 		pitscan += tadjusttbl[framen];
 	}
+	pitscan *= ntrains;
+	
 	
 @inline Prescan.e PSfilter
 

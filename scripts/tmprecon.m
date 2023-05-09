@@ -1,8 +1,14 @@
-im = rec(2,400);
+%% Recon using RMS coils combination
+[im,imc] = rec(0,10);
+lbview(im);
+writenii('im',abs(im));
+%% Create sensitivity map and recon using SENSE
+smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
+im = rec(0,10,smap);
 lbview(im);
 writenii('im',abs(im));
 
-function [im,imc] = rec(delay,nramp,smap,nframes,ver)
+function [im,imc] = rec(delay,nramp,smap,nframes)
 
 % Load in kspace trajectory & view transformation matrices
 ktraj = dir('ktraj*.txt');
@@ -15,7 +21,7 @@ T = permute(reshape(kviews(:,end-8:end)',3,3,[]),[2,1,3]);
 
 % Load in raw data
 [raw,phdr] = readpfile;
-if (nargin < 5 || isempty(ver) || ver = 1) % new sequence
+if strcmpi(phdr.image.psdname,'asl3dflex') % new sequence
 	ndat = phdr.rdb.frame_size;
 	nechoes = phdr.rdb.user2;
 	ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
