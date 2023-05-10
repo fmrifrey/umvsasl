@@ -1,12 +1,21 @@
-%% Recon using RMS coils combination
+%% Recon using RMS coils combination and save coil-wises image
 [im,imc] = rec(0,10);
 lbview(im);
-writenii('im',abs(im));
-%% Create sensitivity map and recon using SENSE
+writenii('im_rms',abs(im));
+
+%% Create sensitivity map using BART
 smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
-im = rec(0,10,smap);
+writenii('smap_mag', abs(smap));
+writenii('smap_ang', angle(smap));
+
+%% Read in sensitivity map
+smap = readnii('smap_mag').*exp(1i*readnii('smap_ang'));
+
+%% Recon using SENSE
+im = rec(0,10,smap,1);
 lbview(im);
-writenii('im',abs(im));
+writenii('im_mag',abs(im));
+writenii('im_ang',angle(im));
 
 function [im,imc] = rec(delay,nramp,smap,nframes)
 
@@ -69,10 +78,12 @@ raw = circshift(raw,[0,delay,0,0,0]);
 raw = raw(1:nframes,nramp+1:end-nramp,:,:,:,:);
 ktraj_all = ktraj_all(nramp+1:end-nramp,:,:,:);
     
-% Create Gmri object
+% Format kspace into column vectors
 kspace = [reshape(ktraj_all(:,1,:,:),[],1), ...
         reshape(ktraj_all(:,2,:,:),[],1), ...
-        reshape(ktraj_all(:,3,:,:),[],1)];
+        reshape(ktraj_all(:,3,:,:),[],1)];    
+
+% Create NUFFT object
 nufft_args = {dim*ones(1,3),...
     6*ones(1,3),...
     2*dim*ones(1,3),...
