@@ -183,8 +183,8 @@ int doblksat = 1 with {0, 1, 1, VIS, "Option to do bulk spin saturation at end o
 int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)",};
 int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
 int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
-int prep1_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 1: maximum RF amplitude",};
-int prep1_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
+float prep1_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 1: maximum RF amplitude",};
+float prep1_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
 int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep1_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 1st background suppression delay (0 = no pulse)",};
 int prep1_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 2nd background suppression delay (0 = no pulse)",};
@@ -192,8 +192,8 @@ int prep1_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 2nd background suppres
 int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)",};
 int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
 int prep2_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 2: number of cycles",};
-int prep2_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 2: maximum RF amplitude",};
-int prep2_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
+float prep2_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 2: maximum RF amplitude",};
+float prep2_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
 int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep2_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 1st background suppression delay (0 = no pulse)",};
 int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppression delay (0 = no pulse)",};
@@ -570,7 +570,7 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
-
+	FILE* finfo;
 	int framen;
 
 	/*********************************************************************/
@@ -1055,6 +1055,51 @@ STATUS predownload( void )
 
 	/* Scale the transformation matrices */
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
+	
+	/* Print scan info to a file */
+	finfo = fopen("scaninfo.txt", "w");
+
+	fprintf(finfo, "Rx INFO:\n");
+	fprintf(finfo, "\tX-Y field of view (mm): %f\n", opfov);
+	fprintf(finfo, "\tSlice profile: %d x %f(mm)\n", opslquant, opslthick);
+
+	fprintf(finfo, "TIME INFO:\n");
+	fprintf(finfo, "\tTR (ms): %f\n", (float)optr * 1e-3);
+	fprintf(finfo, "\tTotal scan time (s): %.6f\n", (float)pitscan * 1e-6);
+	fprintf(finfo, "\t# of frames: %d\n", nframes);
+	fprintf(finfo, "\t# of M0 frames: %d\n", nm0frames);
+
+	fprintf(finfo, "READOUT INFO:\n");
+	fprintf(finfo, "\tEcho time (ms): %f\n", (float)opte * 1e-3);
+	fprintf(finfo, "\t# of echoes per echo train: %d\n", nechoes);
+	fprintf(finfo, "\t# of echo trains per frame: %d\n", ntrains);
+	fprintf(finfo, "\t2D spiral type: %d\n", sptype2d);
+	fprintf(finfo, "\t3D spiral type: %d\n", sptype3d);
+	fprintf(finfo, "\tRadial acceleration factor: %f\n", R_accel);
+	fprintf(finfo, "\tAngular acceleration factor: %f\n", THETA_accel);
+	fprintf(finfo, "\tNumber of navigator points: %d\n", nnav);
+	fprintf(finfo, "\tMax slew rate (G/cm/s^2): %f\n", SLEWMAX);
+	fprintf(finfo, "\tMax gradient amplitude (G/cm/s): %.3f\n", GMAX);
+
+	fprintf(finfo, "ASL PREP INFO:\n");
+	fprintf(finfo, "\tSchedule ID: %d\n", schedule_id);
+	fprintf(finfo, "\tPrep 1 pulse ID: %d\n", prep1_id);
+	fprintf(finfo, "\tPrep 1 modulation: %d\n", prep1_mod);
+	fprintf(finfo, "\tPrep 1 gradient amplitude: %f\n", prep1_gmax);
+	fprintf(finfo, "\tPrep 1 RF amplitude: %f\n", prep1_rfmax);
+	fprintf(finfo, "\tPrep 1 post-labeling delay (ms): %f\n", (float)prep1_pld * 1e-3);
+	fprintf(finfo, "\tPrep 1 background supression pulse 1 time: %f\n", (float)prep1_tbgs1 * 1e-3);
+	fprintf(finfo, "\tPrep 1 background supression pulse 2 time: %f\n", (float)prep1_tbgs2 * 1e-3);
+	fprintf(finfo, "\tPrep 2 pulse ID: %d\n", prep2_id);
+	fprintf(finfo, "\tPrep 2 modulation: %d\n", prep2_mod);
+	fprintf(finfo, "\tPrep 2 gradient amplitude: %f\n", prep2_gmax);
+	fprintf(finfo, "\tPrep 2 RF amplitude: %f\n", prep2_rfmax);
+	fprintf(finfo, "\tPrep 2 post-labeling delay (ms): %f\n", (float)prep2_pld * 1e-3);
+	fprintf(finfo, "\tPrep 2 background supression pulse 1 time: %f\n", (float)prep2_tbgs1 * 1e-3);
+	fprintf(finfo, "\tPrep 2 background supression pulse 2 time: %f\n", (float)prep2_tbgs2 * 1e-3);
+	fprintf(finfo, "\tBulk saturation pulse (on/off): %d\n", doblksat);
+
+	fclose(finfo);
 
 @inline Prescan.e PSpredownload	
 
