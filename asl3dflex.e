@@ -1,10 +1,14 @@
 /*
+ * David Frey & Luis Hernandez-Garcia
+ * University of Michigan Department of Radiology
+ * Functional MRI Laboratory
+ *
  * GE Medical Systems
  * Copyright (C) 1996-2003 The General Electric Company
  *
  * File Name : asl3dflex.e
  * Language  : EPIC/ANSI C
- * Date      : 01-Jan-1996
+ * Date      : 10-May-2023
  *
  * An ASL-prepped flexible spiral fse readout sequence (ASL3DFLEX),
  * built up from grass.e
@@ -207,6 +211,7 @@ int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core
 int dur_tipdowncore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
 int dur_refocuscore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)",};
 int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
+int readpos = 0 with {0, , 0, INVIS, "Position of readout within seqcore (us)",};
 
 @host
 /*********************************************************************
@@ -869,6 +874,9 @@ STATUS predownload( void )
 	pw_fatsatrf = 4 * round(cyc_fatsatrf*1e6 / 440);
 	res_fatsatrf = pw_fatsatrf / 2;	
 
+	/* Set the duration of the fat sat core */
+	dur_fatsatcore = pw_fatsatrf + 2*trap_ramp_time + 2*grad_buff_time + pw_fatsatgrad;
+
 	/* Set the parameters for the spin echo tipdown pulse */
 	a_rf1 = opflip/180;
 	thk_rf1 = opslthick*opslquant;
@@ -890,6 +898,9 @@ STATUS predownload( void )
 	pw_gzrf1ra = trap_ramp_time;
 	pw_gzrf1rd = trap_ramp_time;
 	a_gzrf1r = -0.5*a_gzrf1 * (pw_gzrf1 + pw_gzrf1a) / (pw_gzrf1r + pw_gzrf1ra);
+	
+	/* Set the length of the tipdown core */
+	dur_tipdowncore = opte/2 + pw_rf1/2 - pw_rf2/2 - 2*grad_buff_time - 2*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
 
 	/* Set the parameters for the pre-refocuser crusher */
 	a_gzrf2crush1 = 1.5;
@@ -913,6 +924,9 @@ STATUS predownload( void )
 	pw_gzrf2a = trap_ramp_time;
 	pw_gzrf2d = trap_ramp_time;
 
+	/* Set the duration of the refocuser core */
+	dur_refocuscore = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*grad_buff_time + 6*trap_ramp_time;
+
 	/* Set the parameters for the post-refocuser crusher */
 	a_gzrf2crush2 = a_gzrf2crush1;
 	pw_gzrf2crush2 = pw_gzrf2crush1;
@@ -933,6 +947,12 @@ STATUS predownload( void )
 	pw_gyw = GRAD_UPDATE_TIME*grad_len;
 	pw_gzw = GRAD_UPDATE_TIME*grad_len;
 
+	/* Set the duration of the readout core */
+	dur_seqcore = opte - pw_gzrf2 - 4*grad_buff_time - 6*trap_ramp_time - 2*pw_gzrf2crush1 - 2*TIMESSI;
+	
+	/* Calculate start of readout within seqcore */
+	readpos = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
+
 	/* Update the asl prep pulse parameters */
 	a_prep1rholbl = prep1_rfmax / ((float)maxB1Seq * 1e3);
 	ia_prep1rholbl = (int)ceil(a_prep1rholbl * (float)max_pg_iamp);
@@ -943,6 +963,9 @@ STATUS predownload( void )
 	a_prep1gradctl = prep1_gmax / ZGRAD_max; 
 	ia_prep1gradctl = (int)ceil(a_prep1gradctl * (float)max_pg_iamp);
 	
+	/* Set duration of the prep1 core */
+	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
+	
 	a_prep2rholbl = prep2_rfmax / ((float)maxB1Seq * 1e3);
 	ia_prep2rholbl = (int)ceil(a_prep2rholbl * (float)max_pg_iamp);
 	a_prep2rhoctl = prep2_rfmax / ((float)maxB1Seq * 1e3);
@@ -951,6 +974,9 @@ STATUS predownload( void )
 	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl * (float)max_pg_iamp);
 	a_prep2gradctl = prep2_gmax / ZGRAD_max; 
 	ia_prep2gradctl = (int)ceil(a_prep2gradctl * (float)max_pg_iamp);
+	
+	/* Set duration of the prep1 core */
+	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + 2*grad_buff_time;
 
 	/* Update the background suppression pulse parameters */
 	a_bkgsuprho = 1.0;
@@ -959,6 +985,9 @@ STATUS predownload( void )
 	a_bkgsuptheta = 1.0;
 	res_bkgsuptheta = res_bkgsuprho;
 	pw_bkgsuptheta = pw_bkgsuprho;
+
+	/* Set the duration of the background suppression core */
+	dur_bkgsupcore = pw_bkgsuprho + psd_rf_wait + grad_buff_time;
 	
 	/* Update the bulk saturation pulse parameters */
 	a_blksatrho = 1.0;
@@ -972,10 +1001,14 @@ STATUS predownload( void )
 	pw_blksatgrada = trap_ramp_time;
 	pw_blksatgradd = trap_ramp_time;	
 	
+	/* Set the duration of the bulk saturation core */
+	dur_blksatcore = pw_blksatrho + psd_rf_wait + pw_blksatgrad + 2*trap_ramp_time + 2*grad_buff_time;
+	
 	/* Force the sequence to be a simple SPULS (pulse and acquire) using rf2 */
 	if (doSPULS)
 	{
 		kill_grads = 1; /* No kspace encoding */
+		readpos = 0; /* Set acquisition position to 0 */
 		a_rf1 = 0; /* No tip down */
 		a_fatsatrf = 0; /* No fat sat */
 		a_gzrf2crush1 = 0; /* No crushers */
@@ -1060,44 +1093,61 @@ STATUS predownload( void )
 	finfo = fopen("scaninfo.txt", "w");
 
 	fprintf(finfo, "Rx INFO:\n");
-	fprintf(finfo, "\tX-Y field of view (mm): %f\n", opfov);
-	fprintf(finfo, "\tSlice profile: %d x %f(mm)\n", opslquant, opslthick);
+	fprintf(finfo, "\t%-50s%20f\n", "X-Y field of view (mm):", opfov);
+	fprintf(finfo, "\t%-50s%20d\n", "Slice quantity:", opslquant);
+	fprintf(finfo, "\t%-50s%20f\n", "Slice thickness (mm):", opslthick);
 
-	fprintf(finfo, "TIME INFO:\n");
-	fprintf(finfo, "\tTR (ms): %f\n", (float)optr * 1e-3);
-	fprintf(finfo, "\tTotal scan time (s): %.6f\n", (float)pitscan * 1e-6);
-	fprintf(finfo, "\t# of frames: %d\n", nframes);
-	fprintf(finfo, "\t# of M0 frames: %d\n", nm0frames);
-
-	fprintf(finfo, "READOUT INFO:\n");
-	fprintf(finfo, "\tEcho time (ms): %f\n", (float)opte * 1e-3);
-	fprintf(finfo, "\t# of echoes per echo train: %d\n", nechoes);
-	fprintf(finfo, "\t# of echo trains per frame: %d\n", ntrains);
-	fprintf(finfo, "\t2D spiral type: %d\n", sptype2d);
-	fprintf(finfo, "\t3D spiral type: %d\n", sptype3d);
-	fprintf(finfo, "\tRadial acceleration factor: %f\n", R_accel);
-	fprintf(finfo, "\tAngular acceleration factor: %f\n", THETA_accel);
-	fprintf(finfo, "\tNumber of navigator points: %d\n", nnav);
-	fprintf(finfo, "\tMax slew rate (G/cm/s^2): %f\n", SLEWMAX);
-	fprintf(finfo, "\tMax gradient amplitude (G/cm/s): %.3f\n", GMAX);
-
-	fprintf(finfo, "ASL PREP INFO:\n");
-	fprintf(finfo, "\tSchedule ID: %d\n", schedule_id);
-	fprintf(finfo, "\tPrep 1 pulse ID: %d\n", prep1_id);
-	fprintf(finfo, "\tPrep 1 modulation: %d\n", prep1_mod);
-	fprintf(finfo, "\tPrep 1 gradient amplitude: %f\n", prep1_gmax);
-	fprintf(finfo, "\tPrep 1 RF amplitude: %f\n", prep1_rfmax);
-	fprintf(finfo, "\tPrep 1 post-labeling delay (ms): %f\n", (float)prep1_pld * 1e-3);
-	fprintf(finfo, "\tPrep 1 background supression pulse 1 time: %f\n", (float)prep1_tbgs1 * 1e-3);
-	fprintf(finfo, "\tPrep 1 background supression pulse 2 time: %f\n", (float)prep1_tbgs2 * 1e-3);
-	fprintf(finfo, "\tPrep 2 pulse ID: %d\n", prep2_id);
-	fprintf(finfo, "\tPrep 2 modulation: %d\n", prep2_mod);
-	fprintf(finfo, "\tPrep 2 gradient amplitude: %f\n", prep2_gmax);
-	fprintf(finfo, "\tPrep 2 RF amplitude: %f\n", prep2_rfmax);
-	fprintf(finfo, "\tPrep 2 post-labeling delay (ms): %f\n", (float)prep2_pld * 1e-3);
-	fprintf(finfo, "\tPrep 2 background supression pulse 1 time: %f\n", (float)prep2_tbgs1 * 1e-3);
-	fprintf(finfo, "\tPrep 2 background supression pulse 2 time: %f\n", (float)prep2_tbgs2 * 1e-3);
-	fprintf(finfo, "\tBulk saturation pulse (on/off): %d\n", doblksat);
+	fprintf(finfo, "\nTIME INFO:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "Number of frames:", nframes);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of M0 frames:", nm0frames);
+	fprintf(finfo, "\t%-50s%20f\n", "Repetition time (ms):", (float)optr * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Total scan time (s):", (float)pitscan * 1e-6);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of bulk saturation core (ms):", (float)dur_blksatcore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of prep 1 core (ms):", (float)dur_prep1core * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of prep 2 core (ms):", (float)dur_prep2core * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of background suppression core (ms):", (float)dur_bkgsupcore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of fat saturation core (ms):", (float)dur_fatsatcore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of tipdown core (ms):", (float)dur_tipdowncore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of refocuser core (ms):", (float)dur_refocuscore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of readout core (ms):", (float)dur_seqcore * 1e-3);
+	
+	fprintf(finfo, "\nREADOUT INFO:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "Echo time (ms):", (float)opte * 1e-3);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of echoes per echo train:", nechoes);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of echo trains per frame:", ntrains);
+	fprintf(finfo, "\t%-50s%20d\n", "2D spiral type:", sptype2d);
+	fprintf(finfo, "\t%-50s%20d\n", "3D spiral type:", sptype3d);
+	fprintf(finfo, "\t%-50s%20f\n", "Radial acceleration factor:", R_accel);
+	fprintf(finfo, "\t%-50s%20f\n", "Angular acceleration factor:", THETA_accel);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
+	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
+	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
+	fprintf(finfo, "\t%-50s%20f\n", "Tipdown flip angle (deg):", opflip);
+	fprintf(finfo, "\t%-50s%20f\n", "Refocuser flip angle (deg):", opflip2);
+	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
+	fprintf(finfo, "\t%-50s%20d\n", "Long rf pulses (on/off):", dolongrf);
+	fprintf(finfo, "\t%-50s%20d\n", "CPMG phase cycling (on/off):", dophasecycle);
+	fprintf(finfo, "\t%-50s%20d\n", "Pulse-acq (SPULS) testing (on/off):", doSPULS);
+	
+	fprintf(finfo, "\nASL PREP INFO:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "Labeling schedule ID:", schedule_id);
+	fprintf(finfo, "\t%-50s%20d\n", "Prep 1 pulse ID:", prep1_id);
+	fprintf(finfo, "\t%-50s%20d\n", "Prep 1 modulation:", prep1_mod);
+	fprintf(finfo, "\t%-50s%20d\n", "Prep 1 number of cycles:", prep1_ncycles);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 gradient amplitude (G/cm/s):", prep1_gmax);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 RF amplitude (mG):", prep1_rfmax);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 post-labeling delay (ms):", (float)prep1_pld * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 background suppression pulse 1 time (ms):", (float)prep1_tbgs1 * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 background suppression pulse 2 time (ms):", (float)prep1_tbgs2 * 1e-3);
+	fprintf(finfo, "\t%-50s%20d\n", "Prep 2 pulse ID:", prep2_id);
+	fprintf(finfo, "\t%-50s%20d\n", "Prep 2 modulation:", prep2_mod);
+	fprintf(finfo, "\t%-50s%20d\n", "Prep 2 number of cycles:", prep2_ncycles);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 gradient amplitude (G/cm/s):", prep2_gmax);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 RF amplitude (mG):", prep2_rfmax);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 post-labeling delay (ms):", (float)prep2_pld * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 background suppression pulse 1 time (ms):", (float)prep2_tbgs1 * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 background suppression pulse 2 time (ms):", (float)prep2_tbgs2 * 1e-3);
+	fprintf(finfo, "\t%-50s%20d\n", "Bulk saturation pulse (on/off):", doblksat);
 
 	fclose(finfo);
 
@@ -1126,8 +1176,6 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 
-	/* initialize temporary time marker */
-	int tmploc;
 
 	/*********************************/
 	/* Generate bulk saturation core */
@@ -1136,9 +1184,6 @@ STATUS pulsegen( void )
 	EXTWAVE(RHO, blksatrho, psd_rf_wait, 5000, 1.0, 250, sech_7360.rho, , loggrd);
 	EXTWAVE(THETA, blksattheta, psd_rf_wait, 5000, 1.0, 250, sech_7360.theta, , loggrd);
 	TRAPEZOID(ZGRAD, blksatgrad, pend( &blksatrho, "blksatrho", 0) + grad_buff_time + trap_ramp_time, 0, 0, loggrd);
-
-	/* Calculate total core length */
-	dur_blksatcore = pw_blksatrho + psd_rf_wait + pw_blksatgrad + 2*trap_ramp_time + 2*grad_buff_time;
 	
 	fprintf(stderr, "pulsegen(): finalizing bulk saturation core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_blksatcore);
@@ -1153,9 +1198,6 @@ STATUS pulsegen( void )
 	INTWAVE(RHO, prep1rholbl, psd_rf_wait, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_rho_lbl, 1, loggrd); 
 	INTWAVE(THETA, prep1thetalbl, psd_rf_wait, 1.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_theta_lbl, 1, loggrd); 
 	INTWAVE(ZGRAD, prep1gradlbl, 0, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_grad_lbl, 1, loggrd); 
-	
-	/* Calculate total core length */
-	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
 
 	fprintf(stderr, "pulsegen(): finalizing prep1 label core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_prep1core);
@@ -1184,9 +1226,6 @@ STATUS pulsegen( void )
 	INTWAVE(RHO, prep2rholbl, psd_rf_wait, 0.0, prep2_len, GRAD_UPDATE_TIME*prep2_len, prep2_rho_lbl, 1, loggrd); 
 	INTWAVE(THETA, prep2thetalbl, psd_rf_wait, 1.0, prep2_len, GRAD_UPDATE_TIME*prep2_len, prep2_theta_lbl, 1, loggrd); 
 	INTWAVE(ZGRAD, prep2gradlbl, 0, 0.0, prep2_len, GRAD_UPDATE_TIME*prep2_len, prep2_grad_lbl, 1, loggrd); 
-
-	/* Calculate total core length */
-	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + grad_buff_time;
 	
 	fprintf(stderr, "pulsegen(): finalizing prep2 label core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_prep2core);
@@ -1214,9 +1253,6 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of bulk saturation core (bkgsupcore)\n");
 	EXTWAVE(RHO, bkgsuprho, psd_rf_wait, 5000, 1.0, 500, sech_7360.rho, , loggrd);
 	EXTWAVE(THETA, bkgsuptheta, psd_rf_wait, 5000, 1.0, 500, sech_7360.theta, , loggrd);
-
-	/* Calculate total core length */
-	dur_bkgsupcore = pw_bkgsuprho + psd_rf_wait + grad_buff_time;
 	
 	fprintf(stderr, "pulsegen(): finalizing bulk saturation core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_bkgsupcore);
@@ -1230,9 +1266,6 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of fat sat core (fatsatcore)\n");	
 	SINC2(RHO, fatsatrf, psd_rf_wait, 1000, 1.0, ,0.5, , , loggrd);  
 	TRAPEZOID(ZGRAD, fatsatgrad, pend(&fatsatrf, "fatsatrf", 0) + grad_buff_time + trap_ramp_time, GRAD_UPDATE_TIME*1000, 0, loggrd);
-
-	/* Calculate total core length */
-	dur_fatsatcore = pw_fatsatrf + 2*trap_ramp_time + 2*grad_buff_time + pw_fatsatgrad;
 
 	fprintf(stderr, "pulsegen(): finalizing fat saturation core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_fatsatcore);
@@ -1254,9 +1287,6 @@ STATUS pulsegen( void )
 	TRAPEZOID(ZGRAD, gzrf1r, pend( &gzrf1d, "gzrf1d", 0 ) + grad_buff_time, 3200, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1ra, "gzrf1ra", 0), pend( &gzrf1rd, "gzrf1rd", 0));
 	fprintf(stderr, "\tDone.\n");	
-
-	/* Calculate total core length */	
-	dur_tipdowncore = opte/2 + pw_rf1/2 - pw_rf2/2 - 2*grad_buff_time - 2*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
 
 	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_tipdowncore);
@@ -1284,9 +1314,6 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush2a, "gzrf2crush2a", 0), pend( &gzrf2crush2d, "gzrf2crush2d", 0));
 	fprintf(stderr, "\tDone.\n");
 
-	/* Calculate length of core */
-	dur_refocuscore = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*grad_buff_time + 6*trap_ramp_time;
-
 	fprintf(stderr, "pulsegen(): finalizing spin echo refocuser core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_refocuscore);
 	SEQLENGTH(refocuscore, dur_refocuscore, refocuscore);
@@ -1296,30 +1323,25 @@ STATUS pulsegen( void )
 	/********************************/
 	/* Generate spiral readout core */
 	/********************************/
-	/* Calculate start of spiral */
-	tmploc = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
 
 	fprintf(stderr, "pulsegen(): generating readout x gradient using INTWAVE()...\n");
-	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
+	INTWAVE(XGRAD, gxw, readpos, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus, a_gxw = %f\n", pbeg( &gxw, "gxw", 0), pend( &gxw, "gxw", 0), a_gxw);
 	fprintf(stderr, "\tDone.\n");
 
 	fprintf(stderr, "pulsegen(): generating readout y gradient using INTWAVE()...\n");
-	INTWAVE(YGRAD, gyw, tmploc, YGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
+	INTWAVE(YGRAD, gyw, readpos, YGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus, a_gyw = %f\n", pbeg( &gyw, "gyw", 0), pend( &gyw, "gyw", 0), a_gyw);
 	fprintf(stderr, "\tDone.\n");
 
 	fprintf(stderr, "pulsegen(): generating readout z gradient using INTWAVE()...\n");
-	INTWAVE(ZGRAD, gzw, tmploc, ZGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gz, 1, loggrd);
+	INTWAVE(ZGRAD, gzw, readpos, ZGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gz, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus, a_gzw = %f\n", pbeg( &gzw, "gzw", 0), pend( &gzw, "gzw", 0), a_gzw);
 	fprintf(stderr, "\tDone.\n");
 
 	fprintf(stderr, "pulsegen(): generating data acquisition instruction using ACQUIREDATA()...\n");
-	ACQUIREDATA(echo1, tmploc + psd_grd_wait,,,);
+	ACQUIREDATA(echo1, readpos + psd_grd_wait,,,);
 	fprintf(stderr, "\tDone.\n");
-
-	/* Calculate length of core */
-	dur_seqcore = opte - pw_gzrf2 - 4*grad_buff_time - 6*trap_ramp_time - 2*pw_gzrf2crush1 - 2*TIMESSI;
 
 	fprintf(stderr, "pulsegen(): finalizing spiral readout core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_seqcore);
