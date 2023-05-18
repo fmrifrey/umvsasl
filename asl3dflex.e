@@ -170,7 +170,7 @@ float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
 int nframes = 2 with {1, , 2, VIS, "Number of frames to acquire",};
-int nnav = 20 with {0, 1000, 20, VIS, "Number of navigator points (must be even)",};
+int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points (must be even)",};
 float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
@@ -466,8 +466,8 @@ STATUS cveval( void )
 	
 	piuset += use7;
 	cvdesc(opuser7, "Spiral angular acceleration factor");
-	cvdef(opuser7, 0.7);
-	opuser7 = 0.7;
+	cvdef(opuser7, 1.0);
+	opuser7 = 1.0;
 	cvmin(opuser7, 0.1);
 	cvmax(opuser7, 20);
 	THETA_accel = opuser7;
@@ -873,6 +873,10 @@ STATUS predownload( void )
 	a_fatsatrf = 0.5 * 440 / 1250;
 	pw_fatsatrf = 4 * round(cyc_fatsatrf*1e6 / 440);
 	res_fatsatrf = pw_fatsatrf / 2;	
+	pw_fatsatgrad = 3000;
+	pw_fatsatgrada = trap_ramp_time;
+	pw_fatsatgradd = trap_ramp_time;
+	a_fatsatgrad = 2.0;
 
 	/* Set the duration of the fat sat core */
 	dur_fatsatcore = pw_fatsatrf + 2*trap_ramp_time + 2*grad_buff_time + pw_fatsatgrad;
@@ -958,10 +962,10 @@ STATUS predownload( void )
 	ia_prep1rholbl = (int)ceil(a_prep1rholbl * (float)max_pg_iamp);
 	a_prep1rhoctl = prep1_rfmax / ((float)maxB1Seq * 1e3);
 	ia_prep1rhoctl = (int)ceil(a_prep1rhoctl * (float)max_pg_iamp);
-	a_prep1gradlbl = prep1_gmax / ZGRAD_max;
-	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl * (float)max_pg_iamp);
-	a_prep1gradctl = prep1_gmax / ZGRAD_max; 
-	ia_prep1gradctl = (int)ceil(a_prep1gradctl * (float)max_pg_iamp);
+	a_prep1gradlbl = prep1_gmax;
+	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)max_pg_iamp);
+	a_prep1gradctl = prep1_gmax; 
+	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)max_pg_iamp);
 	
 	/* Set duration of the prep1 core */
 	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
@@ -970,10 +974,10 @@ STATUS predownload( void )
 	ia_prep2rholbl = (int)ceil(a_prep2rholbl * (float)max_pg_iamp);
 	a_prep2rhoctl = prep2_rfmax / ((float)maxB1Seq * 1e3);
 	ia_prep2rhoctl = (int)ceil(a_prep2rhoctl * (float)max_pg_iamp);
-	a_prep2gradlbl = prep2_gmax / ZGRAD_max;
-	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl * (float)max_pg_iamp);
-	a_prep2gradctl = prep2_gmax / ZGRAD_max; 
-	ia_prep2gradctl = (int)ceil(a_prep2gradctl * (float)max_pg_iamp);
+	a_prep2gradlbl = prep2_gmax;
+	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)max_pg_iamp);
+	a_prep2gradctl = prep2_gmax; 
+	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)max_pg_iamp);
 	
 	/* Set duration of the prep1 core */
 	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + 2*grad_buff_time;
