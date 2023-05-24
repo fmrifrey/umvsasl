@@ -141,6 +141,45 @@ int readschedule(int id, int* var, char* varname, int lines) {
 	return 1;
 }
 
+int readschedulef(int id, float* var, char* varname, int lines) {
+
+	FILE* fID;
+	char fname[200];
+	float val;
+	
+	if (id == 0)
+		return 0;
+
+	/* Open the schedule file */
+	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
+	fprintf(stderr, "readschedule(): opening %s...\n", fname);
+	fID = fopen(fname, "r");
+	if (fID == 0) {
+		fprintf(stderr, "File not found.\n");
+		return 0;
+	}
+
+	/* Read in the array */
+	int i = 0;
+	while (fscanf(fID, "%f\n", &val) != EOF) {
+		var[i] = val;
+		i++;
+	}
+	fclose(fID);
+
+	/* If only 1 line is read in (scalar --> array) */
+	if (i == 1) {
+		for (i = 1; i < lines; i++)
+			var[i] = var[0];
+	}
+
+	/* If number of lines is less than number of lines to read */
+	if (i < lines - 1)
+		return -1;
+
+	return 1;
+}
+
 int genlbltbl(int mod, int* lbltbl)
 {
 	int framen;

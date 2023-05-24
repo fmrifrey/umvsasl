@@ -53,7 +53,7 @@ RF_PULSE rfpulse[MAX_RFPULSE] = {
      SAR_DTYCYC_SINC1,
      SAR_MAXPW_SINC1,
      1,
-     2*MAX_B1_SINC1_90,
+     MAX_B1_SINC1_180,
      MAX_INT_B1_SQ_SINC1_90,
      MAX_RMS_B1_SINC1_90,
      90.0,

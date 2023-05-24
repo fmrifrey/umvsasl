@@ -95,6 +95,9 @@ int grad_len = 5000;
 /* Declare table of readout gradient transformation matrices */
 long tmtxtbl[MAXNTRAINS*MAXNECHOES][9];
 
+/* Declare table of refocuser flip angles */
+float rf2factbl[MAXNECHOES];
+
 /* Declare ASL prep waveform arrays */
 int prep1_rho_lbl[MAXWAVELEN];
 int prep1_theta_lbl[MAXWAVELEN];
@@ -160,11 +163,14 @@ float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 /* FSE cvs */
 int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
-int dolongrf = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
-int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
+int dolongrf1 = 1 with {0, 1, 1, VIS, "Option to do long (4 cycle, 6400ms) rf1 pulse",};
+int dolongrf2 = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms) rf2 pulse",};
+float phs_rf1 = 0.0 with { , , 0.0, VIS, "Transmitter phase for rf1 pulse",};
+float phs_rf2 = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for rf2 pulse",};
 int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
 float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
+int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -576,7 +582,7 @@ STATUS cvcheck( void )
 STATUS predownload( void )
 {
 	FILE* finfo;
-	int framen;
+	int framen, echon;
 
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
@@ -604,6 +610,26 @@ STATUS predownload( void )
 	if (genviews() == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
+	}
+
+	/* Read in refocuser flip angle schedule */
+	sprintf(tmpstr, "rf2factbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
+	switch (readschedulef(schedule_id, rf2factbl, tmpstr, nechoes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
+			for (echon = 0; echon < nechoes; echon++) {
+				if (dophasecycle && echon > 1)
+					rf2factbl[echon] = varflipfac + floor((float)echon/2.0 - 1.0) / floor((float)nechoes/2.0 - 1.0) * (1.0 - varflipfac);	
+				else if (!dophasecycle && echon > 0)
+					rf2factbl[echon] = varflipfac + (float)(echon - 1) / (float)(nechoes - 1) * (1.0 - varflipfac);
+				else
+					rf2factbl[echon] = 1.0;
+				rf2factbl[echon] *= (dophasecycle) ? pow(-1,echon) : 1;
+			}
+			break;
+		case -1:
+			return FAILURE;
 	}
 
 	/* Read in prep1_id (scalar) */
@@ -834,9 +860,6 @@ STATUS predownload( void )
 			return FAILURE;
 		}
 	}
-	
-	maxB1[L_SCAN] *= (dolongrf) ? (1) : (2);
-
 	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
 	{
 		
@@ -845,6 +868,14 @@ STATUS predownload( void )
 			maxB1Seq = maxB1[entry];
 		}
 	}
+
+	/* Also include prep pulses in the peak B1 search */
+	/*
+	if (prep1_rfmax > maxB1Seq)
+		maxB1Seq = prep1_rfmax;
+	if (prep2_rfmax > maxB1Seq)
+		maxB1Seq = prep2_rfmax;
+	*/
 
 	/* Set xmtadd according to maximum B1 and rescale for powermon,
 	   adding additional (audio) scaling if xmtadd is too big.
@@ -887,10 +918,11 @@ STATUS predownload( void )
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
 	cyc_rf1 = 2;
-	if (dolongrf) {
+	if (dolongrf1) {
 		res_rf1 *= 2;
 		pw_rf1 *= 2;
 		cyc_rf1 *= 2;
+		a_rf1 /= 2;
 	}
 	flip_rf1 = opflip;
 	pw_gzrf1 = pw_rf1;
@@ -918,10 +950,11 @@ STATUS predownload( void )
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
 	cyc_rf2 = 2;
-	if (dolongrf) {
+	if (dolongrf2) {
 		res_rf2 *= 2;
 		pw_rf2 *= 2;
 		cyc_rf2 *= 2;
+		a_rf2 /= 2;
 	}
 	flip_rf2 = opflip2;
 	pw_gzrf2 = pw_rf2;
@@ -958,28 +991,32 @@ STATUS predownload( void )
 	readpos = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
 
 	/* Update the asl prep pulse parameters */
-	a_prep1rholbl = prep1_rfmax / ((float)maxB1Seq * 1e3);
-	ia_prep1rholbl = (int)ceil(a_prep1rholbl * (float)max_pg_iamp);
-	a_prep1rhoctl = prep1_rfmax / ((float)maxB1Seq * 1e3);
-	ia_prep1rhoctl = (int)ceil(a_prep1rhoctl * (float)max_pg_iamp);
-	a_prep1gradlbl = prep1_gmax;
-	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)max_pg_iamp);
-	a_prep1gradctl = prep1_gmax; 
-	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)max_pg_iamp);
-	
+	if (prep1_id > 0) {
+		a_prep1rholbl = prep1_rfmax / ((float)maxB1Seq * 1e3);
+		ia_prep1rholbl = (int)ceil(a_prep1rholbl * (float)max_pg_iamp);
+		a_prep1rhoctl = prep1_rfmax / ((float)maxB1Seq * 1e3);
+		ia_prep1rhoctl = (int)ceil(a_prep1rhoctl * (float)max_pg_iamp);
+		a_prep1gradlbl = prep1_gmax;
+		ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)max_pg_iamp);
+		a_prep1gradctl = prep1_gmax; 
+		ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)max_pg_iamp);
+	}	
+
 	/* Set duration of the prep1 core */
 	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
-	
-	a_prep2rholbl = prep2_rfmax / ((float)maxB1Seq * 1e3);
-	ia_prep2rholbl = (int)ceil(a_prep2rholbl * (float)max_pg_iamp);
-	a_prep2rhoctl = prep2_rfmax / ((float)maxB1Seq * 1e3);
-	ia_prep2rhoctl = (int)ceil(a_prep2rhoctl * (float)max_pg_iamp);
-	a_prep2gradlbl = prep2_gmax;
-	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)max_pg_iamp);
-	a_prep2gradctl = prep2_gmax; 
-	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)max_pg_iamp);
-	
-	/* Set duration of the prep1 core */
+
+	if (prep2_id > 0) {	
+		a_prep2rholbl = prep2_rfmax / ((float)maxB1Seq * 1e3);
+		ia_prep2rholbl = (int)ceil(a_prep2rholbl * (float)max_pg_iamp);
+		a_prep2rhoctl = prep2_rfmax / ((float)maxB1Seq * 1e3);
+		ia_prep2rhoctl = (int)ceil(a_prep2rhoctl * (float)max_pg_iamp);
+		a_prep2gradlbl = prep2_gmax;
+		ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)max_pg_iamp);
+		a_prep2gradctl = prep2_gmax; 
+		ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)max_pg_iamp);
+	}	
+
+	/* Set duration of the prep2 core */
 	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + 2*grad_buff_time;
 
 	/* Update the background suppression pulse parameters */
@@ -1129,7 +1166,10 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "Tipdown flip angle (deg):", opflip);
 	fprintf(finfo, "\t%-50s%20f\n", "Refocuser flip angle (deg):", opflip2);
 	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
-	fprintf(finfo, "\t%-50s%20d\n", "Long rf pulses (on/off):", dolongrf);
+	fprintf(finfo, "\t%-50s%20d\n", "Long rf1 pulses (on/off):", dolongrf1);
+	fprintf(finfo, "\t%-50s%20d\n", "Long rf2 pulses (on/off):", dolongrf2);
+	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf1 pulse (rad):", phs_rf1);
+	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf2 pulse (rad):", phs_rf2);
 	fprintf(finfo, "\t%-50s%20d\n", "CPMG phase cycling (on/off):", dophasecycle);
 	fprintf(finfo, "\t%-50s%20d\n", "Pulse-acq (SPULS) testing (on/off):", doSPULS);
 	
@@ -1479,7 +1519,6 @@ STATUS psdinit( void )
 STATUS scancore( void )
 {
 
-	float rf2fac;
 	int ttmp;
 
 	/* Determine total # of frames/trains based on entry point */
@@ -1497,9 +1536,9 @@ STATUS scancore( void )
 	else
 		xmitfreq = (int)rf1_freq[(opslquant+1)/2];
 	setfrequency(xmitfreq, &rf1, 0);
-	setphase(0.0, &rf1, 0);
+	setphase(phs_rf1, &rf1, 0);
 	setfrequency(xmitfreq, &rf2, 0);
-	setphase(M_PI/2, &rf2, 0);
+	setphase(phs_rf2, &rf2, 0);
 
 	/* Set receiver frequency and phase */
 	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
@@ -1731,20 +1770,16 @@ STATUS scancore( void )
 			/* Play readout (refocusers + spiral gradients */
 			for (echon = 0; echon < nechoes; echon++) {
 				
-				/* Get the refocuser amplitude and set the amplitude based on variable flip angle */
+				/* Set the refocuser flip angle */
 				getiamp(&chopamp, &rf2, 0);
-				if (echon == 0)
-					rf2fac = 1.0;
-				else
-					rf2fac = varflipfac + (float)(echon - 1)/(float)(nechoes - 1) * (1 - varflipfac);
-				setiamp((int)(rf2fac*chopamp), &rf2, 0);
-
+				setiamp((int)(rf2factbl[echon]*chopamp), &rf2, 0);
+				
 				/* Play the refocuser core */
 				fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
 				boffset(off_refocuscore);
 				startseq(echon, (short)MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
-
+				
 				/* Reset the pulse amplitude */
 				setiamp(chopamp, &rf2, 0);
 
@@ -1795,12 +1830,6 @@ STATUS scancore( void )
 				/* Reset the rotation matrix */
 				setrotate(tmtx0, echon);
 			
-				/* Negate the 180 amplitude for CPMG scheme */
-				if (dophasecycle) {
-					getiamp(&chopamp, &rf2, 0);
-					setiamp(-chopamp, &rf2, 0);
-				}
-
 			}
 
 			/* Reset the 180 amplitude to its absolute value */
