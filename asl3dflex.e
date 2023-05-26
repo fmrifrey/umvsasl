@@ -163,8 +163,6 @@ float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 /* FSE cvs */
 int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
-int dolongrf1 = 1 with {0, 1, 1, VIS, "Option to do long (4 cycle, 6400ms) rf1 pulse",};
-int dolongrf2 = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms) rf2 pulse",};
 float phs_rf1 = 0.0 with { , , 0.0, VIS, "Transmitter phase for rf1 pulse",};
 float phs_rf2 = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for rf2 pulse",};
 int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
@@ -869,13 +867,10 @@ STATUS predownload( void )
 		}
 	}
 
-	/* Also include prep pulses in the peak B1 search */
-	/*
-	if (prep1_rfmax > maxB1Seq)
-		maxB1Seq = prep1_rfmax;
-	if (prep2_rfmax > maxB1Seq)
-		maxB1Seq = prep2_rfmax;
-	*/
+	if (prep1_id > 0 && prep1_rfmax*1e-3 > maxB1Seq)
+		maxB1Seq = prep1_rfmax * 1e-3;
+	if (prep2_id > 0 && prep2_rfmax*1e-3 > maxB1Seq)
+		maxB1Seq = prep2_rfmax * 1e-3;
 
 	/* Set xmtadd according to maximum B1 and rescale for powermon,
 	   adding additional (audio) scaling if xmtadd is too big.
@@ -917,13 +912,6 @@ STATUS predownload( void )
 	thk_rf1 = opslthick*opslquant;
 	res_rf1 = 1600;
 	pw_rf1 = 3200;
-	cyc_rf1 = 2;
-	if (dolongrf1) {
-		res_rf1 *= 2;
-		pw_rf1 *= 2;
-		cyc_rf1 *= 2;
-		a_rf1 /= 2;
-	}
 	flip_rf1 = opflip;
 	pw_gzrf1 = pw_rf1;
 	pw_gzrf1a = trap_ramp_time;
@@ -949,13 +937,6 @@ STATUS predownload( void )
 	thk_rf2 = opslthick*opslquant;
 	res_rf2 = 1600;
 	pw_rf2 = 3200;
-	cyc_rf2 = 2;
-	if (dolongrf2) {
-		res_rf2 *= 2;
-		pw_rf2 *= 2;
-		cyc_rf2 *= 2;
-		a_rf2 /= 2;
-	}
 	flip_rf2 = opflip2;
 	pw_gzrf2 = pw_rf2;
 	pw_gzrf2a = trap_ramp_time;
@@ -1166,8 +1147,6 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "Tipdown flip angle (deg):", opflip);
 	fprintf(finfo, "\t%-50s%20f\n", "Refocuser flip angle (deg):", opflip2);
 	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
-	fprintf(finfo, "\t%-50s%20d\n", "Long rf1 pulses (on/off):", dolongrf1);
-	fprintf(finfo, "\t%-50s%20d\n", "Long rf2 pulses (on/off):", dolongrf2);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf1 pulse (rad):", phs_rf1);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf2 pulse (rad):", phs_rf2);
 	fprintf(finfo, "\t%-50s%20d\n", "CPMG phase cycling (on/off):", dophasecycle);
@@ -1323,7 +1302,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	SLICESELZ(rf1, trap_ramp_time, 3200, opslthick*opslquant, 90, 1, 1, loggrd);
+	SLICESELZ(rf1, trap_ramp_time, 3200, opslthick*opslquant, 90, , 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
