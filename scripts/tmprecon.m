@@ -12,7 +12,7 @@ writenii('smap_ang', angle(smap));
 smap = readnii('smap_mag').*exp(1i*readnii('smap_ang'));
 
 %% Recon using SENSE
-im = rec(0,10,smap,1);
+im = rec(0,10,smap);
 lbview(im);
 writenii('im_mag',abs(im));
 writenii('im_ang',angle(im));
@@ -30,7 +30,7 @@ T = permute(reshape(kviews(:,end-8:end)',3,3,[]),[2,1,3]);
 
 % Load in raw data
 [raw,phdr] = readpfile;
-if strcmpi(phdr.image.psdname,'asl3dflex') % new sequence
+if 1 %strcmpi(phdr.image.psdname,'asl3dflex') % new sequence
 	ndat = phdr.rdb.frame_size;
 	nechoes = phdr.rdb.user2;
 	ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
@@ -103,13 +103,11 @@ im = zeros([dim*ones(1,3),nframes]);
 imc = zeros([dim*ones(1,3),ncoils,nframes]);
 
 % Set smap to uniform if single coil
-if nargin < 3 || isempty(smap) && ncoils == 1
+if ncoils == 1
     smap = ones(dim*ones(1,3));
-elseif nargin < 3 || isempty(smap)
-    smap = [];
 end
 
-if isempty(smap) % Coil-wise recon with RMS coil combo
+if nargin < 3 || isempty(smap) % Coil-wise recon with RMS coil combo
     
     for framen = 1:nframes
         parfor coiln = 1:ncoils
