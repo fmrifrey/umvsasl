@@ -23,9 +23,7 @@
 #ifndef  grad_rf_asl3dflex_globals_INCL
 #define  grad_rf_asl3dflex_globals_INCL
 
-#define RF1_SLOT 0
-#define RF2_SLOT 1
-#define RF_FREE1 2
+#define RF_FREE1 0
 
 #define GX1_SLOT 0
 #define GXW2_SLOT 1

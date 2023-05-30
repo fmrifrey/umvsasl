@@ -18,58 +18,6 @@
 #define  grad_rf_asl3dflex_INCL
 
 RF_PULSE rfpulse[MAX_RFPULSE] = {
-  /* RFPULSE 0 - RF1 Pulse */
-  {  (int *)&pw_rf1,
-     (float *)&a_rf1, 
-     SAR_ABS_SINC1,
-     SAR_PSINC1,
-     SAR_ASINC1,
-     SAR_DTYCYC_SINC1,
-     SAR_MAXPW_SINC1,
-     1,
-     MAX_B1_SINC1_90,
-     MAX_INT_B1_SQ_SINC1_90,
-     MAX_RMS_B1_SINC1_90,
-     90.0,
-     &flip_rf1,
-     3200.0,
-     1250.0,
-     PSD_APS2_ON + PSD_MPS2_ON + PSD_SCAN_ON,
-     0,
-     0,
-     1.0,
-     (int *)&res_rf1,
-     0,
-     (int *)&wg_rf1,
-     1
-  },
-
-  /* RFPULSE 1 - RF2 Pulse */
-  {  (int *)&pw_rf2,
-     (float *)&a_rf2, 
-     SAR_ABS_SINC1,
-     SAR_PSINC1,
-     SAR_ASINC1,
-     SAR_DTYCYC_SINC1,
-     SAR_MAXPW_SINC1,
-     1,
-     MAX_B1_SINC1_180,
-     MAX_INT_B1_SQ_SINC1_90,
-     MAX_RMS_B1_SINC1_90,
-     90.0,
-     &flip_rf2,
-     3200.0,
-     1250.0,
-     PSD_APS2_ON + PSD_MPS2_ON + PSD_SCAN_ON,
-     0,
-     0,
-     1.0,
-     (int *)&res_rf2,
-     0,
-     (int *)&wg_rf2,
-     1
-  },
-
 #include "rf_Prescan.h"
 };
 
