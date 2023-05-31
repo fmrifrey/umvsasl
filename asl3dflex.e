@@ -54,7 +54,7 @@
 #define MAXNECHOES 50 /* Maximum number of echoes per echo train */
 #define MAXNFRAMES 1000 /* Maximum number of temporal frames */
 #define MAXITR 50 /* Maximum number of iterations for iterative processes */
-#define GAMMA 26754 /* Gyromagnetic ratio */
+#define GAMMA 26754 /* Gyromagnetic ratio (rad/s/G) */
 #define TIMESSI 400 /* SSP instruction time */
 
 @inline Prescan.e PSglobal
@@ -160,6 +160,10 @@ int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based o
 int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
+float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
+float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
+float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
+
 /* FSE cvs */
 int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
@@ -179,8 +183,6 @@ float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
 float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
-float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
-float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
 /* ASL prep pulse cvs */
@@ -275,6 +277,35 @@ int readprep(int id, int *len,
 int readschedule(int id, int* var, char* varname, int lines);
 int gentadjusttbl();
 int genlbltbl(int mod, int* lbltbl);
+
+/* Define function for calculating max B1 of a sinc pulse */
+float calc_sinc_B1(int cyc_rf, int pw_rf, float flip_rf) {
+
+	int M = 1001;
+	int n;
+	float w[M], x[M];
+	float area = 0.0;
+
+	/* Create an M-point symmetrical Hamming window */
+	for (n = 0; n < M; n++)
+		w[n] = 0.54 - 0.46*cos( 2*M_PI*n / (M-1) );
+	
+	/* Create a sinc pulse */
+	for (n = -(M-1)/2; n < (M-1)/2; n++) {
+		if (n == 0)
+			x[n + (M-1)/2] = 1.0;
+		else
+			x[n + (M-1)/2] = sin( 2 * M_PI * (cyc_rf + 1) * n / (M-1) ) / ( 2 * M_PI * (cyc_rf + 1) * n / (M-1) );
+	}
+	
+	/* Calculate the area (abswidth) */
+	for (n = 0; n < M; n++) {
+		area += x[n] * w[n] / M;
+	}
+
+	/* Return the B1 (derived from eq. 1 on page 2-31 in EPIC manual) */
+	return (SAR_ASINC1/area * 3200/pw_rf * flip_rf/90.0 * MAX_B1_SINC1_90);
+}
 
 /* Import functions from spreadout.h and aslprep.h (using @inline instead of #include since
  * functions reference global variables in those files)
@@ -815,10 +846,6 @@ STATUS predownload( void )
 	a_fatsatgrad = 2.0;
 
 	/* Set the parameters for the spin echo tipdown pulse */
-	thk_rf1 = opslthick*opslquant;
-	res_rf1 = 1600;
-	pw_rf1 = 3200;
-	flip_rf1 = opflip;
 	pw_gzrf1 = pw_rf1;
 	pw_gzrf1a = trap_ramp_time;
 	pw_gzrf1d = trap_ramp_time;
@@ -836,10 +863,6 @@ STATUS predownload( void )
 	pw_gzrf2crush1d = trap_ramp_time;
 
 	/* Set the parameters for the refocuser pulse */
-	thk_rf2 = opslthick*opslquant;
-	res_rf2 = 1600;
-	pw_rf2 = 3200;
-	flip_rf2 = opflip2;
 	pw_gzrf2 = pw_rf2;
 	pw_gzrf2a = trap_ramp_time;
 	pw_gzrf2d = trap_ramp_time;
@@ -893,7 +916,6 @@ STATUS predownload( void )
 	pw_blksatgradd = trap_ramp_time;	
 
 	/* First, find the peak B1 for all entry points (other than L_SCAN) */
-	maxB1Seq = 0.0;
 	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
 	{
 		if( peakB1( &maxB1[entry], entry, RF_FREE, rfpulse ) == FAILURE )
@@ -905,35 +927,36 @@ STATUS predownload( void )
 	}
 
 	/* Determine max B1 for the rest of the pulses in L_SCAN */
-	rf1_b1 = MAX_B1_SINC1_90 * opflip/90.0 * 3200/pw_rf1;
+	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, opflip);
+	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
 
-	rf2_b1 = MAX_B1_SINC1_180 * opflip2/180.0 * 3200/pw_rf2;
+	rf2_b1 = calc_sinc_B1(cyc_rf2, pw_rf2, opflip2);
+	fprintf(stderr, "predownload(): maximum B1 for rf2 pulse: %f\n", rf2_b1);
 	if (rf2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf2_b1;
 
-	blksat_b1 = 0.0; /* TBD */
+	blksat_b1 = 0.03867; /* nominal max b1 of sech_7360 pulse */
+	fprintf(stderr, "predownload(): maximum B1 for blksat pulse: %f\n", blksat_b1);
 	if (blksat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = blksat_b1;
 	
 	bkgsup_b1 = 0.03867; /* nominal max b1 of sech_7360 pulse */
+	fprintf(stderr, "predownload(): maximum B1 for bkgsup pulse: %f\n", bkgsup_b1);
 	if (bkgsup_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = bkgsup_b1;
 	
-	fatsat_b1 = 0.03867; /* nominal max b1 of sech_7460 pulse */
+	fatsat_b1 = calc_sinc_B1(cyc_fatsatrf, pw_fatsatrf, 90.0);
+	fprintf(stderr, "predownload(): maximum B1 for fatsat pulse: %f\n", fatsat_b1);
 	if (fatsat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = fatsat_b1;
 	
 	prep1_b1 = (prep1_id > 0) ? (prep1_rfmax*1e-3) : (0);
+	fprintf(stderr, "predownload(): maximum B1 for prep1 pulse: %f\n", prep1_b1);
 	if (prep1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep1_b1;
 
 	prep2_b1 = (prep2_id > 0) ? (prep2_rfmax*1e-3) : (0);
+	fprintf(stderr, "predownload(): maximum B1 for prep2 pulse: %f\n", prep2_b1);
 	if (prep2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep2_b1;
 
 	/* Determine peak B1 across all entry points */
-	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
-	{	
-		if( maxB1[entry] > maxB1Seq )
-		{
-			maxB1Seq = maxB1[entry];
-		}
-	}
+	maxB1Seq = RFMAX * 1e-3;
 
 	/* Set xmtadd according to maximum B1 and rescale for powermon,
 	   adding additional (audio) scaling if xmtadd is too big.
@@ -1053,10 +1076,6 @@ STATUS predownload( void )
 	   filter selection - LxMGD, RJF */
 	setfilter( echo1_filt, SCAN );
 	filter_echo1 = echo1_filt->fslot;
-
-	ia_rf1 = (int)(max_pg_iamp * a_rf1);
-	ia_rf2 = (int)(max_pg_iamp * a_rf2);
-	ia_fatsatrf = (int)(a_fatsatrf * (float)max_pg_iamp);
 	entry_point_table[L_SCAN].epxmtadd = (short)rint( (double)xmtaddScan );
 
 	/* APS2 & MPS2 */
@@ -1309,7 +1328,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	SLICESELZ(rf1, trap_ramp_time, 3200, opslthick*opslquant, 90, , 1, loggrd);
+	SLICESELZ(rf1, trap_ramp_time, 6400, opslthick*opslquant, 90.0, 4, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
@@ -1335,7 +1354,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
-	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, opslthick*opslquant, opflip, 1, 1, loggrd);
+	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, 1.2*opslthick*opslquant, 180.0, 2, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2a, "gzrf2a", 0), pend( &gzrf2d, "gzrf2d", 0));
 	fprintf(stderr, "\tDone.\n");	
 
@@ -1472,7 +1491,9 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
 
 /* Transmit & receive frequencies */
 int *rf1_freq;
-int xmitfreq;
+int *rf2_freq;
+int xmitfreq1;
+int xmitfreq2;
 int *receive_freq1;
 int recfreq;
 
@@ -1516,14 +1537,20 @@ STATUS scancore( void )
 
 	/* Set transmit frequency and phase */
 	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
+	rf2_freq = (int *) AllocNode(opslquant*sizeof(int));
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
-	if (opslquant == 1)
-		xmitfreq = (int) rf1_freq[0];
-	else
-		xmitfreq = (int)((rf1_freq[0] + rf1_freq[opslquant-1]) / 2);
-	setfrequency(xmitfreq, &rf1, 0);
+	setupslices(rf2_freq, rsp_info, opslquant, a_gzrf2, 1.0, opfov, TYPTRANSMIT);
+	if (opslquant == 1) {
+		xmitfreq1 = (int) rf1_freq[0];
+		xmitfreq2 = (int) rf2_freq[0];
+	}
+	else {
+		xmitfreq1 = (int)((rf1_freq[0] + rf1_freq[opslquant-1]) / 2);
+		xmitfreq2 = (int)((rf2_freq[0] + rf2_freq[opslquant-1]) / 2);
+	}
+	setfrequency(xmitfreq1, &rf1, 0);
 	setphase(phs_rf1, &rf1, 0);
-	setfrequency(xmitfreq, &rf2, 0);
+	setfrequency(xmitfreq2, &rf2, 0);
 	setphase(phs_rf2, &rf2, 0);
 
 	/* Set receiver frequency and phase */
