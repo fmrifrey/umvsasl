@@ -133,6 +133,11 @@ int prep2_tbgs2tbl[MAXNFRAMES];
 int tadjusttbl[MAXNFRAMES];
 int doblksattbl[MAXNFRAMES];
 
+/* Declare receiver and Tx frequencies */
+float recfreq;
+float xmitfreq1;
+float xmitfreq2;
+
 @cv
 /*********************************************************************
  *                     ASL3DFLEX.E CV SECTION                        *
@@ -173,6 +178,7 @@ int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
 float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
+float rf2_slabfrac = 1.4 with {0.0, , 1.4, VIS, "Ratio of slab refocuser width to slab excitation width",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -194,7 +200,7 @@ int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)"
 int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
 int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
 float prep1_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 1: maximum RF amplitude",};
-float prep1_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
+float prep1_gmax = 1.5 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
 int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep1_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 1st background suppression delay (0 = no pulse)",};
 int prep1_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 2nd background suppression delay (0 = no pulse)",};
@@ -611,10 +617,11 @@ STATUS cvcheck( void )
 STATUS predownload( void )
 {
 	FILE* finfo;
-	int framen, echon;
+	int framen, echon, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
 	float prep1_b1, prep2_b1;
+	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
 
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
@@ -1083,6 +1090,22 @@ STATUS predownload( void )
 	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
 	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
 
+	/* Set up Tx/Rx frequencies */
+	for (slice = 0; slice < opslquant; slice++) rsp_info[slice].rsprloc = 0;
+	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
+	setupslices(rf2_freq, rsp_info, opslquant, a_gzrf2, 1.0, opfov, TYPTRANSMIT);
+	setupslices(receive_freq, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
+
+	/* Average together all slice frequencies */
+	xmitfreq1 = 0;
+	xmitfreq2 = 0;
+	recfreq = 0;	
+	for (slice = 0; slice < opslquant; slice++) {
+		xmitfreq1 += (float)rf1_freq[slice] / (float)opslquant;
+		xmitfreq2 += (float)rf2_freq[slice] / (float)opslquant;
+		recfreq += (float)receive_freq[slice] / (float)opslquant;
+	}
+
 	if( orderslice( TYPNCAT, (int)nechoes, (int)nechoes, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
@@ -1225,7 +1248,6 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 
-
 	/*********************************/
 	/* Generate bulk saturation core */
 	/*********************************/	
@@ -1244,13 +1266,13 @@ STATUS pulsegen( void )
 	/* Generate prep1 label core */
 	/*****************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of prep1 label core (prep1lblcore)\n");
-	INTWAVE(RHO, prep1rholbl, psd_rf_wait, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_rho_lbl, 1, loggrd); 
-	INTWAVE(THETA, prep1thetalbl, psd_rf_wait, 1.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_theta_lbl, 1, loggrd); 
+	INTWAVE(RHO, prep1rholbl, 48 + psd_rf_wait, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_rho_lbl, 1, loggrd); 
+	INTWAVE(THETA, prep1thetalbl, 48 + psd_rf_wait, 1.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_theta_lbl, 1, loggrd); 
 	INTWAVE(ZGRAD, prep1gradlbl, 0, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_grad_lbl, 1, loggrd); 
 
 	fprintf(stderr, "pulsegen(): finalizing prep1 label core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_prep1core);
-	SEQLENGTH(prep1lblcore, dur_prep1core, prep1lblcore);
+	SEQLENGTH(prep1lblcore, dur_prep1core + 48, prep1lblcore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -1328,7 +1350,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	SLICESELZ(rf1, trap_ramp_time, 6400, opslthick*opslquant, 90.0, 4, 1, loggrd);
+	SLICESELZ(rf1, trap_ramp_time, 6400, rf2_slabfrac * (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
@@ -1489,14 +1511,6 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
    lines before the line above.  The code inline'd from Prescan.e
    adds more entry points and closes the list. */
 
-/* Transmit & receive frequencies */
-int *rf1_freq;
-int *rf2_freq;
-int xmitfreq1;
-int xmitfreq2;
-int *receive_freq1;
-int recfreq;
-
 /* Initial transformation matrix */
 long tmtx0[9];
 
@@ -1536,32 +1550,12 @@ STATUS scancore( void )
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrf, 0);
 
 	/* Set transmit frequency and phase */
-	rf1_freq = (int *) AllocNode(opslquant*sizeof(int));
-	rf2_freq = (int *) AllocNode(opslquant*sizeof(int));
-	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
-	setupslices(rf2_freq, rsp_info, opslquant, a_gzrf2, 1.0, opfov, TYPTRANSMIT);
-	if (opslquant == 1) {
-		xmitfreq1 = (int) rf1_freq[0];
-		xmitfreq2 = (int) rf2_freq[0];
-	}
-	else {
-		xmitfreq1 = (int)((rf1_freq[0] + rf1_freq[opslquant-1]) / 2);
-		xmitfreq2 = (int)((rf2_freq[0] + rf2_freq[opslquant-1]) / 2);
-	}
-	setfrequency(xmitfreq1, &rf1, 0);
+	setfrequency((int)xmitfreq1, &rf1, 0);
 	setphase(phs_rf1, &rf1, 0);
-	setfrequency(xmitfreq2, &rf2, 0);
+	setfrequency((int)xmitfreq2, &rf2, 0);
 	setphase(phs_rf2, &rf2, 0);
 
-	/* Set receiver frequency and phase */
-	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
-	for (slice = 0; slice < opslquant; slice++) rsp_info[slice].rsprloc = 0;
-	setupslices(receive_freq1, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
-	if (opslquant == 1)
-		recfreq = (int) receive_freq1[0];
-	else
-		recfreq = (int)((receive_freq1[0] + receive_freq1[opslquant-1]) / 2);
-	setfrequency(recfreq, &echo1, 0);
+	setfrequency((int)recfreq, &echo1, 0);
 	setphase(0.0, &echo1, 0);
 
 	if (rspent != L_SCAN || kill_grads) {
