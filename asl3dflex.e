@@ -1266,13 +1266,13 @@ STATUS pulsegen( void )
 	/* Generate prep1 label core */
 	/*****************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of prep1 label core (prep1lblcore)\n");
-	INTWAVE(RHO, prep1rholbl, 48 + psd_rf_wait, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_rho_lbl, 1, loggrd); 
-	INTWAVE(THETA, prep1thetalbl, 48 + psd_rf_wait, 1.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_theta_lbl, 1, loggrd); 
+	INTWAVE(RHO, prep1rholbl, psd_rf_wait, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_rho_lbl, 1, loggrd); 
+	INTWAVE(THETA, prep1thetalbl, psd_rf_wait, 1.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_theta_lbl, 1, loggrd); 
 	INTWAVE(ZGRAD, prep1gradlbl, 0, 0.0, prep1_len, GRAD_UPDATE_TIME*prep1_len, prep1_grad_lbl, 1, loggrd); 
 
 	fprintf(stderr, "pulsegen(): finalizing prep1 label core...\n");
 	fprintf(stderr, "\ttotal time: %dus\n", dur_prep1core);
-	SEQLENGTH(prep1lblcore, dur_prep1core + 48, prep1lblcore);
+	SEQLENGTH(prep1lblcore, dur_prep1core, prep1lblcore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -1335,7 +1335,7 @@ STATUS pulsegen( void )
 	/* Generate fat saturation pulse */
 	/*********************************/
 	fprintf(stderr, "pulsegen(): beginning pulse generation of fat sat core (fatsatcore)\n");	
-	SINC2(RHO, fatsatrf, psd_rf_wait, 1000, 1.0, ,0.5, , , loggrd);  
+	SINC2(RHO, fatsatrf, psd_rf_wait, 3200, 1.0, ,0.5, , , loggrd);  
 	TRAPEZOID(ZGRAD, fatsatgrad, pend(&fatsatrf, "fatsatrf", 0) + grad_buff_time + trap_ramp_time, GRAD_UPDATE_TIME*1000, 0, loggrd);
 
 	fprintf(stderr, "pulsegen(): finalizing fat saturation core...\n");
@@ -1836,7 +1836,9 @@ STATUS scancore( void )
 
 				/* Reset the rotation matrix */
 				setrotate(tmtx0, echon);
-			
+
+				if (dophasecycle)
+					setiphase((int)pow(-1,echon)*FS_PI/2, &echo1, 0);
 			}
 
 			/* Reset the 180 amplitude to its absolute value */
