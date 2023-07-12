@@ -174,10 +174,11 @@ int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
 float phs_rf1 = 0.0 with { , , 0.0, VIS, "Transmitter phase for rf1 pulse",};
 float phs_rf2 = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for rf2 pulse",};
+float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
 int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
 float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
-int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
+int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do refocuser phase cycling (180, -180, 180...)",};
 float rf2_slabfrac = 1.4 with {0.0, , 1.4, VIS, "Ratio of slab refocuser width to slab excitation width",};
 
 /* Trajectory cvs */
@@ -285,7 +286,7 @@ int gentadjusttbl();
 int genlbltbl(int mod, int* lbltbl);
 
 /* Define function for calculating max B1 of a sinc pulse */
-float calc_sinc_B1(int cyc_rf, int pw_rf, float flip_rf) {
+float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 
 	int M = 1001;
 	int n;
@@ -301,7 +302,7 @@ float calc_sinc_B1(int cyc_rf, int pw_rf, float flip_rf) {
 		if (n == 0)
 			x[n + (M-1)/2] = 1.0;
 		else
-			x[n + (M-1)/2] = sin( 2 * M_PI * (cyc_rf + 1) * n / (M-1) ) / ( 2 * M_PI * (cyc_rf + 1) * n / (M-1) );
+			x[n + (M-1)/2] = sin( 4 * M_PI * cyc_rf * n / (M-1) ) / ( 4 * M_PI * cyc_rf * n / (M-1) );
 	}
 	
 	/* Calculate the area (abswidth) */
@@ -1198,7 +1199,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf1 pulse (rad):", phs_rf1);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf2 pulse (rad):", phs_rf2);
-	fprintf(finfo, "\t%-50s%20d\n", "CPMG phase cycling (on/off):", dophasecycle);
+	fprintf(finfo, "\t%-50s%20d\n", "Refocuser/receievr phase cycling (on/off):", dophasecycle);
 	fprintf(finfo, "\t%-50s%20d\n", "Pulse-acq (SPULS) testing (on/off):", doSPULS);
 	
 	fprintf(finfo, "\nASL PREP INFO:\n");
@@ -1554,9 +1555,8 @@ STATUS scancore( void )
 	setphase(phs_rf1, &rf1, 0);
 	setfrequency((int)xmitfreq2, &rf2, 0);
 	setphase(phs_rf2, &rf2, 0);
-
 	setfrequency((int)recfreq, &echo1, 0);
-	setphase(0.0, &echo1, 0);
+	setphase(phs_rx, &echo1, 0);
 
 	if (rspent != L_SCAN || kill_grads) {
 		/* Turn off the gradients */
@@ -1836,9 +1836,6 @@ STATUS scancore( void )
 
 				/* Reset the rotation matrix */
 				setrotate(tmtx0, echon);
-
-				if (dophasecycle)
-					setiphase((int)pow(-1,echon)*FS_PI/2, &echo1, 0);
 			}
 
 			/* Reset the 180 amplitude to its absolute value */
