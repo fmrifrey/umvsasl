@@ -1749,6 +1749,14 @@ STATUS scancore( void )
 			/* Set rf1 transmit frequency and phase */
 			setfrequency((int)xmitfreq1, &rf1, 0);
 			setphase(phs_rf1, &rf1, 0);
+
+			/* Set rf2 transmit frequency and phase */
+			setfrequency((int)xmitfreq2, &rf2, 0);
+			setphase(phs_rf2, &rf2, 0);
+
+			/* Set reciever frequency and phase */
+			setfrequency((int)recfreq, &echo1, 0);
+			setphase(phs_rx, &echo1, 0);
 			
 			/* Play tipdown core */
 			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
@@ -1762,12 +1770,6 @@ STATUS scancore( void )
 				/* Set the refocuser flip angle */
 				getiamp(&chopamp, &rf2, 0);
 				setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
-
-				/* Set rf1 transmit frequency and phase */
-				setfrequency((int)xmitfreq2, &rf2, 0);
-				setphase(phs_rf2, &rf2, 0);
-				setfrequency((int)recfreq, &echo1, 0);
-				setphase(phs_rx, &echo1, 0);
 				
 				/* Play the refocuser core */
 				fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);

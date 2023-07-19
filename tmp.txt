@@ -1,0 +1,877 @@
+diff --git a/asl3dflex.e b/asl3dflex.e
+index a9ac989..5b4be30 100644
+--- a/asl3dflex.e
++++ b/asl3dflex.e
+@@ -54,7 +54,7 @@
+ #define MAXNECHOES 50 /* Maximum number of echoes per echo train */
+ #define MAXNFRAMES 1000 /* Maximum number of temporal frames */
+ #define MAXITR 50 /* Maximum number of iterations for iterative processes */
+-#define GAMMA 26754 /* Gyromagnetic ratio */
++#define GAMMA 26754 /* Gyromagnetic ratio (rad/s/G) */
+ #define TIMESSI 400 /* SSP instruction time */
+ 
+ @inline Prescan.e PSglobal
+@@ -86,7 +86,6 @@ float ZGRAD_max;
+ float RHO_max;
+ float THETA_max;
+ 
+-
+ /* Declare readout gradient waveform arrays */
+ int Gx[MAXWAVELEN];
+ int Gy[MAXWAVELEN];
+@@ -96,6 +95,9 @@ int grad_len = 5000;
+ /* Declare table of readout gradient transformation matrices */
+ long tmtxtbl[MAXNTRAINS*MAXNECHOES][9];
+ 
++/* Declare table of refocuser flip angles */
++float rf2factbl[MAXNECHOES];
++
+ /* Declare ASL prep waveform arrays */
+ int prep1_rho_lbl[MAXWAVELEN];
+ int prep1_theta_lbl[MAXWAVELEN];
+@@ -131,6 +133,11 @@ int prep2_tbgs2tbl[MAXNFRAMES];
+ int tadjusttbl[MAXNFRAMES];
+ int doblksattbl[MAXNFRAMES];
+ 
++/* Declare receiver and Tx frequencies */
++float recfreq;
++float xmitfreq1;
++float xmitfreq2;
++
+ @cv
+ /*********************************************************************
+  *                     ASL3DFLEX.E CV SECTION                        *
+@@ -158,15 +165,20 @@ int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based o
+ int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
+ float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
+ 
++float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
++float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
++float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
++
+ /* FSE cvs */
+ int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
+ int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
+-int dolongrf180 = 0 with {0, 1, 0, VIS, "Option to do long (4 cycle, 6400ms rf pulses)",};
+-int dophasecycle = 1 with {0, 1, 0, VIS, "Option to do CPMG phase cycling (180, -180, 180...)",};
+-int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
+-float opflip2 = 120.0 with {0.0, 180.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
++float phs_rf1 = 0.0 with { , , 0.0, VIS, "Transmitter phase for rf1 pulse",};
++float phs_rf2 = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for rf2 pulse",};
++float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
++float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
+ float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
+-float slabfac = 1.5 with {0.5, 3, 1.2, VIS, "slab width factor for refocuser pulse (1.2=thickness is 20% greater in the refocuser)",};
++int phscyc_rf2 = 0 with {0, 1, 0, VIS, "Option to do refocuser phase cycling (opflip2, -opflip2, opflip2...)",};
++float rf2_slabfrac = 1.4 with {0.0, , 1.4, VIS, "Ratio of slab refocuser width to slab excitation width",};
+ 
+ /* Trajectory cvs */
+ int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
+@@ -177,8 +189,6 @@ float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
+ float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
+ int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
+ int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
+-float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
+-float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
+ int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
+ 
+ /* ASL prep pulse cvs */
+@@ -215,21 +225,6 @@ int dur_refocuscore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)"
+ int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
+ int readpos = 0 with {0, , 0, INVIS, "Position of readout within seqcore (us)",};
+ 
+-/* define phase of the refocuser pulses for CPMG */
+-int doCPMG = 0;
+-int rx_phase = FS_PI/2;
+-/*float phs_rf2 =  0.0; */
+-int rf2_phase = 0;
+-
+-float mymaxB1Seq;
+-int cycrf1 = 4; /* if rf3d pulse: it how many lobes? Looks like 9 */
+-int cycrf2 = 2;
+-
+-int xmitfreq1;
+-int xmitfreq2;
+-int recfreq;
+-
+-
+ @host
+ /*********************************************************************
+  *                    ASL3DFLEX.E HOST SECTION                       *
+@@ -289,6 +284,35 @@ int readschedule(int id, int* var, char* varname, int lines);
+ int gentadjusttbl();
+ int genlbltbl(int mod, int* lbltbl);
+ 
++/* Define function for calculating max B1 of a sinc pulse */
++float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
++
++	int M = 1001;
++	int n;
++	float w[M], x[M];
++	float area = 0.0;
++
++	/* Create an M-point symmetrical Hamming window */
++	for (n = 0; n < M; n++)
++		w[n] = 0.54 - 0.46*cos( 2*M_PI*n / (M-1) );
++	
++	/* Create a sinc pulse */
++	for (n = -(M-1)/2; n < (M-1)/2; n++) {
++		if (n == 0)
++			x[n + (M-1)/2] = 1.0;
++		else
++			x[n + (M-1)/2] = sin( 4 * M_PI * cyc_rf * n / (M-1) ) / ( 4 * M_PI * cyc_rf * n / (M-1) );
++	}
++	
++	/* Calculate the area (abswidth) */
++	for (n = 0; n < M; n++) {
++		area += x[n] * w[n] / M;
++	}
++
++	/* Return the B1 (derived from eq. 1 on page 2-31 in EPIC manual) */
++	return (SAR_ASINC1/area * 3200/pw_rf * flip_rf/90.0 * MAX_B1_SINC1_90);
++}
++
+ /* Import functions from spreadout.h and aslprep.h (using @inline instead of #include since
+  * functions reference global variables in those files)
+  */
+@@ -593,8 +617,12 @@ STATUS cvcheck( void )
+ STATUS predownload( void )
+ {
+ 	FILE* finfo;
+-	int framen;
+-	float RFxtra = 1.0;
++	int framen, echon, slice;
++	float rf1_b1, rf2_b1;
++	float fatsat_b1, blksat_b1, bkgsup_b1;
++	float prep1_b1, prep2_b1;
++	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
++
+ 	/*********************************************************************/
+ #include "predownload.in"	/* include 'canned' predownload code */
+ 	/*********************************************************************/
+@@ -623,6 +651,27 @@ STATUS predownload( void )
+ 		return FAILURE;
+ 	}
+ 
++	/* Read in refocuser flip angle schedule */
++	sprintf(tmpstr, "rf2factbl");
++	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
++	switch (readschedulef(schedule_id, rf2factbl, tmpstr, nechoes)) {
++		case 0:
++			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
++			for (echon = 0; echon < nechoes; echon++) {
++				if (phscyc_rf2 && echon > 1)
++					rf2factbl[echon] = varflipfac + floor((float)echon/2.0 - 1.0) / floor((float)nechoes/2.0 - 1.0) * (1.0 - varflipfac);	
++				else if (!phscyc_rf2 && echon > 0)
++					rf2factbl[echon] = varflipfac + (float)(echon - 1) / (float)(nechoes - 1) * (1.0 - varflipfac);
++				else
++					rf2factbl[echon] = 1.0;
++				rf2factbl[echon] *= (phscyc_rf2) ? pow(-1,echon) : 1;
++			}
++			
++			break;
++		case -1:
++			return FAILURE;
++	}
++
+ 	/* Read in prep1_id (scalar) */
+ 	sprintf(tmpstr, "prep1_id");
+ 	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+@@ -748,32 +797,6 @@ STATUS predownload( void )
+ 			return FAILURE;
+ 	}
+ 
+-	/* Read in tadjusttbl schedule */
+-	sprintf(tmpstr, "tadjusttbl");
+-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+-	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
+-		case 0:
+-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+-			for (framen = 0; framen < nframes; framen++) {
+-				avmintr = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+-				avmintr += dur_fatsatcore;
+-				avmintr += dur_blksatcore;
+-				if (prep1_id > 0)
+-					avmintr += dur_prep1core + prep1_pldtbl[framen];
+-				if (prep2_id > 0)
+-					avmintr += dur_prep2core + prep2_pldtbl[framen];
+-				if (optr < avmintr) {
+-					epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
+-					return FAILURE;
+-				}
+-				else
+-					tadjusttbl[framen] = optr - avmintr;
+-			}
+-			break;
+-		case -1:
+-			return FAILURE;
+-	}
+-
+ 	/* Read in asl prep pulses */
+ 	fprintf(stderr, "predownload(): calling readprep() to read in ASL prep 1 pulse\n");
+ 	if (readprep(prep1_id, &prep1_len,
+@@ -792,22 +815,6 @@ STATUS predownload( void )
+ 		epic_error(use_ermes,"failure to read in ASL prep 2 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+ 		return FAILURE;
+ 	}
+-
+-	/* Determine total scan time */
+-	pidmode = PSD_CLOCK_NORM;
+-	pitslice = optr;
+-	pitscan = 0;
+-	for (framen  = 0; framen < nframes; framen++) {
+-		pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+-		pitscan += dur_fatsatcore;
+-		pitscan += dur_blksatcore;
+-		if (prep1_id > 0)
+-			pitscan += dur_prep1core + prep1_pldtbl[framen];
+-		if (prep2_id > 0)
+-			pitscan += dur_prep2core + prep2_pldtbl[framen];
+-		pitscan += tadjusttbl[framen];
+-	}
+-	pitscan *= ntrains;
+ 	
+ 	
+ @inline Prescan.e PSfilter
+@@ -837,38 +844,16 @@ STATUS predownload( void )
+ 	entry_point_table[L_MPS2].epfilter = (unsigned char)echo1_filt->fslot;
+ 	entry_point_table[L_MPS2].epprexres = grad_len;
+ 
+-	/* Turn on RF2 pulse */
+-	/*
+-	rfpulse[RF1_SLOT].activity = PSD_APS2_ON + PSD_MPS2_ON + PSD_SCAN_ON;
+-	rfpulse[RF2_SLOT].activity = PSD_APS2_ON + PSD_MPS2_ON + PSD_SCAN_ON;
+-	*/
+-
+ 	/* Set the parameters for the fat sat pulse */
+-	pw_fatsatrf = 3200;
++	a_fatsatrf = 0.5 * 440 / 1250;
++	pw_fatsatrf = 4 * round(cyc_fatsatrf*1e6 / 440);
+ 	res_fatsatrf = pw_fatsatrf / 2;	
+ 	pw_fatsatgrad = 3000;
+ 	pw_fatsatgrada = trap_ramp_time;
+ 	pw_fatsatgradd = trap_ramp_time;
+ 	a_fatsatgrad = 2.0;
+ 
+-	/* Set the duration of the fat sat core */
+-	dur_fatsatcore = pw_fatsatrf + 2*trap_ramp_time + 2*grad_buff_time + pw_fatsatgrad;
+-
+-	/* use these for the min phase pulse */
+-	res_rf1 = 500;
+-	res_rf1 = 400;
+-	pw_rf1 = 6400;
+-	//pw_rf1 = 3200;
+-	a_rf1 = 0.5;
+-
+-	flip_rf1 = opflip;
+-	/* we can let the 90 be a long pulse regardless */
+-	if (0) {
+-		res_rf1 *= 2;
+-		pw_rf1 *= 2;
+-		cyc_rf1 *= 2;
+-		a_rf1 /= 2;
+-	}
++	/* Set the parameters for the spin echo tipdown pulse */
+ 	pw_gzrf1 = pw_rf1;
+ 	pw_gzrf1a = trap_ramp_time;
+ 	pw_gzrf1d = trap_ramp_time;
+@@ -878,7 +863,7 @@ STATUS predownload( void )
+ 	pw_gzrf1ra = trap_ramp_time;
+ 	pw_gzrf1rd = trap_ramp_time;
+ 	a_gzrf1r = -0.5*a_gzrf1 * (pw_gzrf1 + pw_gzrf1a) / (pw_gzrf1r + pw_gzrf1ra);
+-	
++
+ 	/* Set the parameters for the pre-refocuser crusher */
+ 	a_gzrf2crush1 = 1.5;
+ 	pw_gzrf2crush1 = 100;
+@@ -886,123 +871,10 @@ STATUS predownload( void )
+ 	pw_gzrf2crush1d = trap_ramp_time;
+ 
+ 	/* Set the parameters for the refocuser pulse */
+-	a_rf2 = opflip2/180.0; 
+-	thk_rf2 = opslthick*opslquant;
+-	res_rf2 = 1600;
+-	pw_rf2 = 3200;
+-	flip_rf2 = opflip2;
+ 	pw_gzrf2 = pw_rf2;
+ 	pw_gzrf2a = trap_ramp_time;
+ 	pw_gzrf2d = trap_ramp_time;
+ 
+-	/*------------------------------------------------------------------------------*/
+-	/* Set the transmitter gain to accomodate the largest B1, and  
+-	Adjust the amplitudes of the RF pulses so that they are a fraction of maxB1 */
+-
+-	/* First, find the peak B1 for the whole sequence. */
+-	maxB1Seq = 0.0;
+-	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
+-	{
+-		if( peakB1( &maxB1[entry], entry, RF_FREE, rfpulse ) == FAILURE )
+-		{
+-			epic_error( use_ermes, "peakB1 failed.", EM_PSD_SUPPORT_FAILURE,
+-					EE_ARGS(1), STRING_ARG, "peakB1" );
+-			return FAILURE;
+-		}
+-	}	
+-
+-	// force the TG so that is can play UP TO 0.3G 
+-	mymaxB1Seq = 0.3; /* this is the desired maxB1Seq*/
+-	maxB1[L_SCAN] = mymaxB1Seq; 
+-
+-	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
+-	{
+-		
+-		if( maxB1[entry] > maxB1Seq )
+-		{
+-			maxB1Seq = maxB1[entry];
+-		}
+-	}
+-	fprintf(stderr, "\nmaxB1Seq BEFORE: %f", maxB1Seq);
+-
+-	/* Set xmtadd according to maximum B1 and rescale for powermon,
+-	   adding additional (audio) scaling if xmtadd is too big.
+-	   Add in coilatten, too. */
+-	
+-	/* setScale()  multiplies all the pulses by a scaling factor such that they are relative to 
+-	maxB1seq.  For example, At first, a 180 is usually coded to be a_rf2 = 1  - regardless of what the maxB1seq is.
+-	using the specified value for its  max. B1 and the maxB1Seq.  The specific desired max B1 value of a pulse is 
+-	calculated elsewhere and stored in the grad_rf_xxx.h file */
+-/*
+-	fprintf(stderr, "\nRF_FREE %d", RF_FREE);
+-	fprintf(stderr, "\nmaxB1Seq %f", maxB1Seq);
+-	fprintf(stderr,"\nAmplitudes BEFORE setScale():\n a_fatsatrf, rf1, rf2 are : %f , %f , %f \n", 
+-		a_fatsatrf, a_rf1, a_rf2);
+-
+-	if( setScale( L_SCAN, RF_FREE, rfpulse, maxB1[L_SCAN], 
+-				extraScale) == FAILURE )
+-	{
+-		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
+-				EE_ARGS(1), STRING_ARG, "setScale" );
+-		return FAILURE;
+-	}
+-	fprintf(stderr,"\nAmplitudes AFTER setScale():\n a_fatsatrf, rf1, rf2 are : %f , %f , %f \n", 
+-		a_fatsatrf, a_rf1, a_rf2);
+-*/
+-	/* Now we re-adjust the  TX gain to accommodate our labeling pulses */
+-	RFxtra = mymaxB1Seq / maxB1Seq;
+-	fprintf(stderr, "\nturning up maxB1Seq by factor of  %f", RFxtra);
+-
+-	xmtaddScan = -200 * log10( maxB1[L_SCAN] / mymaxB1Seq ) + getCoilAtten(); 
+-
+-	if( xmtaddScan > cfdbmax )
+-	{
+-		extraScale = (float)pow( 10.0, (cfdbmax - xmtaddScan) / 200.0 );
+-		xmtaddScan = cfdbmax;
+-	} 
+-	else
+-	{
+-		extraScale = 1.0;
+-	}
+-
+-	/* We have to adjust the other pulses' amplitudes again.
+-	amplitudes are from sar_pm.h and from the cal_rf_pulse_parms.m  program */
+-
+-	/* Max B1 for a 3.2ms sinc2 90 */
+-	// #define SAR_MAXB1_SINC2_90 0.1474
+-	a_fatsatrf = 0.1474 / mymaxB1Seq;  
+-
+-	// max (B1) = 0.5083G for rf3d.rho, gives area of 0.117G*ms if duration is 2ms 
+-	// adjusting for 90 degree over pw_rf1 (6400 us)
+-	// a_rf1 = 0.5083 * (opflip/180.0) * (2000.0/6400.0)/ mymaxB1Seq ;
+-
+-	// revert to the sinc pulse 
+-	/* notes for scaling the sinc pulse:  
+-	   - it's a sinc with a Hamming window.
+-	   - for a 3200 ms 90 deg pulse with:    
+-	   	cyc_rf = 1 -> 0.0732 G 
+-		cyc_rf = 2 -> 0.147 G
+-		cyc_rf = 3 -> 0.220 G 
+-		cyc_rf = 4 -> 0.294 G
+-	 */
+-	a_rf1 = 0.294 * (3200.0/pw_rf1) * (opflip/90) / mymaxB1Seq; // assumes cyc_rf=4, and pwrf1 = 6400 
+-
+-	a_rf2 = 0.147 * (3200.0/pw_rf2) * (opflip2/90) / mymaxB1Seq; //assumes cyc_rf=2, and pwrf1 = 3200  
+-
+-
+-	fprintf(stderr,"\nAmplitudes AFTER RFxtra are :\n a_fatsatrf, rf1, rf2 are : %f , %f , %f \n", 
+-		a_fatsatrf, a_rf1, a_rf2);
+-
+-
+-	/*------------------------------------------------------------------------------*/
+-
+-
+-	/* Set the length of the tipdown core */
+-	dur_tipdowncore = opte/2 + pw_rf1/2 - pw_rf2/2 - 2*grad_buff_time - 2*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
+-
+-	/* Set the duration of the refocuser core */
+-	dur_refocuscore = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*grad_buff_time + 6*trap_ramp_time;
+-
+ 	/* Set the parameters for the post-refocuser crusher */
+ 	a_gzrf2crush2 = a_gzrf2crush1;
+ 	pw_gzrf2crush2 = pw_gzrf2crush1;
+@@ -1023,51 +895,24 @@ STATUS predownload( void )
+ 	pw_gyw = GRAD_UPDATE_TIME*grad_len;
+ 	pw_gzw = GRAD_UPDATE_TIME*grad_len;
+ 
+-	/* Set the duration of the readout core */
+-	dur_seqcore = opte - pw_gzrf2 - 4*grad_buff_time - 6*trap_ramp_time - 2*pw_gzrf2crush1 - 2*TIMESSI;
+-	
+-	/* Calculate start of readout within seqcore */
+-	readpos = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
+-
+ 	/* Update the asl prep pulse parameters */
+-	/* Important note:  setScale has already happened, so we do this by hand! */
+-	a_prep1rholbl = prep1_rfmax / ((float)mymaxB1Seq * 1e3);
+-	ia_prep1rholbl = (int)ceil(a_prep1rholbl * (float)max_pg_iamp);
+-	a_prep1rhoctl = prep1_rfmax / ((float)mymaxB1Seq * 1e3);
+-	ia_prep1rhoctl = (int)ceil(a_prep1rhoctl * (float)max_pg_iamp);
+-	a_prep1gradlbl = prep1_gmax;
++	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
+ 	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)max_pg_iamp);
+-	a_prep1gradctl = prep1_gmax; 
++	a_prep1gradctl = (prep1_id > 0) ? (prep1_gmax) : (0); 
+ 	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)max_pg_iamp);
+-	
+-	/* Set duration of the prep1 core */
+-	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
+-	
+-	a_prep2rholbl = prep2_rfmax / ((float)mymaxB1Seq * 1e3);
+-	ia_prep2rholbl = (int)ceil(a_prep2rholbl * (float)max_pg_iamp);
+-	a_prep2rhoctl = prep2_rfmax / ((float)mymaxB1Seq * 1e3);
+-	ia_prep2rhoctl = (int)ceil(a_prep2rhoctl * (float)max_pg_iamp);
+-	a_prep2gradlbl = prep2_gmax;
++	a_prep2gradlbl = (prep2_id > 0) ? (prep2_gmax) : (0);
+ 	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)max_pg_iamp);
+-	a_prep2gradctl = prep2_gmax; 
++	a_prep2gradctl = (prep2_id > 0) ? (prep2_gmax) : (0); 
+ 	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)max_pg_iamp);
+-	
+-	/* Set duration of the prep1 core */
+-	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + 2*grad_buff_time;
+ 
+ 	/* Update the background suppression pulse parameters */
+-	a_bkgsuprho = 0.23 / mymaxB1Seq;   // usually 0.2Gauss is enough for a sech
+ 	res_bkgsuprho = 500;
+ 	pw_bkgsuprho = 5000;
+ 	a_bkgsuptheta = 1.0;
+ 	res_bkgsuptheta = res_bkgsuprho;
+ 	pw_bkgsuptheta = pw_bkgsuprho;
+-
+-	/* Set the duration of the background suppression core */
+-	dur_bkgsupcore = pw_bkgsuprho + psd_rf_wait + grad_buff_time;
+ 	
+ 	/* Update the bulk saturation pulse parameters */
+-	a_blksatrho = 0.23 / mymaxB1Seq;
+ 	res_blksatrho = res_bkgsuprho/2;
+ 	pw_blksatrho = pw_bkgsuprho/2;
+ 	a_blksattheta = 1.0;
+@@ -1077,33 +922,154 @@ STATUS predownload( void )
+ 	pw_blksatgrad = 500;
+ 	pw_blksatgrada = trap_ramp_time;
+ 	pw_blksatgradd = trap_ramp_time;	
++
++	/* First, find the peak B1 for all entry points (other than L_SCAN) */
++	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
++	{
++		if( peakB1( &maxB1[entry], entry, RF_FREE, rfpulse ) == FAILURE )
++		{
++			epic_error( use_ermes, "peakB1 failed.", EM_PSD_SUPPORT_FAILURE,
++					EE_ARGS(1), STRING_ARG, "peakB1" );
++			return FAILURE;
++		}
++	}
++
++	/* Determine max B1 for the rest of the pulses in L_SCAN */
++	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, opflip);
++	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
++	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
++
++	rf2_b1 = calc_sinc_B1(cyc_rf2, pw_rf2, opflip2);
++	fprintf(stderr, "predownload(): maximum B1 for rf2 pulse: %f\n", rf2_b1);
++	if (rf2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf2_b1;
++
++	blksat_b1 = 0.03867; /* nominal max b1 of sech_7360 pulse */
++	fprintf(stderr, "predownload(): maximum B1 for blksat pulse: %f\n", blksat_b1);
++	if (blksat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = blksat_b1;
+ 	
+-	/* Set the duration of the bulk saturation core */
+-	dur_blksatcore = pw_blksatrho + psd_rf_wait + pw_blksatgrad + 2*trap_ramp_time + 2*grad_buff_time;
++	bkgsup_b1 = 0.03867; /* nominal max b1 of sech_7360 pulse */
++	fprintf(stderr, "predownload(): maximum B1 for bkgsup pulse: %f\n", bkgsup_b1);
++	if (bkgsup_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = bkgsup_b1;
++	
++	fatsat_b1 = calc_sinc_B1(cyc_fatsatrf, pw_fatsatrf, 90.0);
++	fprintf(stderr, "predownload(): maximum B1 for fatsat pulse: %f\n", fatsat_b1);
++	if (fatsat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = fatsat_b1;
+ 	
+-	if (doSPULS)
+-	/* Force the sequence to be a simple SPULS (pulse and acquire) using rf2 */
++	prep1_b1 = (prep1_id > 0) ? (prep1_rfmax*1e-3) : (0);
++	fprintf(stderr, "predownload(): maximum B1 for prep1 pulse: %f\n", prep1_b1);
++	if (prep1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep1_b1;
++
++	prep2_b1 = (prep2_id > 0) ? (prep2_rfmax*1e-3) : (0);
++	fprintf(stderr, "predownload(): maximum B1 for prep2 pulse: %f\n", prep2_b1);
++	if (prep2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep2_b1;
++
++	/* Determine peak B1 across all entry points */
++	maxB1Seq = RFMAX * 1e-3;
++
++	/* Set xmtadd according to maximum B1 and rescale for powermon,
++	   adding additional (audio) scaling if xmtadd is too big.
++	   Add in coilatten, too. */
++	xmtaddScan = -200 * log10( maxB1[L_SCAN] / maxB1Seq ) + getCoilAtten(); 
++
++	if( xmtaddScan > cfdbmax )
+ 	{
+-		kill_grads = 1; /* No kspace encoding */
+-		readpos = 0; /* Set acquisition position to 0 */
+-		a_rf1 = 0; /* No tip down */
+-		a_fatsatrf = 0; /* No fat sat */
+-		a_gzrf2crush1 = 0; /* No crushers */
+-		a_gzrf2crush2 = 0;
+-		doblksat = 0; /* No bulk saturation */
+-		varflipfac = 1; /* No variable flip angle */
++		extraScale = (float)pow( 10.0, (cfdbmax - xmtaddScan) / 200.0 );
++		xmtaddScan = cfdbmax;
++	} 
++	else
++	{
++		extraScale = 1.0;
+ 	}
+ 
++	/* Update all the rf amplitudes */
++	a_rf1 = rf1_b1 / maxB1Seq;
++	ia_rf1 = a_rf1 * max_pg_iamp;
++
++	a_rf2 = rf2_b1 / maxB1Seq;
++	ia_rf2 = a_rf2 * max_pg_iamp;
++	
++	a_blksatrho = blksat_b1 / maxB1Seq;
++	ia_blksatrho = a_blksatrho * max_pg_iamp;
++	
++	a_bkgsuprho = bkgsup_b1 / maxB1Seq;
++	ia_bkgsuprho = a_bkgsuprho * max_pg_iamp;
++	
++	a_fatsatrf = fatsat_b1 / maxB1Seq;
++	ia_fatsatrf = a_fatsatrf * max_pg_iamp;
++	
++	a_prep1rholbl = prep1_b1 / maxB1Seq;
++	ia_prep1rholbl = a_prep1rholbl * max_pg_iamp;
++	
++	a_prep1rhoctl = prep1_b1 / maxB1Seq;
++	ia_prep1rhoctl = a_prep1rhoctl * max_pg_iamp;
++	
++	a_prep2rholbl = prep2_b1 / maxB1Seq;
++	ia_prep2rholbl = a_prep2rholbl * max_pg_iamp;
++	
++	a_prep2rhoctl = prep2_b1 / maxB1Seq;
++	ia_prep2rhoctl = a_prep2rhoctl * max_pg_iamp;
++	
++	/* Set the durations of each core */
++	dur_tipdowncore = opte/2 + pw_rf1/2 - pw_rf2/2 - 2*grad_buff_time - 2*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
++	dur_refocuscore = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*grad_buff_time + 6*trap_ramp_time;
++	dur_seqcore = opte - pw_gzrf2 - 4*grad_buff_time - 6*trap_ramp_time - 2*pw_gzrf2crush1 - 2*TIMESSI;
++	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
++	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + 2*grad_buff_time;
++	dur_bkgsupcore = pw_bkgsuprho + psd_rf_wait + grad_buff_time;
++	dur_blksatcore = pw_blksatrho + psd_rf_wait + pw_blksatgrad + 2*trap_ramp_time + 2*grad_buff_time;
++	dur_fatsatcore = pw_fatsatrf + 2*trap_ramp_time + 2*grad_buff_time + pw_fatsatgrad;
++
++	/* Read in tadjusttbl schedule */
++	sprintf(tmpstr, "tadjusttbl");
++	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
++	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
++		case 0:
++			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
++			for (framen = 0; framen < nframes; framen++) {
++				avmintr = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
++				avmintr += dur_fatsatcore;
++				avmintr += dur_blksatcore;
++				if (prep1_id > 0)
++					avmintr += dur_prep1core + prep1_pldtbl[framen];
++				if (prep2_id > 0)
++					avmintr += dur_prep2core + prep2_pldtbl[framen];
++				if (optr < avmintr) {
++					epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
++					return FAILURE;
++				}
++				else
++					tadjusttbl[framen] = optr - avmintr;
++			}
++			break;
++		case -1:
++			return FAILURE;
++	}
++
++	/* Determine total scan time */
++	pidmode = PSD_CLOCK_NORM;
++	pitslice = optr;
++	pitscan = 0;
++	for (framen  = 0; framen < nframes; framen++) {
++		pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
++		pitscan += dur_fatsatcore;
++		pitscan += dur_blksatcore;
++		if (prep1_id > 0)
++			pitscan += dur_prep1core + prep1_pldtbl[framen];
++		if (prep2_id > 0)
++			pitscan += dur_prep2core + prep2_pldtbl[framen];
++		pitscan += tadjusttbl[framen];
++	}
++	pitscan *= ntrains;
++	
++	/* Calculate start of readout within seqcore */
++	readpos = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
++	
+ 	/* Set up the filter structures to be downloaded for realtime 
+ 	   filter generation. Get the slot number of the filter in the filter rack 
+ 	   and assign to the appropriate acquisition pulse for the right 
+ 	   filter selection - LxMGD, RJF */
+ 	setfilter( echo1_filt, SCAN );
+ 	filter_echo1 = echo1_filt->fslot;
+-
+-	ia_rf1 = (int)(max_pg_iamp * a_rf1);
+-	ia_rf2 = (int)(max_pg_iamp * a_rf2);
+-	ia_fatsatrf = (int)(a_fatsatrf * (float)max_pg_iamp);
+ 	entry_point_table[L_SCAN].epxmtadd = (short)rint( (double)xmtaddScan );
+ 
+ 	/* APS2 & MPS2 */
+@@ -1111,42 +1077,21 @@ STATUS predownload( void )
+ 	(void)strcpy( entry_point_table[L_APS2].epname, "aps2" );
+ 	(void)strcpy( entry_point_table[L_MPS2].epname, "mps2" );
+ 
+-	//-------------------moved from scancore to here -------------------------
+-	/* Transmit & receive frequencies */
+-	int *rf1_freq;
+-	int *rf2_freq;
+-	int *receive_freq1;
+-	int slice;
+-	/* calc transmit frequency and phase */
+-	// "hack": Note that we use the slice-order dimension to store the individual echoes
+-	rf1_freq = (int *) AllocNode(nechoes*sizeof(int));
+-	rf2_freq = (int *) AllocNode(opslquant*sizeof(int));
+-	receive_freq1 = (int *) AllocNode(opslquant*sizeof(int));
+-
++	/* Set up Tx/Rx frequencies */
++	for (slice = 0; slice < opslquant; slice++) rsp_info[slice].rsprloc = 0;
+ 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
+ 	setupslices(rf2_freq, rsp_info, opslquant, a_gzrf2, 1.0, opfov, TYPTRANSMIT);
++	setupslices(receive_freq, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
+ 
+-	/* calc receiver frequency and phase */
+-	for (slice = 0; slice < opslquant; slice++) 
+-		rsp_info[slice].rsprloc = 0;
+-	setupslices(receive_freq1, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
+-
+-	/* for 3D, we will always xmit at the average frequency for all slices (ie - the celnter of the slab */
++	/* Average together all slice frequencies */
+ 	xmitfreq1 = 0;
+ 	xmitfreq2 = 0;
+-	recfreq = 0;
+-	fprintf(stderr, "\nFrequencies:");
+-	for (slice = 0; slice < opslquant; slice++){ 
+-		fprintf(stderr, "\nslice %d:\t	xmit_freq1= %d   xmit_freq2=%d  rec_freq= %d",
+-			slice, rf1_freq[slice], rf2_freq[slice], receive_freq1[slice] );
+-		xmitfreq1 += rf1_freq[slice];
+-		xmitfreq2 += rf2_freq[slice];
+-		recfreq += receive_freq1[slice];
++	recfreq = 0;	
++	for (slice = 0; slice < opslquant; slice++) {
++		xmitfreq1 += (float)rf1_freq[slice] / (float)opslquant;
++		xmitfreq2 += (float)rf2_freq[slice] / (float)opslquant;
++		recfreq += (float)receive_freq[slice] / (float)opslquant;
+ 	}
+-	xmitfreq1 = (int)(xmitfreq1/opslquant);
+-	xmitfreq2 = (int)(xmitfreq2/opslquant);
+-	recfreq = (int)(recfreq/opslquant);
+-	//----------------------------------------------------------------
+ 
+ 	if( orderslice( TYPNCAT, (int)nechoes, (int)nechoes, TRIG_INTERN ) == FAILURE )
+ 	{
+@@ -1238,9 +1183,10 @@ STATUS predownload( void )
+ 	fprintf(finfo, "\t%-50s%20f\n", "Tipdown flip angle (deg):", opflip);
+ 	fprintf(finfo, "\t%-50s%20f\n", "Refocuser flip angle (deg):", opflip2);
+ 	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
+-	fprintf(finfo, "\t%-50s%20d\n", "Long rf pulses (on/off):", dolongrf180);
+-	fprintf(finfo, "\t%-50s%20d\n", "CPMG phase cycling (on/off):", dophasecycle);
+-	fprintf(finfo, "\t%-50s%20d\n", "Pulse-acq (SPULS) testing (on/off):", doSPULS);
++	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf1 pulse (rad):", phs_rf1);
++	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf2 pulse (rad):", phs_rf2);
++	fprintf(finfo, "\t%-50s%20f\n", "Receiever phase (rad):", phs_rx);
++	fprintf(finfo, "\t%-50s%20d\n", "Refocuser phase cycling (on/off):", phscyc_rf2);
+ 	
+ 	fprintf(finfo, "\nASL PREP INFO:\n");
+ 	fprintf(finfo, "\t%-50s%20d\n", "Labeling schedule ID:", schedule_id);
+@@ -1289,7 +1235,6 @@ STATUS pulsegen( void )
+ {
+ 	sspinit(psd_board_type);
+ 
+-
+ 	/*********************************/
+ 	/* Generate bulk saturation core */
+ 	/*********************************/	
+@@ -1391,20 +1336,10 @@ STATUS pulsegen( void )
+ 	/***********************************/	
+ 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
+ 
+-	
+ 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
+-	SLICESELZ(rf1, trap_ramp_time, 6400, slabfac*(opslthick+opslspace)*opslquant, 90, cycrf1, 1, loggrd);
++	SLICESELZ(rf1, trap_ramp_time, 6400, rf2_slabfrac * (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
+ 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
+ 	fprintf(stderr, "\tDone.\n");
+-	
+-	/*----------------*/
+-	/* ALternative (use the min phase 3d pulse */
+-	/*
+-	fprintf(stderr, "\npulsegen: generating RF1 pulse from rf3d.rho (min phase) ... ");
+-	SLICESELZEXT(rf1, trap_ramp_time, 6400, opslthick*opslquant, 90, cycrf1, 0,res_rf1, NULL, res_rf1, rf3d.rho,  1, loggrd);
+-	fprintf(stderr, " ... done.");
+-	*/
+-	/*----------------*/
+ 
+ 	fprintf(stderr, "pulsegen(): generating rf1 gradient rewinder...\n");
+ 	TRAPEZOID(ZGRAD, gzrf1r, pend( &gzrf1d, "gzrf1d", 0 ) + grad_buff_time, 3200, 0, loggrd);
+@@ -1428,8 +1363,7 @@ STATUS pulsegen( void )
+ 	fprintf(stderr, "\tDone.\n");
+ 
+ 	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
+-	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 
+-		3200, (opslthick+opslspace)*opslquant*slabfac , opflip2, cycrf2, 1, loggrd);
++	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, 1.2*opslthick*opslquant, 180.0, 2, 1, loggrd);
+ 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2a, "gzrf2a", 0), pend( &gzrf2d, "gzrf2d", 0));
+ 	fprintf(stderr, "\tDone.\n");	
+ 
+@@ -1534,7 +1468,6 @@ int rspchp;
+ int rspnex;
+ int rspslq;
+ int rspsct;
+-short chopamp;
+ 
+ /* For Prescan: K */
+ int seqCount;
+@@ -1593,9 +1526,8 @@ STATUS psdinit( void )
+ STATUS scancore( void )
+ {
+ 
+-
+-	float rf2fac;
+ 	int ttmp;
++	short chopamp;
+ 
+ 	/* Determine total # of frames/trains based on entry point */
+ 	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
+@@ -1604,26 +1536,6 @@ STATUS scancore( void )
+ 	/* Set fat sat frequency */
+ 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrf, 0);
+ 
+-	/* Now set the frequencies */
+-	setfrequency(xmitfreq1, &rf1, 0);
+-	setphase(0.0, &rf1, 0);
+-
+-	setfrequency(xmitfreq2, &rf2, 0);
+-
+-	if (doCPMG){
+-		/*phs_rf2 = M_PI/2.0;*/
+-		rf2_phase = FS_PI/2;
+-		rx_phase = 0;
+-	}
+-	setiphase(rf2_phase, &rf2, 0);
+-
+-	/*setphase(phs_rf2, &rf2, 0);
+-	fprintf(stderr, "\n phase_rf2 %f\n", phs_rf2);*/
+-
+-	setfrequency(recfreq , &echo1, 0);
+-	setphase(0.0, &echo1, 0);
+-
+-
+ 	if (rspent != L_SCAN || kill_grads) {
+ 		/* Turn off the gradients */
+ 		fprintf(stderr, "\n scaling grads to zero ");
+@@ -1639,11 +1551,6 @@ STATUS scancore( void )
+ 		setiamp(MAX_PG_IAMP, &gzw, 0);
+ 	}
+ 
+-	setiamp((int)(max_pg_iamp * prep1_gmax / ZGRAD_max), &prep1gradlbl, 0);
+-	setiamp((int)(max_pg_iamp * prep1_gmax / ZGRAD_max), &prep1gradctl, 0);
+-	setiamp((int)(max_pg_iamp * prep2_gmax / ZGRAD_max), &prep2gradlbl, 0);
+-	setiamp((int)(max_pg_iamp * prep2_gmax / ZGRAD_max), &prep2gradctl, 0);
+-
+ 	/* Loop through frames */
+ 	for (framen = 0; framen < total_frames; framen++) {
+ 		/* Loop through echo trains */
+@@ -1839,6 +1746,10 @@ STATUS scancore( void )
+ 			startseq(0, MAY_PAUSE);
+ 			settrigger(TRIG_INTERN, 0);
+ 
++			/* Set rf1 transmit frequency and phase */
++			setfrequency((int)xmitfreq1, &rf1, 0);
++			setphase(phs_rf1, &rf1, 0);
++			
+ 			/* Play tipdown core */
+ 			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
+ 			boffset(off_tipdowncore);
+@@ -1846,28 +1757,24 @@ STATUS scancore( void )
+ 			settrigger(TRIG_INTERN, 0);
+ 
+ 			/* Play readout (refocusers + spiral gradients */
+-			// make sure the Rx pahse starts at zero (LHG 5/21/23)
+-			setphase(0.0, &echo1, 0);
+-			
+ 			for (echon = 0; echon < nechoes; echon++) {
+ 				
+-				/* Get the refocuser amplitude and set the amplitude based on variable flip angle */
++				/* Set the refocuser flip angle */
+ 				getiamp(&chopamp, &rf2, 0);
+-				if (echon == 0)
+-					rf2fac = 1.0;
+-				else
+-					rf2fac = varflipfac + (float)(echon - 1)/(float)(nechoes - 1) * (1 - varflipfac);
+-				setiamp((int)(rf2fac*chopamp), &rf2, 0);
++				setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
+ 
++				/* Set rf1 transmit frequency and phase */
++				setfrequency((int)xmitfreq2, &rf2, 0);
++				setphase(phs_rf2, &rf2, 0);
++				setfrequency((int)recfreq, &echo1, 0);
++				setphase(phs_rx, &echo1, 0);
++				
+ 				/* Play the refocuser core */
+ 				fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
+ 				boffset(off_refocuscore);
+ 				startseq(echon, (short)MAY_PAUSE);
+ 				settrigger(TRIG_INTERN, 0);
+ 
+-				/* Reset the pulse amplitude */
+-				setiamp(chopamp, &rf2, 0);
+-
+ 				/* Determine space in memory for data storage */	
+ 				if (trainn < 0) { /* turn DAB off for disdaqs */
+ 					fprintf(stderr, "scancore(): playing DISDAQ echo readout %d / %d...\n",
+@@ -1914,24 +1821,11 @@ STATUS scancore( void )
+ 
+ 				/* Reset the rotation matrix */
+ 				setrotate(tmtx0, echon);
+-			
+-				/* Negate the 180 amplitude for CPMG scheme */
+-				if (dophasecycle) {
+-					getiamp(&chopamp, &rf2, 0);
+-					setiamp(-chopamp, &rf2, 0);
+-
+-					// alternate the phase of the receiver along with the transmitter
+-					// code from pcasl3dgrase01.e
+-					setiphase(rx_phase, &echo1, 0);
+-					rx_phase *= -1 ;
+-				}
+-
++				
++				/* Reset the rf2 amplitude */
++				setiamp(chopamp, &rf2, 0);
+ 			}
+ 
+-			/* Reset the 180 amplitude to its absolute value */
+-			getiamp(&chopamp, &rf2, 0);
+-			setiamp((int)fabs((float)chopamp), &rf2, 0);
+-
+ 		}
+ 	}
+ 	
