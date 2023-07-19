@@ -175,10 +175,9 @@ int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp tim
 float phs_rf1 = 0.0 with { , , 0.0, VIS, "Transmitter phase for rf1 pulse",};
 float phs_rf2 = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for rf2 pulse",};
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
-int doSPULS = 0 with {0, 1, 0, VIS, "Option to do pulse-aquire testing",};
 float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
-int dophasecycle = 0 with {0, 1, 0, VIS, "Option to do refocuser phase cycling (180, -180, 180...)",};
+int phscyc_rf2 = 0 with {0, 1, 0, VIS, "Option to do refocuser phase cycling (opflip2, -opflip2, opflip2...)",};
 float rf2_slabfrac = 1.4 with {0.0, , 1.4, VIS, "Ratio of slab refocuser width to slab excitation width",};
 
 /* Trajectory cvs */
@@ -659,14 +658,15 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
 			for (echon = 0; echon < nechoes; echon++) {
-				if (dophasecycle && echon > 1)
+				if (phscyc_rf2 && echon > 1)
 					rf2factbl[echon] = varflipfac + floor((float)echon/2.0 - 1.0) / floor((float)nechoes/2.0 - 1.0) * (1.0 - varflipfac);	
-				else if (!dophasecycle && echon > 0)
+				else if (!phscyc_rf2 && echon > 0)
 					rf2factbl[echon] = varflipfac + (float)(echon - 1) / (float)(nechoes - 1) * (1.0 - varflipfac);
 				else
 					rf2factbl[echon] = 1.0;
-				rf2factbl[echon] *= (dophasecycle) ? pow(-1,echon) : 1;
+				rf2factbl[echon] *= (phscyc_rf2) ? pow(-1,echon) : 1;
 			}
+			
 			break;
 		case -1:
 			return FAILURE;
@@ -1064,20 +1064,6 @@ STATUS predownload( void )
 	/* Calculate start of readout within seqcore */
 	readpos = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
 	
-	/* Force the sequence to be a simple SPULS (pulse and acquire) using rf2 */
-	if (doSPULS)
-	{
-		kill_grads = 1; /* No kspace encoding */
-		readpos = 0; /* Set acquisition position to 0 */
-		a_rf1 = 0; /* No tip down */
-		a_fatsatrf = 0; /* No fat sat */
-		a_gzrf2crush1 = 0; /* No crushers */
-		a_gzrf2crush2 = 0;
-		doblksat = 0; /* No bulk saturation */
-		varflipfac = 1; /* No variable flip angle */
-	}
-
-
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
 	   and assign to the appropriate acquisition pulse for the right 
@@ -1199,8 +1185,8 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf1 pulse (rad):", phs_rf1);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf2 pulse (rad):", phs_rf2);
-	fprintf(finfo, "\t%-50s%20d\n", "Refocuser/receievr phase cycling (on/off):", dophasecycle);
-	fprintf(finfo, "\t%-50s%20d\n", "Pulse-acq (SPULS) testing (on/off):", doSPULS);
+	fprintf(finfo, "\t%-50s%20f\n", "Receiever phase (rad):", phs_rx);
+	fprintf(finfo, "\t%-50s%20d\n", "Refocuser phase cycling (on/off):", phscyc_rf2);
 	
 	fprintf(finfo, "\nASL PREP INFO:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "Labeling schedule ID:", schedule_id);
@@ -1482,7 +1468,6 @@ int rspchp;
 int rspnex;
 int rspslq;
 int rspsct;
-short chopamp;
 
 /* For Prescan: K */
 int seqCount;
@@ -1542,6 +1527,7 @@ STATUS scancore( void )
 {
 
 	int ttmp;
+	short chopamp;
 
 	/* Determine total # of frames/trains based on entry point */
 	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
@@ -1549,14 +1535,6 @@ STATUS scancore( void )
 
 	/* Set fat sat frequency */
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrf, 0);
-
-	/* Set transmit frequency and phase */
-	setfrequency((int)xmitfreq1, &rf1, 0);
-	setphase(phs_rf1, &rf1, 0);
-	setfrequency((int)xmitfreq2, &rf2, 0);
-	setphase(phs_rf2, &rf2, 0);
-	setfrequency((int)recfreq, &echo1, 0);
-	setphase(phs_rx, &echo1, 0);
 
 	if (rspent != L_SCAN || kill_grads) {
 		/* Turn off the gradients */
@@ -1768,6 +1746,10 @@ STATUS scancore( void )
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 
+			/* Set rf1 transmit frequency and phase */
+			setfrequency((int)xmitfreq1, &rf1, 0);
+			setphase(phs_rf1, &rf1, 0);
+			
 			/* Play tipdown core */
 			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
 			boffset(off_tipdowncore);
@@ -1779,16 +1761,19 @@ STATUS scancore( void )
 				
 				/* Set the refocuser flip angle */
 				getiamp(&chopamp, &rf2, 0);
-				setiamp((int)(rf2factbl[echon]*chopamp), &rf2, 0);
+				setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
+
+				/* Set rf1 transmit frequency and phase */
+				setfrequency((int)xmitfreq2, &rf2, 0);
+				setphase(phs_rf2, &rf2, 0);
+				setfrequency((int)recfreq, &echo1, 0);
+				setphase(phs_rx, &echo1, 0);
 				
 				/* Play the refocuser core */
 				fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
 				boffset(off_refocuscore);
 				startseq(echon, (short)MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
-				
-				/* Reset the pulse amplitude */
-				setiamp(chopamp, &rf2, 0);
 
 				/* Determine space in memory for data storage */	
 				if (trainn < 0) { /* turn DAB off for disdaqs */
@@ -1836,11 +1821,10 @@ STATUS scancore( void )
 
 				/* Reset the rotation matrix */
 				setrotate(tmtx0, echon);
+				
+				/* Reset the rf2 amplitude */
+				setiamp(chopamp, &rf2, 0);
 			}
-
-			/* Reset the 180 amplitude to its absolute value */
-			getiamp(&chopamp, &rf2, 0);
-			setiamp((int)fabs((float)chopamp), &rf2, 0);
 
 		}
 	}
