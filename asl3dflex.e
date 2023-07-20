@@ -1053,7 +1053,7 @@ STATUS predownload( void )
 	for (ddan = 0; ddan < ndisdaqs; ddan++)
 		pitscan += optr;
 	for (framen  = 0; framen < nframes; framen++) {
-		for (trainn = 0; trainn < ntrains; echon++) {
+		for (trainn = 0; trainn < ntrains; trainn++) {
 			pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
 			pitscan += dur_fatsatcore;
 			pitscan += dur_blksatcore;
@@ -1366,6 +1366,8 @@ STATUS pulsegen( void )
 	TRAPEZOID(ZGRAD, gzrf2crush1, grad_buff_time + trap_ramp_time, 3200, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush1a, "gzrf2crush1a", 0), pend( &gzrf2crush1d, "gzrf2crush1d", 0));
 	fprintf(stderr, "\tDone.\n");
+
+	fprintf(stderr, "*****DEBUG*****\nZGRAD = %d\n***************\n", ZGRAD);
 
 	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
 	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, 1.2*opslthick*opslquant, 180.0, 2, 1, loggrd);
