@@ -179,6 +179,7 @@ float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle"
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int phscyc_rf2 = 0 with {0, 1, 0, VIS, "Option to do refocuser phase cycling (opflip2, -opflip2, opflip2...)",};
 float rf2_slabfrac = 1.4 with {0.0, , 1.4, VIS, "Ratio of slab refocuser width to slab excitation width",};
+int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 
 /* Trajectory cvs */
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train",};
@@ -617,7 +618,7 @@ STATUS cvcheck( void )
 STATUS predownload( void )
 {
 	FILE* finfo;
-	int framen, echon, slice;
+	int framen, trainn, echon, ddan, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
 	float prep1_b1, prep2_b1;
@@ -1049,17 +1050,20 @@ STATUS predownload( void )
 	pidmode = PSD_CLOCK_NORM;
 	pitslice = optr;
 	pitscan = 0;
+	for (ddan = 0; ddan < ndisdaqs; ddan++)
+		pitscan += optr;
 	for (framen  = 0; framen < nframes; framen++) {
-		pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
-		pitscan += dur_fatsatcore;
-		pitscan += dur_blksatcore;
-		if (prep1_id > 0)
-			pitscan += dur_prep1core + prep1_pldtbl[framen];
-		if (prep2_id > 0)
-			pitscan += dur_prep2core + prep2_pldtbl[framen];
-		pitscan += tadjusttbl[framen];
+		for (trainn = 0; trainn < ntrains; echon++) {
+			pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+			pitscan += dur_fatsatcore;
+			pitscan += dur_blksatcore;
+			if (prep1_id > 0)
+				pitscan += dur_prep1core + prep1_pldtbl[framen];
+			if (prep2_id > 0)
+				pitscan += dur_prep2core + prep2_pldtbl[framen];
+			pitscan += tadjusttbl[framen];
+		}
 	}
-	pitscan *= ntrains;
 	
 	/* Calculate start of readout within seqcore */
 	readpos = (opte - GRAD_UPDATE_TIME*grad_len)/2 - pw_rf2/2 - 2*grad_buff_time - 3*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
@@ -1158,6 +1162,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\nTIME INFO:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "Number of frames:", nframes);
 	fprintf(finfo, "\t%-50s%20d\n", "Number of M0 frames:", nm0frames);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of disdaq frames:", ndisdaqs);
 	fprintf(finfo, "\t%-50s%20f\n", "Repetition time (ms):", (float)optr * 1e-3);
 	fprintf(finfo, "\t%-50s%20f\n", "Total scan time (s):", (float)pitscan * 1e-6);
 	fprintf(finfo, "\t%-50s%20f\n", "Duration of bulk saturation core (ms):", (float)dur_blksatcore * 1e-3);
@@ -1450,6 +1455,7 @@ extern PSD_EXIT_ARG psdexitarg;
 int echon;
 int trainn;
 int framen;
+int ddan;
 int n;
 
 /* Inherited from grass.e: */
@@ -1527,11 +1533,22 @@ STATUS scancore( void )
 {
 
 	int ttmp;
-	short chopamp;
 
 	/* Determine total # of frames/trains based on entry point */
 	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
 	int total_trains = (rspent == L_SCAN) ? (ntrains) : (1000);
+			
+	/* Set rf1 transmit frequency and phase */
+	setfrequency((int)xmitfreq1, &rf1, 0);
+	setphase(phs_rf1, &rf1, 0);
+
+	/* Set rf2 transmit frequency and phase */
+	setfrequency((int)xmitfreq2, &rf2, 0);
+	setphase(phs_rf2, &rf2, 0);
+
+	/* Set reciever frequency and phase */
+	setfrequency((int)recfreq, &echo1, 0);
+	setphase(phs_rx, &echo1, 0);
 
 	/* Set fat sat frequency */
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrf, 0);
@@ -1551,10 +1568,77 @@ STATUS scancore( void )
 		setiamp(MAX_PG_IAMP, &gzw, 0);
 	}
 
+	/* Loop through disdaqs */
+	for (ddan = 0; ddan < rspdda; ddan++) {
+		
+		/* Play bulk saturation pulse */	
+		fprintf(stderr, "scancore(): playing bulk saturation core (%d us)\n", dur_blksatcore);
+		boffset(off_blksatcore);
+		startseq(0, MAY_PAUSE);
+		settrigger(TRIG_INTERN, 0);
+
+		/* Play TR deadtime */
+		ttmp = optr - dur_blksatcore - dur_fatsatcore - dur_tipdowncore - nechoes*(dur_refocuscore + dur_seqcore);
+		if (ttmp > TIMESSI) {
+			fprintf(stderr, "scancore(): playing TR deadtime (%d us)\n", ttmp);
+			setperiod(ttmp - TIMESSI, &emptycore, 0);
+			boffset(off_emptycore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+		}
+			
+		/* Play fat sat core */
+		fprintf(stderr, "scancore(): playing fat saturation pulse (%d us)...\n", dur_fatsatcore);
+		boffset(off_fatsatcore);
+		startseq(0, MAY_PAUSE);
+		settrigger(TRIG_INTERN, 0);
+	
+		/* Play tipdown core */
+		fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
+		boffset(off_tipdowncore);
+		startseq(0, MAY_PAUSE);
+		settrigger(TRIG_INTERN, 0);
+
+		/* Play readout (refocusers + spiral gradients */
+		for (echon = 0; echon < nechoes; echon++) {
+
+			/* Set the refocuser flip angle */
+			setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
+
+			/* Play the refocuser core */
+			fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
+			boffset(off_refocuscore);
+			startseq(echon, (short)MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+
+			/* Turn off DAQ for disdaqs */	
+			fprintf(stderr, "scancore(): playing DISDAQ echo readout %d / %d...\n",
+					echon, nechoes);
+			loaddab(&echo1,
+					0,
+					0,
+					DABSTORE,
+					0,
+					DABOFF,
+					PSD_LOAD_DAB_ALL);
+
+			/* Play the readout core */
+			boffset(off_seqcore);
+			startseq(echon, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+
+			/* Reset the rotation matrix */
+			setrotate(tmtx0, echon);
+
+			/* Reset the rf2 amplitude */
+			setiamp(ia_rf2, &rf2, 0);
+		}
+	}
+
 	/* Loop through frames */
 	for (framen = 0; framen < total_frames; framen++) {
 		/* Loop through echo trains */
-		for (trainn = -rspdda; trainn < total_trains; trainn++) {
+		for (trainn = 0; trainn < total_trains; trainn++) {
 		
 			if (doblksattbl[framen] > 0) {
 				fprintf(stderr, "scancore(): playing bulk saturation core (%d us)\n", dur_blksatcore);
@@ -1745,19 +1829,7 @@ STATUS scancore( void )
 			boffset(off_fatsatcore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
-
-			/* Set rf1 transmit frequency and phase */
-			setfrequency((int)xmitfreq1, &rf1, 0);
-			setphase(phs_rf1, &rf1, 0);
-
-			/* Set rf2 transmit frequency and phase */
-			setfrequency((int)xmitfreq2, &rf2, 0);
-			setphase(phs_rf2, &rf2, 0);
-
-			/* Set reciever frequency and phase */
-			setfrequency((int)recfreq, &echo1, 0);
-			setphase(phs_rx, &echo1, 0);
-			
+	
 			/* Play tipdown core */
 			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
 			boffset(off_tipdowncore);
@@ -1768,7 +1840,6 @@ STATUS scancore( void )
 			for (echon = 0; echon < nechoes; echon++) {
 				
 				/* Set the refocuser flip angle */
-				getiamp(&chopamp, &rf2, 0);
 				setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
 				
 				/* Play the refocuser core */
@@ -1778,18 +1849,7 @@ STATUS scancore( void )
 				settrigger(TRIG_INTERN, 0);
 
 				/* Determine space in memory for data storage */	
-				if (trainn < 0) { /* turn DAB off for disdaqs */
-					fprintf(stderr, "scancore(): playing DISDAQ echo readout %d / %d...\n",
-						echon, nechoes);
-					loaddab(&echo1,
-						0,
-						0,
-						DABSTORE,
-						0,
-						DABOFF,
-						PSD_LOAD_DAB_ALL);
-				}	
-				else if (rspent == L_SCAN) { /* load DAB for SCAN process */
+				if (rspent == L_SCAN) { /* load DAB for SCAN process */
 					fprintf(stderr, "scancore(): playing scan echo readout %d / %d...\n",
 						echon, nechoes);
 					loaddab(&echo1,
@@ -1825,7 +1885,7 @@ STATUS scancore( void )
 				setrotate(tmtx0, echon);
 				
 				/* Reset the rf2 amplitude */
-				setiamp(chopamp, &rf2, 0);
+				setiamp(ia_rf2, &rf2, 0);
 			}
 
 		}
@@ -1885,7 +1945,7 @@ STATUS scan( void )
 	}
 
 	rspent = L_SCAN;
-	rspdda = 0;
+	rspdda = ndisdaqs;
 	scancore();
 	rspexit();
 
