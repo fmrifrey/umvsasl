@@ -11,6 +11,8 @@ int conv(float* x, int lenx, float* h, int lenh, float* y);
 int diff(float* x, int lenx, float di, float* y);
 float getmaxabs(float *x, int lenx);
 int reverse(float *x, int nl, int nr);
+int arrcopy(float *x, int N, float *y);
+int arrcat(float *x1, int N1, float *x2, int N2, float *y);
 
 int eye(float *M, int n) {
 	
@@ -182,3 +184,24 @@ int reverse(float *x, int nl, int nr) {
 
 	return 1;
 };
+
+int arrcopy(float *x, int N, float *y) {
+
+	int n;
+	for (n = 0; n < N; n++)
+		y[n] = x[n];
+	
+}
+
+int arrcat(float *x1, int N1, float *x2, int N2, float *y) {
+
+	int n;
+	for (n = 0; n < (N1 + N2); n++) {
+		if n < N1
+			y[n] = x1[n];
+		else
+			y[n] = x2[n - N1];
+	}
+
+}
+

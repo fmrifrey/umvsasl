@@ -272,10 +272,9 @@ float PHI = (1.0 + sqrt(5.0)) / 2.0; /* 1d golden ratio */
 float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
 
-/* Declare function prototypes from spreadout.h */
-int genspiral(int N, int itr);
+/* Declare trajectory generation function prototypes */
+int genspiral();
 int genviews();
-int sinsmooth(float *x, int N, int L);
 
 /* Declare function prototypes from aslprep.h */
 int readprep(int id, int *len,
@@ -313,12 +312,6 @@ float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 	/* Return the B1 (derived from eq. 1 on page 2-31 in EPIC manual) */
 	return (SAR_ASINC1/area * 3200/pw_rf * flip_rf/90.0 * MAX_B1_SINC1_90);
 }
-
-/* Import functions from spreadout.h and aslprep.h (using @inline instead of #include since
- * functions reference global variables in those files)
- */
-@inline spreadout.h
-@inline aslprep.h
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -630,7 +623,7 @@ STATUS predownload( void )
 		
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
-	if (genspiral(grad_len, 0) == 0) {
+	if (genspiral() == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
@@ -1964,6 +1957,363 @@ STATUS scan( void )
 void dummylinks( void )
 {
 	epic_loadcvs( "thefile" );            /* for downloading CVs */
+}
+
+
+@cv
+
+int genspiral() {
+
+	/* declare waveforms */
+	float kx[MAXWAVELEN], ky[MAXWAVELEN], kz[MAXWAVELEN] = {0};
+	float kx_tmp[MAXWAVELEN], ky_tmp[MAXWAVELEN], kz_tmp[MAXWAVELEN] = {0};
+	float kx_rev[MAXWAVELEN], ky_rev[MAXWAVELEN], kz_rev[MAXWAVELEN] = {0};
+	float gx[MAXWAVELEN], gy[MAXWAVELEN], gz[MAXWAVELEN];
+	int n, np;
+
+	/* generate the trajectory */
+	np = kimvdsp(kx, ky, kz, (float)opfov/10.0, SLEWMAX*1e-3, GMAX, opxres, ntrains, sp_alpha, GRAD_UPDATE_TIME);
+	
+	/* copy the trajectory arrays */		
+	arrcopy(kx,kx_tmp,np);
+	arrcopy(ky,ky_tmp,np);
+
+	/* reverse the trajectory arrays */
+	arrcopy(kx,kx_rev,np);
+	arrcopy(ky,ky_rev,np);
+	reverse(kx_rev,0,np-1);
+	reverse(ky_rev,0,np-1);
+	
+	/* loop through points */
+	switch(sptype2d) {
+		case 1: /* spiral out */
+			break;
+		case 2: /* spiral in */
+			copyarr(kx_rev,n,kx);
+			copyarr(ky_rev,n,ky);
+			break;
+		case 3: /* spiral out-in */
+			arrcat(kx_tmp, np + nnav, kx_rev, nnav, kx);
+			arrcat(ky_tmp, np + nnav, ky_rev, nnav, ky);
+			np = 2*np + nnav;
+			break;
+		case 4: /* spiral in-out */
+			arrcat(kx_rev, np + nnav, kx_tmp, nnav, kx);
+			arrcat(ky_rev, np + nnav, ky_tmp, nnav, ky);	
+			np = 2*np + nnav;
+			break;
+	}
+	
+	/* differentiate trajectory to get gradients */
+	diff(kx, np, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gx);
+	diff(ky, np, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gy);
+	diff(kz, np, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gz);
+
+	/* translate gradients to full scale DAQ units and write traj.txt file */
+	FILE* fID = fopen("./ktraj.txt", "w");
+	for (n = 0; n < np; n++) {
+		Gx[n] = 2 * round(MAX_PG_WAMP * gx[n] / XGRAD_max / 2.0);
+		Gy[n] = 2 * round(MAX_PG_WAMP * gy[n] / YGRAD_max / 2.0);
+		Gz[n] = 2 * round(MAX_PG_WAMP * gz[n] / ZGRAD_max / 2.0);
+		fprintf(fID, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);
+	}
+	fclose(fID);
+
+	return 0;
+}
+
+int genviews() {
+
+	/* Declare values and matrices */
+	FILE* fID = fopen("kviews.txt","w");
+	int trainn, echon, n;
+	float rx, ry, rz, dz;
+	float Rx[9], Ry[9], Rz[9], Tz[9];
+	float T_0[9], T[9];
+
+	/* Initialize z translation to identity matrix */
+	eye(Tz, 3);
+
+	/* Get original transformation matrix */
+	for (n = 0; n < 9; n++) T_0[n] = (float)rsprot[0][n] / MAX_PG_WAMP;
+	orthonormalize(T_0, 3, 3);
+
+	/* Loop through all views */
+	for (trainn = 0; trainn < ntrains; trainn++) {
+		for (echon = 0; echon < nechoes; echon++) {
+
+			/* Determine type of transformation */
+			switch (sptype3d) {
+				case 1 : /* Kz shifts */
+					rx = 0.0;
+					ry = 0.0;
+					rz = (float)trainn * 2.0 * M_PI / PHI;
+					dz = pow(-1, (float)trainn) * (float)trainn / (float)ntrains;
+					dz += pow(-1, (float)echon) * floor((float)(echon + 1) / 2.0);
+					dz *= 2.0 / (float)nechoes;
+					break;
+				case 2 : /* Single axis rotation */
+					rx = 0.0;
+					ry = (float)(trainn*nechoes + echon) * 2.0 * M_PI / PHI;
+					rz = 0.0;
+					dz = 1.0;
+					break;
+				case 3 :
+				case 4 : /* Double axis rotations */
+					rx = 2.0 * M_PI * (float)(trainn*nechoes + echon) / PHI;
+					ry = acos(fmod(1 - 2*(trainn*nechoes + echon + 0.5) / (float)(ntrains*nechoes), 1));
+					rz = 0.0;
+					dz = 1.0;
+					break;
+				case 5: /* Debugging case */
+					rx = M_PI * (float)(echon) / nechoes;
+					ry = M_PI * (float)(trainn) / ntrains;
+					rz = 0.0;
+					dz = 1.0;
+					break;
+				default:
+					return 0;
+			}
+			
+			/* Calculate the transformation matrices */
+			Tz[8] = dz;
+			genrotmat('x', rx, Rx);
+			genrotmat('y', ry, Ry);
+			genrotmat('z', rz, Rz);
+
+			/* Multiply the transformation matrices */
+			multmat(3,3,3,T_0,Tz,T);
+			multmat(3,3,3,Rx,T,T);
+			multmat(3,3,3,Ry,T,T);
+			multmat(3,3,3,Rz,T,T);
+
+			/* Save the matrix to the table of matrices */
+			fprintf(fID, "%d \t%d \t%f \t%f \t%f \t%f \t", trainn, echon, rx, ry, rz, dz);
+			for (n = 0; n < 9; n++) {
+				fprintf(fID, "%f \t", T[n]);
+				tmtxtbl[trainn*nechoes + echon][n] = (long)round(MAX_PG_IAMP*T[n]);
+			}
+			fprintf(fID, "\n");
+		}
+	}
+
+	/* Close the file */
+	fclose(fID);
+
+	return 1;
+};
+
+int readprep(int id, int *len,
+		int *rho_lbl, int *theta_lbl, int *grad_lbl,
+		int *rho_ctl, int *theta_ctl, int *grad_ctl)
+{
+
+	/* Declare variables */
+	char fname[80];
+	FILE *fID;
+	char buff[200];
+	int i, tmplen;
+	double lblval, ctlval;
+	
+	if (id == 0) {
+		/* Set all values to zero and return */
+		for (i = 0; i < *len; i++) {
+			rho_lbl[i] = 0;
+			theta_lbl[i] = 0;
+			grad_lbl[i] = 0;
+			rho_ctl[i] = 0;
+			theta_ctl[i] = 0;
+			grad_ctl[i] = 0;
+		}
+		return 1;
+	}
+
+	/* Read in RF magnitude from rho file */
+	sprintf(fname, "./aslprep/pulses/%05d/rho.txt", id);
+	fprintf(stderr, "readprep(): opening %s...\n", fname);
+	fID = fopen(fname, "r");
+
+	/* Check if rho file was read successfully */
+	if (fID == 0) {
+		fprintf(stderr, "readprep(): failure opening %s\n", fname);
+		return 0;
+	}
+
+	/* Loop through points in rho file */
+	i = 0;
+	while (fgets(buff, 200, fID)) {
+		sscanf(buff, "%lf %lf", &lblval, &ctlval);
+		rho_lbl[i] = (int)lblval;
+		rho_ctl[i] = (int)ctlval;
+		i++;
+	}
+	fclose(fID);
+	tmplen = i;
+	
+	/* Read in RF phase from theta file */
+	sprintf(fname, "./aslprep/pulses/%05d/theta.txt", id);
+	fID = fopen(fname, "r");
+
+	/* Check if theta file was read successfully */
+	if (fID == 0) {
+		fprintf(stderr, "readprep(): failure opening %s\n", fname);
+		return 0;
+	}
+
+	/* Loop through points in theta file */
+	i = 0;
+	while (fgets(buff, 200, fID)) {
+		sscanf(buff, "%lf %lf", &lblval, &ctlval);
+		theta_lbl[i] = (int)lblval;
+		theta_ctl[i] = (int)ctlval;
+		i++;
+	}
+	fclose(fID);
+
+	/* Check that length is consistent */
+	if (tmplen != i) {
+		fprintf(stderr, "readprep(): length of theta file (%d) is not consistent with rho file length (%d)\n", i, tmplen);
+		return 0;
+	}
+	
+	/* Read in RF phase from theta file */
+	sprintf(fname, "./aslprep/pulses/%05d/grad.txt", id);
+	fID = fopen(fname, "r");
+
+	/* Check if theta file was read successfully */
+	if (fID == 0) {
+		fprintf(stderr, "readprep(): failure opening %s\n", fname);
+		return 0;
+	}
+
+	/* Loop through points in theta file */
+	i = 0;
+	while (fgets(buff, 200, fID)) {
+		sscanf(buff, "%lf %lf", &lblval, &ctlval);
+		grad_lbl[i] = (int)lblval;
+		grad_ctl[i] = (int)ctlval;
+		i++;
+	}
+	fclose(fID);
+
+	/* Check that length is consistent */
+	if (tmplen != i) {
+		fprintf(stderr, "readprep(): length of grad file (%d) is not consistent with rho/theta file length (%d)\n", i, tmplen);
+		return 0;
+	}
+	
+	*len = tmplen;
+
+	return 1;
+}
+
+int readschedule(int id, int* var, char* varname, int lines) {
+
+	FILE* fID;
+	char fname[200];
+	int val;
+	
+	if (id == 0)
+		return 0;
+
+	/* Open the schedule file */
+	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
+	fprintf(stderr, "readschedule(): opening %s...\n", fname);
+	fID = fopen(fname, "r");
+	if (fID == 0) {
+		fprintf(stderr, "File not found.\n");
+		return 0;
+	}
+
+	/* Read in the array */
+	int i = 0;
+	while (fscanf(fID, "%d\n", &val) != EOF) {
+		var[i] = val;
+		i++;
+	}
+	fclose(fID);
+
+	/* If only 1 line is read in (scalar --> array) */
+	if (i == 1) {
+		for (i = 1; i < lines; i++)
+			var[i] = var[0];
+	}
+
+	/* If number of lines is less than number of lines to read */
+	if (i < lines - 1)
+		return -1;
+
+	return 1;
+}
+
+int readschedulef(int id, float* var, char* varname, int lines) {
+
+	FILE* fID;
+	char fname[200];
+	float val;
+	
+	if (id == 0)
+		return 0;
+
+	/* Open the schedule file */
+	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
+	fprintf(stderr, "readschedule(): opening %s...\n", fname);
+	fID = fopen(fname, "r");
+	if (fID == 0) {
+		fprintf(stderr, "File not found.\n");
+		return 0;
+	}
+
+	/* Read in the array */
+	int i = 0;
+	while (fscanf(fID, "%f\n", &val) != EOF) {
+		var[i] = val;
+		i++;
+	}
+	fclose(fID);
+
+	/* If only 1 line is read in (scalar --> array) */
+	if (i == 1) {
+		for (i = 1; i < lines; i++)
+			var[i] = var[0];
+	}
+
+	/* If number of lines is less than number of lines to read */
+	if (i < lines - 1)
+		return -1;
+
+	return 1;
+}
+
+int genlbltbl(int mod, int* lbltbl)
+{
+	int framen;
+
+	/* Loop through frames */
+	for (framen = 0; framen < nframes; framen++) {
+
+		/* Set labeling scheme */
+		if (framen < nm0frames)
+			lbltbl[framen] = -1;
+		else {
+			switch (mod) {
+				case 1: /* Label, control... */
+					lbltbl[framen] = (framen - nm0frames + 1) % 2; /* 1, 0, 1, 0 */
+					break;
+				case 2: /* Control, label... */
+					lbltbl[framen] = (framen - nm0frames) % 2; /* 0, 1, 0, 1 */
+					break;
+				case 3: /* Label */
+					lbltbl[framen] = 1;
+					break;
+				case 4: /* Control */
+					lbltbl[framen] = 0;
+					break;
+			}
+		}
+	}	
+
+	return 1;
 }
 
 /************************ END OF ASL3DFLEX.E ******************************/
