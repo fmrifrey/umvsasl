@@ -9,7 +9,7 @@
 
 /* 
  * Arguments:
- * 	kx, ky, kz - kspace trajectory arrays
+ * 	kx, ky, 2D kspace trajectory arrays
  * 	D - fov (cm)
  * 	sm - maximum slew rate (G/cm/ms)
  * 	gm - maximum gradient amplitude (G/cm)
@@ -19,15 +19,15 @@
  * 	dt - sampling rate (ms)
  */
 
-int kimvdsp(float *kx, float *ky, float *kz, int D, float sm, float gm, int N, int N_int, float alpha, float dt) {
+float kimvdsp(float *kx, float *ky, int D, float sm, float gm, int N, int N_int, float alpha, float dt) {
 
 	float t, tau;
 	int i;
-	int npoints_sp, npoints_ramp;
+	int npoints;
 
 	/* Calculate constants */
 	float gam = 4.258*2*M_PI; /* gyromagnetic ratio (rad/G/ms) */
-	float n = 1.0 / (1.0 - pow(1.0 - 2.0/(float)N, 1.0/alpha)) / (float)N_int; /* # of turns in kspace */
+	float n = pow(1.0 - pow(1.0 - 2.0/(float)N, 1.0/alpha), - 1.0) / (float)N_int; /* # of turns in kspace */
 	float omega = 2.0*M_PI*n; /* total angular displacement (rad) */
 	float lambda = (float)N / (2.0 * (float)D); /* max kspace (1/cm) */
 	float c1 = gam * gm / lambda / omega; /* amplitude constraint constant (Hz) */
@@ -36,16 +36,18 @@ int kimvdsp(float *kx, float *ky, float *kz, int D, float sm, float gm, int N, i
 	float a2 = alpha/2 + 1; /* slew regime sampling density factor */
 
 	/* Calculate important timings */
-	float T_es, T_ea, T_e, T_s2a, T_ramp;
+	float T_es, T_ea, T_e, T_s2a;
 	T_ea = 1.0 / (c1 * a1); /* Eq. [5] */
 	T_es = 1.0 / (c2 * a2); /* Eq. [8] */
 	T_s2a = pow(c1 * a1 / pow(c2 *a2, a1/a2), ((alpha + 2) / alpha)); /* Eq. [9] */
 	T_e = (T_s2a > T_es) ? (T_es) : (T_ea);
-	T_ramp = 1 / (c1*omega);
+
+	/* round T_e up to the nearest sampling interval */
+	T_e = dt * ceil(T_e / dt);
 
 	/* Loop through points in spiral */
-	npoints_sp = ceil(T_e / dt);
-	for (i = 0; i < npoints_sp; i++) {
+	npoints = round(T_e / dt);
+	for (i = 0; i < npoints; i++) {
 		t = i*dt; /* time at point i (ms) */
 
 		/* Calculate tau for slew & amplitude limited regimes */
@@ -59,21 +61,5 @@ int kimvdsp(float *kx, float *ky, float *kz, int D, float sm, float gm, int N, i
 		ky[i] = lambda*pow(tau,alpha)*sin(omega*tau);
 	}
 
-	npoints_ramp = ceil(T_ramp / dt);
-	/* Loop through points in ramp */
-	for (i = 0; i < npoints_ramp; i++) {
-		t = i*dt; /* time at point i (ms) */
-
-		/* Calculate sample location at point i */
-		if (t < T_ramp) {
-			kx[i + npoints_sp] = kx[npoints_sp - 1] * (1.0 - t/T_ramp);
-			ky[i + npoints_sp] = ky[npoints_sp - 1] * (1.0 - t/T_ramp);
-		}
-		else {
-			kx[i] = 0;
-			ky[i] = 0;
-		}
-	}
-
-	return npoints_sp + npoints_ramp;
+	return T_e;
 }

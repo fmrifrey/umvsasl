@@ -1973,7 +1973,7 @@ int genspiral() {
 
 	/* generate the trajectory */
 	np = kimvdsp(kx, ky, kz, (float)opfov/10.0, SLEWMAX*1e-3, GMAX, opxres, ntrains, sp_alpha, GRAD_UPDATE_TIME);
-	
+
 	/* copy the trajectory arrays */		
 	arrcopy(kx,kx_tmp,np);
 	arrcopy(ky,ky_tmp,np);

@@ -5,7 +5,7 @@
 int eye(float *M, int n);
 int genrotmat(char axis, float angle, float* R);
 int multmat(int M, int N, int P, float* mat1, float* mat2, float* mat3);
-int orthonormalize(float* mat, int M, int N, int dir);
+int orthonormalize(float* mat, int M, int N);
 int printmat(FILE *fID, int M, int N, float* mat);
 int conv(float* x, int lenx, float* h, int lenh, float* y);
 int diff(float* x, int lenx, float di, float* y);
@@ -13,6 +13,7 @@ float getmaxabs(float *x, int lenx);
 int reverse(float *x, int nl, int nr);
 int arrcopy(float *x, int N, float *y);
 int arrcat(float *x1, int N1, float *x2, int N2, float *y);
+float trap(float t, float t_start, float t_ramp, float t_plateau);
 
 int eye(float *M, int n) {
 	
@@ -156,7 +157,7 @@ int diff(float* x, int lenx, float di, float* y) {
 
 	int i;
 	for (i = 0; i < lenx; i++) y[i] = 0;
-	for (i = 1; i < lenx - 1; i++)
+	for (i = 1; i < lenx; i++)
 		y[i] = (x[i] - x[i-1]) / di;
 
 	return 1;
@@ -197,7 +198,7 @@ int arrcat(float *x1, int N1, float *x2, int N2, float *y) {
 
 	int n;
 	for (n = 0; n < (N1 + N2); n++) {
-		if n < N1
+		if (n < N1)
 			y[n] = x1[n];
 		else
 			y[n] = x2[n - N1];
@@ -205,3 +206,17 @@ int arrcat(float *x1, int N1, float *x2, int N2, float *y) {
 
 }
 
+float trap(float t, float t_start, float t_ramp, float t_plateau) {
+
+	if (t < t_start)
+		return 0.0;
+	else if (t < t_start + t_ramp)
+		return (t - t_start) / t_ramp;
+	else if (t < t_start + t_ramp + t_plateau)
+		return 1.0;
+	else if (t < t_start + 2*t_ramp + t_plateau)
+		return 1.0 - (t - t_start - t_ramp - t_plateau) / t_ramp;
+	else
+		return 0.0;
+
+}
