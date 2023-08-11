@@ -186,7 +186,7 @@ int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train"
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
 int nframes = 2 with {1, , 2, VIS, "Number of frames to acquire",};
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points (must be even)",};
-float sp_alpha = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral variable density factor",};
+float spalpha = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral variable density factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
@@ -498,41 +498,31 @@ STATUS cveval( void )
 	opuser6 = 1.0;
 	cvmin(opuser6, 0.001);
 	cvmax(opuser6, 50.0);
-	sp_alpha = opuser6;
+	spalpha = opuser6;
 
-	/*	
 	piuset += use7;
-	cvdesc(opuser7, "Spiral angular acceleration factor");
-	cvdef(opuser7, 1.0);
-	opuser7 = 1.0;
+	cvdesc(opuser7, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser7, 0.6);
 	cvmin(opuser7, 0.1);
-	cvmax(opuser7, 20);
-	THETA_accel = opuser7;
-	*/
+	cvmax(opuser7, 1.0);
+	opuser8 = 0.6;
+	varflipfac = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser8, 0.6);
-	cvmin(opuser8, 0.1);
-	cvmax(opuser8, 1.0);
-	opuser8 = 0.6;
-	varflipfac = opuser8;
-
+	cvdesc(opuser8, "Recon script ID #");
+	cvdef(opuser8, 2327);
+	cvmin(opuser8, 0);
+	cvmax(opuser8, 9999);
+	opuser8 = 2327;
+	rhrecon = opuser8;
+	
 	piuset += use9;
-	cvdesc(opuser9, "Recon script ID #");
-	cvdef(opuser9, 2327);
+	cvdesc(opuser9, "ASL prep schedule ID #");
+	cvdef(opuser9, 0);
 	cvmin(opuser9, 0);
 	cvmax(opuser9, 9999);
-	opuser9 = 2327;
-	rhrecon = opuser9;
-	
-	piuset += use10;
-	cvdesc(opuser10, "ASL prep schedule ID #");
-	cvdef(opuser10, 0);
-	cvmin(opuser10, 0);
-	cvmax(opuser10, 9999);
-	opuser10 = 0;
-	schedule_id = opuser10;
+	opuser9 = 0;
+	schedule_id = opuser9;
 	
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -1174,7 +1164,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "Number of echo trains per frame:", ntrains);
 	fprintf(finfo, "\t%-50s%20d\n", "2D spiral type:", sptype2d);
 	fprintf(finfo, "\t%-50s%20d\n", "3D spiral type:", sptype3d);
-	fprintf(finfo, "\t%-50s%20f\n", "Spiral variable density factor:", sp_alpha);
+	fprintf(finfo, "\t%-50s%20f\n", "Spiral variable density factor:", spalpha);
 	fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
@@ -1971,6 +1961,8 @@ int genspiral() {
 	 *	- kspace Rewinder (*_kr):	kspace rewinder (XYZ trapezoidal gradient)
 	 */
 
+	/* gradient waveforms will be in units of rad*G/ms */
+
 	FILE* fID_ktraj = fopen("ktraj.txt", "w");
 	FILE* fID_grad = fopen("grad.txt", "w");
 	FILE* fID_graddac = fopen("graddac.txt", "w");
@@ -2003,7 +1995,7 @@ int genspiral() {
 	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
 	/* generate the spiral trajectory */
-	T_sp = kimvdsp(kx_sp, ky_sp, D, sm, gm, opxres, (sptype2d < 3) ? (ntrains) : (2*ntrains), sp_alpha, dt);
+	T_sp = kimvdsp(kx_sp, ky_sp, D, sm, gm, opxres, (sptype2d < 3) ? (ntrains) : (2*ntrains), spalpha, dt);
 	np_sp = round(T_sp/dt);
 	diff(kx_sp, np_sp, gam*dt, gx_sp);
 	diff(ky_sp, np_sp, gam*dt, gy_sp);	
@@ -2114,9 +2106,9 @@ int genspiral() {
 		kyn += gam * gy[n] * dt;
 		kzn += gam * gz[n] * dt;
 
-		Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n] / 2.0);
-		Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n] / 2.0);
-		Gz[n] = 2*round(MAX_PG_WAMP/ZGRAD_max * gz[n] / 2.0);
+		Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n]/(2.0*M_PI) / 2.0);
+		Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n]/(2.0*M_PI) / 2.0);
+		Gz[n] = 2*round(MAX_PG_WAMP/ZGRAD_max * gz[n]/(2.0*M_PI) / 2.0);
 		
 		fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzn);
 		fprintf(fID_grad, "%f \t%f \t%f\n", gx[n], gy[n], gz[n]);
