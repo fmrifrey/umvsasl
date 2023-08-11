@@ -186,8 +186,7 @@ int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train"
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
 int nframes = 2 with {1, , 2, VIS, "Number of frames to acquire",};
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points (must be even)",};
-float R_accel = 0.5 with {0.05, , , VIS, "Spiral radial acceleration factor",};
-float THETA_accel = 1.0 with {0, , 1, VIS, "Spiral angular acceleration factor",};
+float sp_alpha = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral variable density factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
@@ -242,6 +241,8 @@ int readpos = 0 with {0, , 0, INVIS, "Position of readout within seqcore (us)",}
 #include "sar_pm.h"
 #include "support_func.host.h"
 #include "helperfuns.h"
+#include "kimvdsp.h"
+#include "gradtrap.h"
 
 /* fec : Field strength dependency library */
 #include <sysDep.h>
@@ -281,6 +282,7 @@ int readprep(int id, int *len,
 		int *rho_lbl, int *theta_lbl, int *grad_lbl,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
 int readschedule(int id, int* var, char* varname, int lines);
+int readschedulef(int id, float* var, char* varname, int lines);
 int gentadjusttbl();
 int genlbltbl(int mod, int* lbltbl);
 
@@ -492,13 +494,14 @@ STATUS cveval( void )
 	sptype3d = opuser5;
 
 	piuset += use6;
-	cvdesc(opuser6, "Spiral radial acceleration factor");
-	cvdef(opuser6, 0.7);
-	opuser6 = 0.7;
-	cvmin(opuser6, 0.1);
-	cvmax(opuser6, 2);
-	R_accel = opuser6;
-	
+	cvdesc(opuser6, "Spiral variable density factor");
+	cvdef(opuser6, 1.0);
+	opuser6 = 1.0;
+	cvmin(opuser6, 0.001);
+	cvmax(opuser6, 50.0);
+	sp_alpha = opuser6;
+
+	/*	
 	piuset += use7;
 	cvdesc(opuser7, "Spiral angular acceleration factor");
 	cvdef(opuser7, 1.0);
@@ -506,6 +509,7 @@ STATUS cveval( void )
 	cvmin(opuser7, 0.1);
 	cvmax(opuser7, 20);
 	THETA_accel = opuser7;
+	*/
 
 	piuset += use8;
 	cvdesc(opuser8, "Variable refocuser flip angle attenuation factor");
@@ -1138,8 +1142,6 @@ STATUS predownload( void )
 	rhuser0 = nframes;
 	rhuser1 = ntrains;
 	rhuser2 = nechoes;
-	rhuser3 = R_accel;
-	rhuser4 = THETA_accel;
 
 	/* Scale the transformation matrices */
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, ntrains*nechoes, 0);
@@ -1173,8 +1175,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "Number of echo trains per frame:", ntrains);
 	fprintf(finfo, "\t%-50s%20d\n", "2D spiral type:", sptype2d);
 	fprintf(finfo, "\t%-50s%20d\n", "3D spiral type:", sptype3d);
-	fprintf(finfo, "\t%-50s%20f\n", "Radial acceleration factor:", R_accel);
-	fprintf(finfo, "\t%-50s%20f\n", "Angular acceleration factor:", THETA_accel);
+	fprintf(finfo, "\t%-50s%20f\n", "Spiral variable density factor:", sp_alpha);
 	fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
@@ -1960,66 +1961,167 @@ void dummylinks( void )
 }
 
 
-@cv
+@host
 
 int genspiral() {
 
+	/* 4 parts of the gradient waveform:
+	 * 	- Z-encode (*_ze):		kZ encoding step
+	 *	- Spiral (*_sp):		kXY-plane spiral trajectory (readout)
+	 *	- Ramp-down (*_rd):		XY gradient ramp down
+	 *	- kspace Rewinder (*_kr):	kspace rewinder (XYZ trapezoidal gradient)
+	 */
+
+	FILE* fID = fopen("ktraj.txt", "w");
+
+	/* declare variables */
+	int n;
+	float t;
+	int np, np_ze, np_sp, np_rd, np_kr;
+	float Tr_ze, Tp_ze, T_sp, T_rd, Tr_kr, Tp_kr;
+	float t1, t2, t3;
+	float gxn, gyn, gzn, kxn, kyn, kzn;
+	float gx0, gy0, g0, kx0, ky0, kz0, k0;
+	float h_ze, h_kr;
+
 	/* declare waveforms */
-	float kx[MAXWAVELEN], ky[MAXWAVELEN], kz[MAXWAVELEN] = {0};
-	float kx_tmp[MAXWAVELEN], ky_tmp[MAXWAVELEN], kz_tmp[MAXWAVELEN] = {0};
-	float kx_rev[MAXWAVELEN], ky_rev[MAXWAVELEN], kz_rev[MAXWAVELEN] = {0};
-	float gx[MAXWAVELEN], gy[MAXWAVELEN], gz[MAXWAVELEN];
-	int n, np;
+	float kx_sp[MAXWAVELEN], ky_sp[MAXWAVELEN] = {0};
+	float gx_sp[MAXWAVELEN], gy_sp[MAXWAVELEN] = {0};
+	float gx[MAXWAVELEN], gy[MAXWAVELEN], gz[MAXWAVELEN] = {0};
 
-	/* generate the trajectory */
-	np = kimvdsp(kx, ky, kz, (float)opfov/10.0, SLEWMAX*1e-3, GMAX, opxres, ntrains, sp_alpha, GRAD_UPDATE_TIME);
+	/* convert units */
+	float dt = GRAD_UPDATE_TIME*1e-3; /* raster time (ms) */
+	float D = (float)opfov / 10; /* fov (cm) */
+	float gm = GMAX; /* gradient amplitude limit (G/cm) */
+	float sm = SLEWMAX * 1e-3; /* slew limit (G/cm/ms) */
+	float gam = 4.258*2*M_PI; /* gyromagnetic ratio (rad/G/ms) */
+	float kmax = opxres / D / 2; /* kspace sampling radius (cm^-1) */
 
-	/* copy the trajectory arrays */		
-	arrcopy(kx,kx_tmp,np);
-	arrcopy(ky,ky_tmp,np);
+	/* generate the z encoding trapezoid gradient */
+	gradtrap(kmax, sm, gm, dt, &h_ze, &Tr_ze, &Tp_ze);
+	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
-	/* reverse the trajectory arrays */
-	arrcopy(kx,kx_rev,np);
-	arrcopy(ky,ky_rev,np);
-	reverse(kx_rev,0,np-1);
-	reverse(ky_rev,0,np-1);
-	
-	/* loop through points */
-	switch(sptype2d) {
-		case 1: /* spiral out */
-			break;
-		case 2: /* spiral in */
-			copyarr(kx_rev,n,kx);
-			copyarr(ky_rev,n,ky);
-			break;
-		case 3: /* spiral out-in */
-			arrcat(kx_tmp, np + nnav, kx_rev, nnav, kx);
-			arrcat(ky_tmp, np + nnav, ky_rev, nnav, ky);
-			np = 2*np + nnav;
-			break;
-		case 4: /* spiral in-out */
-			arrcat(kx_rev, np + nnav, kx_tmp, nnav, kx);
-			arrcat(ky_rev, np + nnav, ky_tmp, nnav, ky);	
-			np = 2*np + nnav;
-			break;
-	}
-	
-	/* differentiate trajectory to get gradients */
-	diff(kx, np, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gx);
-	diff(ky, np, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gy);
-	diff(kz, np, GRAD_UPDATE_TIME*1e-6*GAMMA/2.0/M_PI, gz);
+	/* generate the spiral trajectory */
+	T_sp = kimvdsp(kx_sp, ky_sp, D, sm, gm, opxres, (sptype2d < 3) ? (ntrains) : (2*ntrains), sp_alpha, dt);
+	np_sp = round(T_sp/dt);
+	diff(kx_sp, np_sp, gam*dt, gx_sp);
+	diff(ky_sp, np_sp, gam*dt, gy_sp);	
 
-	/* translate gradients to full scale DAQ units and write traj.txt file */
-	FILE* fID = fopen("./ktraj.txt", "w");
+	/* calculate gradients at end of spiral */
+	gx0 = gx_sp[np_sp - 1];
+	gy0 = gy_sp[np_sp - 1];
+	g0 = sqrt(pow(gx0,2) + pow(gy0,2));
+
+	/* calculate gradient ramp down time and round up to nearest sampling interval */
+	T_rd = g0 / sm;
+	T_rd = dt * ceil(T_rd / dt);
+	np_rd = round(T_rd/dt);
+
+	/* calculate gradients at end of ramp down */
+	kx0 = kx_sp[np_sp - 2] + gam * 1/2 * (T_rd + dt) * gx0;
+	ky0 = ky_sp[np_sp - 2] + gam * 1/2 * (T_rd + dt) * gy0;
+	kz0 = kmax;
+	k0 = sqrt(pow(kx0,2) + pow(ky0,2) + pow(kz0,2));
+	fprintf(stderr, "k0 = [%f, %f, %f]\n", kx0,ky0,kz0);
+
+	/* generate the kspace rewinder */
+	gradtrap(k0, sm, gm, dt, &h_kr, &Tr_kr, &Tp_kr); 
+	np_kr = round((2*Tr_kr + Tp_kr) / dt);
+
+	/* calculate time markers */
+	t1 = 2*Tr_ze + Tp_ze;
+	t2 = t1 + T_sp;
+	t3 = t2 + T_rd;
+
+	/* calculate total number of points */
+	np = np_ze + np_sp + np_rd + np_kr + 1;
+
+	/* loop through time points */
 	for (n = 0; n < np; n++) {
-		Gx[n] = 2 * round(MAX_PG_WAMP * gx[n] / XGRAD_max / 2.0);
-		Gy[n] = 2 * round(MAX_PG_WAMP * gy[n] / YGRAD_max / 2.0);
-		Gz[n] = 2 * round(MAX_PG_WAMP * gz[n] / ZGRAD_max / 2.0);
-		fprintf(fID, "%f \t%f \t%f\n", kx[n], ky[n], kz[n]);
+		t = dt * n;
+
+		if (t <= t1) { /* Z-encode gradient */
+			gxn = 0;
+			gyn = 0;
+			gzn = h_ze * trap(t, 0, Tr_ze, Tp_ze);
+		}
+
+		else if (t <= t2) { /* Spiral trajectory */
+			gxn = gx_sp[n - np_ze - 1];
+			gyn = gy_sp[n - np_ze - 1];
+			gzn = 0;
+		}
+
+		else if (t <= t3) { /* Gradient ramp-down */
+			gxn = gx0 * (1 - (t - t2) / T_rd);
+			gyn = gy0 * (1 - (t - t2) / T_rd);
+			gzn = 0;
+		}
+
+		else { /* Kspace rewinder */
+			gxn = -kx0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
+			gyn = -ky0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
+			gzn = -kz0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
+		}
+
+
+		switch (sptype2d) {
+			case 1: /* spiral out */
+				gx[n] = gxn;
+				gy[n] = gyn;
+				gz[n] = gzn;
+				break;
+			case 2: /* spiral in */
+				gx[np - 1 - n] = gxn;
+				gy[np - 1 - n] = gyn;
+				gz[np - 1 - n] = gzn;
+				break;
+			case 3: /* spiral out-in */
+				gx[n] = gxn;
+				gy[n] = gyn;
+				gz[n] = gzn;
+				gx[2*np + nnav - 1 - n] = gxn;
+				gy[2*np + nnav - 1 - n] = gyn;
+				gz[2*np + nnav - 1 - n] = -gzn;
+				break;
+			case 4: /* spiral in-out */
+				gx[np - 1 - n] = gxn;
+				gy[np - 1 - n] = gyn;
+				gz[np - 1 - n] = -gzn;
+				gx[np + nnav + n] = gxn;
+				gy[np + nnav + n] = gyn;
+				gz[np + nnav + n] = gzn;
+				break;
+			default:
+				return 0;
+				break;
+		}
 	}
+
+	/* calculate total number of points */
+	if (sptype2d > 2)
+		grad_len = 2*np + nnav;
+	else
+		grad_len = np;
+
+	/* calculate kspace location, fs gradients, and write to file */
+	kxn = 0;
+	kyn = 0;
+	kzn = 0;
+	for (n = 0; n < grad_len; n++) {
+		kxn += gam * gx[n] * dt;
+		kyn += gam * gy[n] * dt;
+		kzn += gam * gz[n] * dt;
+		fprintf(fID, "%f \t%f \t%f\n", kxn, kyn, kzn);
+
+		Gx[n] = 2*round(MAX_PG_IAMP/XGRAD_max * gx[n] / 2);
+		Gy[n] = 2*round(MAX_PG_IAMP/YGRAD_max * gy[n] / 2);
+		Gz[n] = 2*round(MAX_PG_IAMP/ZGRAD_max * gz[n] / 2);
+	}
+
 	fclose(fID);
 
-	return 0;
+	return 1;
 }
 
 int genviews() {
@@ -2056,7 +2158,7 @@ int genviews() {
 					rx = 0.0;
 					ry = (float)(trainn*nechoes + echon) * 2.0 * M_PI / PHI;
 					rz = 0.0;
-					dz = 1.0;
+					dz = 0.0;
 					break;
 				case 3 :
 				case 4 : /* Double axis rotations */
@@ -2069,7 +2171,7 @@ int genviews() {
 					rx = M_PI * (float)(echon) / nechoes;
 					ry = M_PI * (float)(trainn) / ntrains;
 					rz = 0.0;
-					dz = 1.0;
+					dz = 0.0;
 					break;
 				default:
 					return 0;
