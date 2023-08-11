@@ -2163,7 +2163,7 @@ int genviews() {
 					rx = 2.0 * M_PI * (float)(trainn*nechoes + echon) / PHI;
 					ry = acos(fmod(1 - 2*(trainn*nechoes + echon + 0.5) / (float)(ntrains*nechoes), 1));
 					rz = 0.0;
-					dz = 1.0;
+					dz = 0.0;
 					break;
 				case 5: /* Debugging case */
 					rx = M_PI * (float)(echon) / nechoes;
