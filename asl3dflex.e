@@ -2186,9 +2186,9 @@ int genviews() {
 
 			/* Multiply the transformation matrices */
 			multmat(3,3,3,T_0,Tz,T);
+			multmat(3,3,3,Rz,T,T);
 			multmat(3,3,3,Rx,T,T);
 			multmat(3,3,3,Ry,T,T);
-			multmat(3,3,3,Rz,T,T);
 
 			/* Save the matrix to the table of matrices */
 			fprintf(fID, "%d \t%d \t%f \t%f \t%f \t%f \t", trainn, echon, rx, ry, rz, dz);
