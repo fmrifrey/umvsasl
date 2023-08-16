@@ -9,6 +9,7 @@ int orthonormalize(float* mat, int M, int N);
 int printmat(FILE *fID, int M, int N, float* mat);
 int conv(float* x, int lenx, float* h, int lenh, float* y);
 int diff(float* x, int lenx, float di, float* y);
+float fsumarr(float *x, int lenx);
 float getmaxabs(float *x, int lenx);
 float trap(float t, float t_start, float t_ramp, float t_plateau);
 
@@ -159,6 +160,14 @@ int diff(float* x, int lenx, float di, float* y) {
 
 	return 1;
 };
+
+float fsumarr(float *x, int lenx) {
+	int i;
+	float total = 0;
+	for (i = 0; i < lenx; i++)
+		total += x[i];
+	return total;
+}
 
 float getmaxabs(float *x, int lenx) {
 

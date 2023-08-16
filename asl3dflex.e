@@ -241,7 +241,7 @@ int readpos = 0 with {0, , 0, INVIS, "Position of readout within seqcore (us)",}
 #include "sar_pm.h"
 #include "support_func.host.h"
 #include "helperfuns.h"
-#include "kimvdsp.h"
+#include "vds.c"
 #include "gradtrap.h"
 
 /* fec : Field strength dependency library */
@@ -1976,18 +1976,18 @@ int genspiral() {
 	float gxn, gyn, gzn, kxn, kyn, kzn;
 	float gx0, gy0, g0, kx0, ky0, kz0, k0;
 	float h_ze, h_kr;
+	float F[2];
 
 	/* declare waveforms */
-	float kx_sp[MAXWAVELEN], ky_sp[MAXWAVELEN] = {0};
-	float gx_sp[MAXWAVELEN], gy_sp[MAXWAVELEN] = {0};
-	float gx[MAXWAVELEN], gy[MAXWAVELEN], gz[MAXWAVELEN] = {0};
+	float *gx_sp, *gy_sp;
+	float gx[MAXWAVELEN], gy[MAXWAVELEN], gz[MAXWAVELEN];
 
 	/* convert units */
-	float dt = GRAD_UPDATE_TIME*1e-3; /* raster time (ms) */
+	float dt = GRAD_UPDATE_TIME*1e-6; /* raster time (s) */
 	float D = (float)opfov / 10.0; /* fov (cm) */
 	float gm = GMAX; /* gradient amplitude limit (G/cm) */
-	float sm = SLEWMAX * 1e-3; /* slew limit (G/cm/ms) */
-	float gam = 4.258*2*M_PI; /* gyromagnetic ratio (rad/G/ms) */
+	float sm = SLEWMAX; /* slew limit (G/cm/s) */
+	float gam = 4258; /* gyromagnetic ratio (G*Hz) */
 	float kmax = opxres / D / 2; /* kspace sampling radius (cm^-1) */
 
 	/* generate the z encoding trapezoid gradient */
@@ -1995,10 +1995,10 @@ int genspiral() {
 	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
 	/* generate the spiral trajectory */
-	T_sp = kimvdsp(kx_sp, ky_sp, D, sm, gm, opxres, (sptype2d < 3) ? (ntrains) : (2*ntrains), spalpha, dt);
-	np_sp = round(T_sp/dt);
-	diff(kx_sp, np_sp, gam*dt, gx_sp);
-	diff(ky_sp, np_sp, gam*dt, gy_sp);	
+	F[0] = spalpha * D;
+	F[1] = D / (opxres/D/2) * (1 - spalpha);
+	calc_vds(sm, gm, dt, dt, ((sptype2d<3)?(1):(2))*ntrains, F, 2, opxres/D/2.0, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
+	T_sp = dt * np_sp;
 
 	/* calculate gradients at end of spiral */
 	gx0 = gx_sp[np_sp - 1];
@@ -2011,8 +2011,8 @@ int genspiral() {
 	np_rd = round(T_rd/dt);
 
 	/* calculate gradients at end of ramp down */
-	kx0 = kx_sp[np_sp - 2] + gam * 1/2 * (T_rd + dt) * gx0;
-	ky0 = ky_sp[np_sp - 2] + gam * 1/2 * (T_rd + dt) * gy0;
+	kx0 = gam * dt * fsumarr(gx_sp, np_sp - 1) + gam * 1/2 * (T_rd + dt) * gx0;
+	ky0 = gam * dt * fsumarr(gy_sp, np_sp - 1) + gam * 1/2 * (T_rd + dt) * gy0;
 	kz0 = kmax;
 	k0 = sqrt(pow(kx0,2) + pow(ky0,2) + pow(kz0,2));
 	fprintf(stderr, "k0 = [%f, %f, %f]\n", kx0,ky0,kz0);
@@ -2030,6 +2030,9 @@ int genspiral() {
 	np = np_ze + np_sp + np_rd + np_kr + 1;
 
 	/* loop through time points */
+	memset(gx, 0, sizeof gx);
+	memset(gy, 0, sizeof gx);
+	memset(gz, 0, sizeof gx);
 	for (n = 0; n < np; n++) {
 		t = dt * n;
 
@@ -2106,9 +2109,9 @@ int genspiral() {
 		kyn += gam * gy[n] * dt;
 		kzn += gam * gz[n] * dt;
 
-		Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n]/(2.0*M_PI) / 2.0);
-		Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n]/(2.0*M_PI) / 2.0);
-		Gz[n] = 2*round(MAX_PG_WAMP/ZGRAD_max * gz[n]/(2.0*M_PI) / 2.0);
+		Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n] / 2.0);
+		Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n] / 2.0);
+		Gz[n] = 2*round(MAX_PG_WAMP/ZGRAD_max * gz[n] / 2.0);
 		
 		fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzn);
 		fprintf(fID_grad, "%f \t%f \t%f\n", gx[n], gy[n], gz[n]);

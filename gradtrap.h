@@ -3,7 +3,7 @@
 
 int gradtrap(float dk, float sm, float gm, float dt, float* h_ref, float* t_ramp_ref, float* t_plat_ref) {
 
-	float gam = 4.258*2*M_PI; /* gyromagnetic ratio (rad/G/ms) */
+	float gam = 4258; /* gyromagnetic ratio (G*Hz) */
 	float A;
 	float h, t_ramp, t_plat;
 
