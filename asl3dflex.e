@@ -186,7 +186,8 @@ int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per echo train"
 int ntrains = 1 with {1, MAXNTRAINS, 1, VIS, "Number of echo trains per frame",};
 int nframes = 2 with {1, , 2, VIS, "Number of frames to acquire",};
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points (must be even)",};
-float spalpha = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral variable density factor",};
+float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
+float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
@@ -493,36 +494,44 @@ STATUS cveval( void )
 	sptype3d = opuser5;
 
 	piuset += use6;
-	cvdesc(opuser6, "Spiral variable density factor");
+	cvdesc(opuser6, "VD-spiral center oversampling factor");
 	cvdef(opuser6, 1.0);
 	opuser6 = 1.0;
 	cvmin(opuser6, 0.001);
 	cvmax(opuser6, 50.0);
-	spalpha = opuser6;
+	spvd0 = opuser6;
 
 	piuset += use7;
-	cvdesc(opuser7, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser7, 0.6);
-	cvmin(opuser7, 0.1);
-	cvmax(opuser7, 1.0);
-	opuser8 = 0.6;
-	varflipfac = opuser7;
+	cvdesc(opuser7, "VD-spiral edge oversampling factor");
+	cvdef(opuser7, 1.0);
+	opuser7 = 1.0;
+	cvmin(opuser7, 0.001);
+	cvmax(opuser7, 50.0);
+	spvd1 = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "Recon script ID #");
-	cvdef(opuser8, 2327);
-	cvmin(opuser8, 0);
-	cvmax(opuser8, 9999);
-	opuser8 = 2327;
-	rhrecon = opuser8;
-	
+	cvdesc(opuser8, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser8, 0.6);
+	cvmin(opuser8, 0.1);
+	cvmax(opuser8, 1.0);
+	opuser8 = 0.6;
+	varflipfac = opuser8;
+
 	piuset += use9;
-	cvdesc(opuser9, "ASL prep schedule ID #");
-	cvdef(opuser9, 0);
+	cvdesc(opuser9, "Recon script ID #");
+	cvdef(opuser9, 2327);
 	cvmin(opuser9, 0);
 	cvmax(opuser9, 9999);
-	opuser9 = 0;
-	schedule_id = opuser9;
+	opuser9 = 2327;
+	rhrecon = opuser9;
+	
+	piuset += use10;
+	cvdesc(opuser10, "ASL prep schedule ID #");
+	cvdef(opuser10, 0);
+	cvmin(opuser10, 0);
+	cvmax(opuser10, 9999);
+	opuser10 = 0;
+	schedule_id = opuser10;
 	
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -1164,7 +1173,8 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "Number of echo trains per frame:", ntrains);
 	fprintf(finfo, "\t%-50s%20d\n", "2D spiral type:", sptype2d);
 	fprintf(finfo, "\t%-50s%20d\n", "3D spiral type:", sptype3d);
-	fprintf(finfo, "\t%-50s%20f\n", "Spiral variable density factor:", spalpha);
+	fprintf(finfo, "\t%-50s%20f\n", "VD-spiral center oversampling factor:", spvd0);
+	fprintf(finfo, "\t%-50s%20f\n", "VD-spiral edge oversampling factor:", spvd1);
 	fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
@@ -1995,8 +2005,8 @@ int genspiral() {
 	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
 	/* generate the spiral trajectory */
-	F[0] = spalpha * D;
-	F[1] = D / (opxres/D/2) * (1 - spalpha);
+	F[0] = spvd0 * D;
+	F[1] = (D*spvd1 - F[0]) / (opxres/D/2.0);
 	calc_vds(sm, gm, dt, dt, ((sptype2d<3)?(1):(2))*ntrains, F, 2, opxres/D/2.0, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 
