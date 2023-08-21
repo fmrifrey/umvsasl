@@ -1547,21 +1547,12 @@ STATUS scancore( void )
 
 	/* Set fat sat frequency */
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrf, 0);
-
-	if (rspent != L_SCAN || kill_grads) {
-		/* Turn off the gradients */
-		fprintf(stderr, "\n scaling grads to zero ");
-		setiamp(0, &gxw, 0);
-		setiamp(0, &gyw, 0);
-		setiamp(0, &gzw, 0);
-	}
-	else {
-		/* Restore the gradients */
-		fprintf(stderr, "\n scaling grads to %d ", MAX_PG_IAMP);
-		setiamp(MAX_PG_IAMP, &gxw, 0);
-		setiamp(MAX_PG_IAMP, &gyw, 0);
-		setiamp(MAX_PG_IAMP, &gzw, 0);
-	}
+		
+	/* Turn off the gradients */
+	fprintf(stderr, "\n scaling grads to zero ");
+	setiamp(0, &gxw, 0);
+	setiamp(0, &gyw, 0);
+	setiamp(0, &gzw, 0);
 
 	/* Loop through disdaqs */
 	for (ddan = 0; ddan < rspdda; ddan++) {
@@ -1628,6 +1619,14 @@ STATUS scancore( void )
 			/* Reset the rf2 amplitude */
 			setiamp(ia_rf2, &rf2, 0);
 		}
+	}
+	
+	if (rspent == L_SCAN && !kill_grads) {
+		/* Restore the gradients */
+		fprintf(stderr, "\n scaling grads to %d ", MAX_PG_IAMP);
+		setiamp(MAX_PG_IAMP, &gxw, 0);
+		setiamp(MAX_PG_IAMP, &gyw, 0);
+		setiamp(MAX_PG_IAMP, &gzw, 0);
 	}
 
 	/* Loop through frames */
@@ -1998,16 +1997,17 @@ int genspiral() {
 	float gm = GMAX; /* gradient amplitude limit (G/cm) */
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (G*Hz) */
-	float kmax = opxres / D / 2; /* kspace sampling radius (cm^-1) */
+	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
+	float kzmax = nechoes / D / 2.0; /* kspace z sampling radius for SOS (cm^-1) */
 
 	/* generate the z encoding trapezoid gradient */
-	gradtrap(kmax, sm, gm, dt, &h_ze, &Tr_ze, &Tp_ze);
+	gradtrap(kzmax, sm, gm, dt, &h_ze, &Tr_ze, &Tp_ze);
 	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
 	/* generate the spiral trajectory */
 	F[0] = spvd0 * D;
-	F[1] = (D*spvd1 - F[0]) / (opxres/D/2.0);
-	calc_vds(sm, gm, dt, dt, ((sptype2d<3)?(1):(2))*ntrains, F, 2, opxres/D/2.0, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
+	F[1] = (D*spvd1 - F[0]) / kxymax;
+	calc_vds(sm, gm, dt, dt, ((sptype2d<3)?(1):(2))*ntrains, F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 
 	/* calculate gradients at end of spiral */
@@ -2023,7 +2023,7 @@ int genspiral() {
 	/* calculate gradients at end of ramp down */
 	kx0 = gam * dt * fsumarr(gx_sp, np_sp - 1) + gam * 1/2 * (T_rd + dt) * gx0;
 	ky0 = gam * dt * fsumarr(gy_sp, np_sp - 1) + gam * 1/2 * (T_rd + dt) * gy0;
-	kz0 = kmax;
+	kz0 = kzmax;
 	k0 = sqrt(pow(kx0,2) + pow(ky0,2) + pow(kz0,2));
 	fprintf(stderr, "k0 = [%f, %f, %f]\n", kx0,ky0,kz0);
 
