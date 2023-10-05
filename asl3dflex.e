@@ -476,62 +476,70 @@ STATUS cveval( void )
 	cvmin(opuser3, 1);
 	cvmax(opuser3, MAXNTRAINS);
 	ntrains = opuser3;
-
+	
 	piuset += use4;
-	cvdesc(opuser4, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser4, 4);
-	opuser4 = 4;
-	cvmin(opuser4, 1);
-	cvmax(opuser4, 4);
-	sptype2d = opuser4;
+	cvdesc(opuser4, "Number of disdaq trains");
+	cvdef(opuser4, 2);
+	opuser4 = 2;
+	cvmin(opuser4, 0);
+	cvmax(opuser4, 100);
+	ndisdaqs = opuser4;
 
 	piuset += use5;
-	cvdesc(opuser5, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
-	cvdef(opuser5, 3);
-	opuser5 = 3;
+	cvdesc(opuser5, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
+	cvdef(opuser5, 4);
+	opuser5 = 4;
 	cvmin(opuser5, 1);
 	cvmax(opuser5, 4);
-	sptype3d = opuser5;
+	sptype2d = opuser5;
 
 	piuset += use6;
-	cvdesc(opuser6, "VD-spiral center oversampling factor");
-	cvdef(opuser6, 1.0);
-	opuser6 = 1.0;
-	cvmin(opuser6, 0.001);
-	cvmax(opuser6, 50.0);
-	spvd0 = opuser6;
+	cvdesc(opuser6, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
+	cvdef(opuser6, 3);
+	opuser6 = 3;
+	cvmin(opuser6, 1);
+	cvmax(opuser6, 4);
+	sptype3d = opuser6;
 
 	piuset += use7;
-	cvdesc(opuser7, "VD-spiral edge oversampling factor");
+	cvdesc(opuser7, "VD-spiral center oversampling factor");
 	cvdef(opuser7, 1.0);
 	opuser7 = 1.0;
 	cvmin(opuser7, 0.001);
 	cvmax(opuser7, 50.0);
-	spvd1 = opuser7;
+	spvd0 = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser8, 0.6);
-	cvmin(opuser8, 0.1);
-	cvmax(opuser8, 1.0);
-	opuser8 = 0.6;
-	varflipfac = opuser8;
+	cvdesc(opuser8, "VD-spiral edge oversampling factor");
+	cvdef(opuser8, 1.0);
+	opuser8 = 1.0;
+	cvmin(opuser8, 0.001);
+	cvmax(opuser8, 50.0);
+	spvd1 = opuser8;
 
 	piuset += use9;
-	cvdesc(opuser9, "Recon script ID #");
-	cvdef(opuser9, 2327);
-	cvmin(opuser9, 0);
-	cvmax(opuser9, 9999);
-	opuser9 = 2327;
-	rhrecon = opuser9;
-	
+	cvdesc(opuser9, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser9, 0.6);
+	cvmin(opuser9, 0.1);
+	cvmax(opuser9, 1.0);
+	opuser9 = 0.6;
+	varflipfac = opuser9;
+
 	piuset += use10;
-	cvdesc(opuser10, "ASL prep schedule ID #");
-	cvdef(opuser10, 0);
+	cvdesc(opuser10, "Recon script ID #");
+	cvdef(opuser10, 2327);
 	cvmin(opuser10, 0);
 	cvmax(opuser10, 9999);
-	opuser10 = 0;
-	schedule_id = opuser10;
+	opuser10 = 2327;
+	rhrecon = opuser10;
+	
+	piuset += use11;
+	cvdesc(opuser11, "ASL prep schedule ID #");
+	cvdef(opuser11, 0);
+	cvmin(opuser11, 0);
+	cvmax(opuser11, 9999);
+	opuser11 = 0;
+	schedule_id = opuser11;
 	
 	/* 
 	 * Calculate RF filter and update RBW:
