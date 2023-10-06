@@ -620,7 +620,7 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
-	FILE* finfo;
+	FILE* finfo, fsid;
 	int framen, trainn, echon, ddan, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
@@ -653,6 +653,13 @@ STATUS predownload( void )
 	if (genviews() == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
+	}
+
+	/* Create a file containing the schedule id number */
+	if (schedule_id > 0) {
+		fsid = fopen("/usr/g/mrraw/asl3dflex_scheduleidnum.txt", "w");
+		fprintf(fsid, "%05d", schedule_id);
+		fclose(fsid);
 	}
 
 	/* Read in refocuser flip angle schedule */

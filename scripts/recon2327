@@ -13,6 +13,7 @@ mv /usr/g/mrraw/P${pfile}.7 /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
 if ( -f /usr/g/mrraw/asl3dflex_scheduleidnum.txt ) then
 	set sid=`cat /usr/g/mrraw/asl3dflex_scheduleidnum.txt`
 	cp /usr/g/bin/aslprep/schedules/${sid}/*.txt /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
+	rm /usr/g/mrraw/asl3dflex_scheduleidnum.txt
 endif
 
 xmessage -timeout 2 Moved pfile: P${pfile}.7 and trajectory files to /usr/g/mrraw/asldata_e${exam}_s${series}_${pfile}
