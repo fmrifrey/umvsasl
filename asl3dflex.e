@@ -657,7 +657,7 @@ STATUS predownload( void )
 
 	/* Create a file containing the schedule id number */
 	if (schedule_id > 0) {
-		fsid = fopen("/usr/g/mrraw/asl3dflex_scheduleidnum.txt", "w");
+		fsid = fopen("asl3dflex_scheduleidnum.txt", "w");
 		fprintf(fsid, "%05d", schedule_id);
 		fclose(fsid);
 	}
