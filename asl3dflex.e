@@ -56,6 +56,7 @@
 #define MAXITR 50 /* Maximum number of iterations for iterative processes */
 #define GAMMA 26754 /* Gyromagnetic ratio (rad/s/G) */
 #define TIMESSI 400 /* SSP instruction time */
+#define SPOIL_SEED 21001 /* rf spoiler seed */
 
 @inline Prescan.e PSglobal
 int debugstate = 1;
@@ -170,13 +171,15 @@ float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 
-/* RO cvs */
+/* readout cvs */
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
 int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
 float phs_tip = 0.0 with { , , 0.0, VIS, "Initial transmitter phase for tipdown pulse",};
 float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion pulse",};
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
+int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
+int rfspoil_gre = 0 with {0, 1, 0, VIS, "Option to do rf spoiling for GRE sequence",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 
@@ -221,7 +224,7 @@ int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us
 int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
 int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
 int dur_tipdowncore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
-int dur_refocuscore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)",};
+int dur_flipcore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)",};
 int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
 int readpos = 0 with {0, , 0, INVIS, "Position of readout within seqcore (us)",};
 
@@ -687,12 +690,15 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
 			for (echon = 0; echon < nechoes; echon++) {
-				if (ro_mode == 0)
-					flipphstbl[echon] = phs_tip + M_PI * pow((float)echon/(float)nechoes, 2.0);
-				else
+				if (ro_mode == 0 && rfspoil_gre == 0) /* non-rf spoiled GRE */
+					flipphstbl[echon] = phs_tip;
+				else if (ro_mode == 0 && rfspoil_gre == 1) /* rf spoiled GRE */
+					flipphstbl[echon] = phs_tip + M_PI * (fmod(pow((float)echon*SPOIL_SEED, 2.0), 2.0) - 1.0);
+				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
 					flipphstbl[echon] = phs_inv;
+				else /* phase cycled FSE */
+					flipphstbl[echon] = phs_inv * pow(-1.0, (float)echon);
 			}
-			
 			break;
 		case -1:
 			return FAILURE;
@@ -964,7 +970,7 @@ STATUS predownload( void )
 	}
 
 	/* Determine max B1 for the rest of the pulses in L_SCAN */
-	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, (ro_mode == 1) ? (90.0) : (0.0));
+	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, 90.0);
 	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
 
@@ -1040,7 +1046,7 @@ STATUS predownload( void )
 	
 	/* Set the durations of each core */
 	dur_tipdowncore = opte/2 + pw_rf1/2 - pw_rf2/2 - 2*grad_buff_time - 2*trap_ramp_time - pw_gzrf2crush1 - TIMESSI;
-	dur_refocuscore = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*grad_buff_time + 6*trap_ramp_time;
+	dur_flipcore = pw_gzrf2crush1 + pw_rf2 + pw_gzrf2crush2 + 4*grad_buff_time + 6*trap_ramp_time;
 	dur_seqcore = opte - pw_gzrf2 - 4*grad_buff_time - 6*trap_ramp_time - 2*pw_gzrf2crush1 - 2*TIMESSI;
 	dur_prep1core = GRAD_UPDATE_TIME*prep1_len + psd_rf_wait + 2*grad_buff_time;
 	dur_prep2core = GRAD_UPDATE_TIME*prep2_len + psd_rf_wait + 2*grad_buff_time;
@@ -1055,7 +1061,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++) {
-				avmintr = dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+				avmintr = ro_mode*dur_tipdowncore + nechoes * (dur_flipcore + dur_seqcore);
 				avmintr += dur_fatsatcore;
 				avmintr += dur_blksatcore;
 				if (prep1_id > 0)
@@ -1082,7 +1088,7 @@ STATUS predownload( void )
 		pitscan += optr;
 	for (framen  = 0; framen < nframes; framen++) {
 		for (trainn = 0; trainn < ntrains; trainn++) {
-			pitscan += dur_tipdowncore + nechoes * (dur_refocuscore + dur_seqcore);
+			pitscan += ro_mode*dur_tipdowncore + nechoes * (dur_flipcore + dur_seqcore);
 			pitscan += dur_fatsatcore;
 			pitscan += dur_blksatcore;
 			if (prep1_id > 0)
@@ -1196,11 +1202,12 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "Duration of prep 2 core (ms):", (float)dur_prep2core * 1e-3);
 	fprintf(finfo, "\t%-50s%20f\n", "Duration of background suppression core (ms):", (float)dur_bkgsupcore * 1e-3);
 	fprintf(finfo, "\t%-50s%20f\n", "Duration of fat saturation core (ms):", (float)dur_fatsatcore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of tipdown core (ms):", (float)dur_tipdowncore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of refocuser core (ms):", (float)dur_refocuscore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of FSE tipdown core (ms):", (float)dur_tipdowncore * 1e-3);
+	fprintf(finfo, "\t%-50s%20f\n", "Duration of flip core (ms):", (float)dur_flipcore * 1e-3);
 	fprintf(finfo, "\t%-50s%20f\n", "Duration of readout core (ms):", (float)dur_seqcore * 1e-3);
 	
 	fprintf(finfo, "\nREADOUT INFO:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "Readout mode (0 = GRE, 1 = FSE):", ro_mode);
 	fprintf(finfo, "\t%-50s%20f\n", "Echo time (ms):", (float)opte * 1e-3);
 	fprintf(finfo, "\t%-50s%20d\n", "Number of echoes per echo train:", nechoes);
 	fprintf(finfo, "\t%-50s%20d\n", "Number of echo trains per frame:", ntrains);
@@ -1212,10 +1219,12 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "Flip angle (deg):", opflip);
-	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
-	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for tipdown pulse (rad):", phs_tip);
+	fprintf(finfo, "\t%-50s%20f\n", "Variable flip angle attenuation factor:", varflipfac);
+	fprintf(finfo, "\t%-50s%20d\n", "GRE rf spoiling (on/off):", rfspoil_gre);
+	fprintf(finfo, "\t%-50s%20d\n", "FSE rf phase cycling (on/off):", phscyc_fse);
+	fprintf(finfo, "\t%-50s%20f\n", "Initial transmitter phase for tipdown pulse (rad):", phs_tip);
 	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for inversion pulse (rad):", phs_inv);
-	fprintf(finfo, "\t%-50s%20f\n", "Receiever phase (rad):", phs_rx);
+	fprintf(finfo, "\t%-50s%20f\n", "Receiver phase (rad):", phs_rx);
 	
 	fprintf(finfo, "\nASL PREP INFO:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "Labeling schedule ID:", schedule_id);
@@ -1384,14 +1393,12 @@ STATUS pulsegen( void )
 	/*************************************/
 	/* Generate spin echo refocuser core */
 	/*************************************/
-	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo refocuser core (refocuscore)\n");
+	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo refocuser core (flipcore)\n");
 
 	fprintf(stderr, "pulsegen(): generating pre-rf2 crusher...\n");
 	TRAPEZOID(ZGRAD, gzrf2crush1, grad_buff_time + trap_ramp_time, 3200, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2crush1a, "gzrf2crush1a", 0), pend( &gzrf2crush1d, "gzrf2crush1d", 0));
 	fprintf(stderr, "\tDone.\n");
-
-	fprintf(stderr, "*****DEBUG*****\nZGRAD = %d\n***************\n", ZGRAD);
 
 	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
 	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, (opslthick + opslspace)*opslquant, 180.0, 2, 1, loggrd);
@@ -1404,8 +1411,8 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 	fprintf(stderr, "pulsegen(): finalizing spin echo refocuser core...\n");
-	fprintf(stderr, "\ttotal time: %dus\n", dur_refocuscore);
-	SEQLENGTH(refocuscore, dur_refocuscore, refocuscore);
+	fprintf(stderr, "\ttotal time: %dus\n", dur_flipcore);
+	SEQLENGTH(flipcore, dur_flipcore, flipcore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -1588,7 +1595,7 @@ STATUS scancore( void )
 		settrigger(TRIG_INTERN, 0);
 
 		/* Play TR deadtime */
-		ttmp = optr - dur_blksatcore - dur_fatsatcore - dur_tipdowncore - nechoes*(dur_refocuscore + dur_seqcore);
+		ttmp = optr - dur_blksatcore - dur_fatsatcore - dur_tipdowncore - nechoes*(dur_flipcore + dur_seqcore);
 		if (ttmp > TIMESSI) {
 			fprintf(stderr, "scancore(): playing TR deadtime (%d us)\n", ttmp);
 			setperiod(ttmp - TIMESSI, &emptycore, 0);
@@ -1605,7 +1612,7 @@ STATUS scancore( void )
 	
 		/* Play tipdown core */
 		if (ro_mode == 1) {
-			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
+			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us) for FSE readout...\n", dur_tipdowncore);
 			setphase(phs_tip, &rf1, 0);
 			boffset(off_tipdowncore);
 			startseq(0, MAY_PAUSE);
@@ -1624,8 +1631,8 @@ STATUS scancore( void )
 				setphase(phs_tip, &echo1, 0);
 
 			/* Play the refocuser core */
-			fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
-			boffset(off_refocuscore);
+			fprintf(stderr, "scancore(): playing flip pulse (%d us)...\n", dur_flipcore);
+			boffset(off_flipcore);
 			startseq(echon, (short)MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 
@@ -1858,7 +1865,7 @@ STATUS scancore( void )
 	
 			/* Play tipdown core */
 			if (ro_mode == 1) {
-				fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
+				fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us) for FSE readout...\n", dur_tipdowncore);
 				setphase(phs_tip, &rf1, 0);
 				boffset(off_tipdowncore);
 				startseq(0, MAY_PAUSE);
@@ -1877,8 +1884,8 @@ STATUS scancore( void )
 					setphase(phs_tip, &echo1, 0);
 				
 				/* Play the refocuser core */
-				fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
-				boffset(off_refocuscore);
+				fprintf(stderr, "scancore(): playing flip pulse (%d us)...\n", dur_flipcore);
+				boffset(off_flipcore);
 				startseq(echon, (short)MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 
