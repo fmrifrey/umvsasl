@@ -96,7 +96,8 @@ int grad_len = 5000;
 long tmtxtbl[MAXNTRAINS*MAXNECHOES][9];
 
 /* Declare table of refocuser flip angles */
-float rf2factbl[MAXNECHOES];
+float flipfactbl[MAXNECHOES];
+float flipphstbl[MAXNECHOES];
 
 /* Declare ASL prep waveform arrays */
 int prep1_rho_lbl[MAXWAVELEN];
@@ -169,16 +170,14 @@ float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 
-/* FSE cvs */
+/* RO cvs */
+int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
 int grad_buff_time = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 int trap_ramp_time = 248 with {100, , 248, INVIS, "Trapezoidal gradient ramp time (us)",};
-float phs_rf1 = 0.0 with { , , 0.0, VIS, "Transmitter phase for rf1 pulse",};
-float phs_rf2 = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for rf2 pulse",};
+float phs_tip = 0.0 with { , , 0.0, VIS, "Initial transmitter phase for tipdown pulse",};
+float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion pulse",};
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
-float opflip2 = 120.0 with {0.0, 360.0, 120.0, VIS, "Refocuser (rf2) flip angle",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
-int phscyc_rf2 = 0 with {0, 1, 0, VIS, "Option to do refocuser phase cycling (opflip2, -opflip2, opflip2...)",};
-float rf2_slabfrac = 1.4 with {0.0, , 1.4, VIS, "Ratio of slab refocuser width to slab excitation width",};
 int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 
 /* Trajectory cvs */
@@ -189,7 +188,7 @@ int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points (must be eve
 float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
 float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 3 with {1, 5, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = rotating orbitals (2 axes), 5 = debugging mode",};
+int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
 /* ASL prep pulse cvs */
@@ -446,12 +445,12 @@ STATUS cveval( void )
 	cvdesc(pititle, "Advanced pulse sequence parameters");
 	
 	piuset = use0;
-	cvdesc(opuser0, "Refocuser flip angle (deg)");
+	cvdesc(opuser0, "Readout mode (0 = GRE, 1 = FSE)");
 	cvdef(opuser0, 120);
 	opuser0 = 120;
 	cvmin(opuser0, 0);
 	cvmax(opuser0, 360);
-	opflip2 = opuser0;
+	ro_mode = opuser0;
 
 	piuset += use1;
 	cvdesc(opuser1, "Number of frames to acquire");
@@ -494,7 +493,7 @@ STATUS cveval( void )
 	sptype2d = opuser5;
 
 	piuset += use6;
-	cvdesc(opuser6, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots 4=naut");
+	cvdesc(opuser6, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots");
 	cvdef(opuser6, 3);
 	opuser6 = 3;
 	cvmin(opuser6, 1);
@@ -620,7 +619,8 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
-	FILE* finfo, fsid;
+	FILE* finfo;
+	FILE* fsid;
 	int framen, trainn, echon, ddan, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
@@ -662,20 +662,35 @@ STATUS predownload( void )
 		fclose(fsid);
 	}
 
-	/* Read in refocuser flip angle schedule */
-	sprintf(tmpstr, "rf2factbl");
+	/* Read in flip angle schedule */
+	sprintf(tmpstr, "flipfactbl");
 	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
-	switch (readschedulef(schedule_id, rf2factbl, tmpstr, nechoes)) {
+	switch (readschedulef(schedule_id, flipfactbl, tmpstr, nechoes)) {
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
 			for (echon = 0; echon < nechoes; echon++) {
-				if (phscyc_rf2 && echon > 1)
-					rf2factbl[echon] = varflipfac + floor((float)echon/2.0 - 1.0) / floor((float)nechoes/2.0 - 1.0) * (1.0 - varflipfac);	
-				else if (!phscyc_rf2 && echon > 0)
-					rf2factbl[echon] = varflipfac + (float)(echon - 1) / (float)(nechoes - 1) * (1.0 - varflipfac);
+				if (echon == 0)
+					flipfactbl[echon] = 1.0;
 				else
-					rf2factbl[echon] = 1.0;
-				rf2factbl[echon] *= (phscyc_rf2) ? pow(-1,echon) : 1;
+					flipfactbl[echon] = varflipfac + (float)(echon - 1) / (float)(nechoes - 1) * (1.0 - varflipfac);
+			}
+			
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in rf phase schedule */
+	sprintf(tmpstr, "flipphstbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
+	switch (readschedulef(schedule_id, flipphstbl, tmpstr, nechoes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
+			for (echon = 0; echon < nechoes; echon++) {
+				if (ro_mode == 0)
+					flipphstbl[echon] = phs_tip + M_PI * pow((float)echon/(float)nechoes, 2.0);
+				else
+					flipphstbl[echon] = phs_inv;
 			}
 			
 			break;
@@ -887,10 +902,13 @@ STATUS predownload( void )
 	pw_gzrf2d = trap_ramp_time;
 
 	/* Set the parameters for the post-refocuser crusher */
-	a_gzrf2crush2 = a_gzrf2crush1;
 	pw_gzrf2crush2 = pw_gzrf2crush1;
 	pw_gzrf2crush2a = pw_gzrf2crush1a;
 	pw_gzrf2crush2d = pw_gzrf2crush1d;
+	if (ro_mode == 0)
+		a_gzrf2crush2 = -0.5*a_gzrf2 * (pw_gzrf2 + pw_gzrf2a) / (pw_gzrf2crush2 + pw_gzrf2crush2a);
+	else /* FSE */
+		a_gzrf2crush2 = a_gzrf2crush1;
 
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
@@ -946,11 +964,11 @@ STATUS predownload( void )
 	}
 
 	/* Determine max B1 for the rest of the pulses in L_SCAN */
-	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, opflip);
+	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, (ro_mode == 1) ? (90.0) : (0.0));
 	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
 
-	rf2_b1 = calc_sinc_B1(cyc_rf2, pw_rf2, opflip2);
+	rf2_b1 = calc_sinc_B1(cyc_rf2, pw_rf2, opflip);
 	fprintf(stderr, "predownload(): maximum B1 for rf2 pulse: %f\n", rf2_b1);
 	if (rf2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf2_b1;
 
@@ -1193,13 +1211,11 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
-	fprintf(finfo, "\t%-50s%20f\n", "Tipdown flip angle (deg):", opflip);
-	fprintf(finfo, "\t%-50s%20f\n", "Refocuser flip angle (deg):", opflip2);
+	fprintf(finfo, "\t%-50s%20f\n", "Flip angle (deg):", opflip);
 	fprintf(finfo, "\t%-50s%20f\n", "Variable refocuser flip angle attenuation factor:", varflipfac);
-	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf1 pulse (rad):", phs_rf1);
-	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for rf2 pulse (rad):", phs_rf2);
+	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for tipdown pulse (rad):", phs_tip);
+	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for inversion pulse (rad):", phs_inv);
 	fprintf(finfo, "\t%-50s%20f\n", "Receiever phase (rad):", phs_rx);
-	fprintf(finfo, "\t%-50s%20d\n", "Refocuser phase cycling (on/off):", phscyc_rf2);
 	
 	fprintf(finfo, "\nASL PREP INFO:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "Labeling schedule ID:", schedule_id);
@@ -1350,7 +1366,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of spin echo tipdown core (tipdowncore)\n");
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	SLICESELZ(rf1, trap_ramp_time, 6400, rf2_slabfrac * (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
+	SLICESELZ(rf1, trap_ramp_time, 6400, (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf1a, "gzrf1a", 0), pend( &gzrf1d, "gzrf1d", 0));
 	fprintf(stderr, "\tDone.\n");
 
@@ -1378,7 +1394,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "*****DEBUG*****\nZGRAD = %d\n***************\n", ZGRAD);
 
 	fprintf(stderr, "pulsegen(): generating rf2 (180 deg spin echo refocuser)...\n");
-	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, 1.2*opslthick*opslquant, 180.0, 2, 1, loggrd);
+	SLICESELZ(rf2, pend( &gzrf2crush1d, "gzrf2crush1d", 0) + grad_buff_time + trap_ramp_time, 3200, (opslthick + opslspace)*opslquant, 180.0, 2, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, end: %dus\n", pbeg( &gzrf2a, "gzrf2a", 0), pend( &gzrf2d, "gzrf2d", 0));
 	fprintf(stderr, "\tDone.\n");	
 
@@ -1548,17 +1564,10 @@ STATUS scancore( void )
 	int total_frames = (rspent == L_SCAN) ? (nframes) : (1);
 	int total_trains = (rspent == L_SCAN) ? (ntrains) : (1000);
 			
-	/* Set rf1 transmit frequency and phase */
+	/* Set rf1, rf2 tx and rx frequency */
 	setfrequency((int)xmitfreq1, &rf1, 0);
-	setphase(phs_rf1, &rf1, 0);
-
-	/* Set rf2 transmit frequency and phase */
 	setfrequency((int)xmitfreq2, &rf2, 0);
-	setphase(phs_rf2, &rf2, 0);
-
-	/* Set reciever frequency and phase */
 	setfrequency((int)recfreq, &echo1, 0);
-	setphase(phs_rx, &echo1, 0);
 
 	/* Set fat sat frequency */
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrf, 0);
@@ -1595,16 +1604,24 @@ STATUS scancore( void )
 		settrigger(TRIG_INTERN, 0);
 	
 		/* Play tipdown core */
-		fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
-		boffset(off_tipdowncore);
-		startseq(0, MAY_PAUSE);
-		settrigger(TRIG_INTERN, 0);
+		if (ro_mode == 1) {
+			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
+			setphase(phs_tip, &rf1, 0);
+			boffset(off_tipdowncore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+		}
 
 		/* Play readout (refocusers + spiral gradients */
 		for (echon = 0; echon < nechoes; echon++) {
 
-			/* Set the refocuser flip angle */
-			setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
+			/* Set the refocuser flip angle & phase */
+			setiamp((int)(flipfactbl[echon]*ia_rf2), &rf2, 0);
+			setphase(flipphstbl[echon], &rf2, 0);
+			if (ro_mode == 1)
+				setphase(flipphstbl[echon], &echo1, 0);
+			else
+				setphase(phs_tip, &echo1, 0);
 
 			/* Play the refocuser core */
 			fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
@@ -1840,16 +1857,24 @@ STATUS scancore( void )
 			settrigger(TRIG_INTERN, 0);
 	
 			/* Play tipdown core */
-			fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
-			boffset(off_tipdowncore);
-			startseq(0, MAY_PAUSE);
-			settrigger(TRIG_INTERN, 0);
+			if (ro_mode == 1) {
+				fprintf(stderr, "scancore(): playing tipdown (90) pulse (%d us)...\n", dur_tipdowncore);
+				setphase(phs_tip, &rf1, 0);
+				boffset(off_tipdowncore);
+				startseq(0, MAY_PAUSE);
+				settrigger(TRIG_INTERN, 0);
+			}
 
 			/* Play readout (refocusers + spiral gradients */
 			for (echon = 0; echon < nechoes; echon++) {
 				
-				/* Set the refocuser flip angle */
-				setiamp((int)(rf2factbl[echon]*ia_rf2), &rf2, 0);
+				/* Set the refocuser flip angle & phase */
+				setiamp((int)(flipfactbl[echon]*ia_rf2), &rf2, 0);
+				setphase(flipphstbl[echon], &rf2, 0);
+				if (ro_mode == 1)
+					setphase(flipphstbl[echon], &echo1, 0);
+				else
+					setphase(phs_tip, &echo1, 0);
 				
 				/* Play the refocuser core */
 				fprintf(stderr, "scancore(): playing refocuser (180) pulse (%d us)...\n", dur_refocuscore);
@@ -2186,14 +2211,13 @@ int genviews() {
 					rz = 0.0;
 					dz = 0.0;
 					break;
-				case 3 :
-				case 4 : /* Double axis rotations */
+				case 3 : /* Double axis rotations */
 					rx = 2.0 * M_PI * (float)(trainn*nechoes + echon) / PHI;
 					ry = acos(fmod(1 - 2*(trainn*nechoes + echon + 0.5) / (float)(ntrains*nechoes), 1));
 					rz = 0.0;
 					dz = 0.0;
 					break;
-				case 5: /* Debugging case */
+				case 4: /* Debugging case */
 					rx = M_PI * (float)(echon) / nechoes;
 					ry = M_PI * (float)(trainn) / ntrains;
 					rz = 0.0;
