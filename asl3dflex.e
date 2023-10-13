@@ -909,10 +909,10 @@ STATUS predownload( void )
 		gradtrap(2*M_PI/GAMMA * 0.5 * tmp_area, GMAX, SLEWMAX, GRAD_UPDATE_TIME*1e-6, &tmp_a, &tmp_rmp_time, &tmp_plt_time);	
 		tmp_a *= -1;
 	} /* otherwise, FSE - crusher is just a crusher */
-	pw_gzrf2crush1 = round(tmp_plt_time*1e6);
-	pw_gzrf2crush1a = round(tmp_rmp_time*1e6);
-	pw_gzrf2crush1d = round(tmp_rmp_time*1e6);
-	a_gzrf2crush1 = tmp_a;
+	pw_gzrf2crush2 = round(tmp_plt_time*1e6);
+	pw_gzrf2crush2a = round(tmp_rmp_time*1e6);
+	pw_gzrf2crush2d = round(tmp_rmp_time*1e6);
+	a_gzrf2crush2 = tmp_a;
 		
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
