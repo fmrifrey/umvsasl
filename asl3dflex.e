@@ -86,6 +86,8 @@ float YGRAD_max;
 float ZGRAD_max;
 float RHO_max;
 float THETA_max;
+int ZGRAD_risetime;
+int ZGRAD_falltime;
 
 /* Declare readout gradient waveform arrays */
 int Gx[MAXWAVELEN];
@@ -172,7 +174,6 @@ float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 
 /* readout cvs */
-float crushfac = 0.25 with { , , 0.25, VIS, "Crusher dk factor (fraction of kmax)",};
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
 int ro_offset = 0 with { , , 0, VIS, "Readout offset time from center of echo (us)",};
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
@@ -427,6 +428,7 @@ STATUS cvinit( void )
 	gettarget(&ZGRAD_max, ZGRAD, &loggrd);
 	gettarget(&RHO_max, RHO, &loggrd);
 	gettarget(&THETA_max, THETA, &loggrd);
+	getramptime(&ZGRAD_risetime, &ZGRAD_falltime, ZGRAD, &loggrd);	
 
 @inline Prescan.e PScvinit
 
@@ -633,7 +635,8 @@ STATUS predownload( void )
 	float fatsat_b1, blksat_b1, bkgsup_b1;
 	float prep1_b1, prep2_b1;
 	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
-	float tmp_rmp_time, tmp_plt_time, tmp_a, tmp_area;
+	int tmp_pwa, tmp_pw, tmp_pwd;
+	float tmp_a, tmp_area;
 
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
@@ -879,39 +882,39 @@ STATUS predownload( void )
 	
 	/* Set the parameters for the spin echo tipdown refocuser gradients */
 	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
-	gradtrap(2*M_PI/GAMMA * 0.5 * tmp_area, GMAX, SLEWMAX, GRAD_UPDATE_TIME*1e-6, &tmp_a, &tmp_rmp_time, &tmp_plt_time);
-	tmp_a *= -1;
-	pw_gzrf1r = round(tmp_plt_time*1e6);
-	pw_gzrf1ra = round(tmp_rmp_time*1e6);
-	pw_gzrf1rd = round(tmp_rmp_time*1e6);
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
+	tmp_a *= -0.5;
+	pw_gzrf1r = tmp_pw;
+	pw_gzrf1ra = tmp_pwa;
+	pw_gzrf1rd = tmp_pwd;
 	a_gzrf1r = tmp_a;
 
 	/* Set the parameters for the crusher gradients */
-	gradtrap(crushfac*2*M_PI*opxres/opfov, GMAX, SLEWMAX, GRAD_UPDATE_TIME*1e-6, &tmp_a, &tmp_rmp_time, &tmp_plt_time);
-	
-	pw_gzblksatcrush = round(tmp_plt_time*1e6);
-	pw_gzblksatcrusha = round(tmp_rmp_time*1e6);
-	pw_gzblksatcrushd = round(tmp_rmp_time*1e6);
+	tmp_area = opxres / (opfov/10.0); /**** figure out an appropriate area for the crushers later ******/
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+	pw_gzblksatcrush = tmp_pw;
+	pw_gzblksatcrusha = tmp_pwa;
+	pw_gzblksatcrushd = tmp_pwd;
 	a_gzblksatcrush = tmp_a;
 
-	pw_gzfatsatcrush = round(tmp_plt_time*1e6);
-	pw_gzfatsatcrusha = round(tmp_rmp_time*1e6);
-	pw_gzfatsatcrushd = round(tmp_rmp_time*1e6);
+	pw_gzfatsatcrush = tmp_pw;
+	pw_gzfatsatcrusha = tmp_pwa;
+	pw_gzfatsatcrushd = tmp_pwd;
 	a_gzfatsatcrush = tmp_a;
 
-	pw_gzrf2crush1 = round(tmp_plt_time*1e6);
-	pw_gzrf2crush1a = round(tmp_rmp_time*1e6);
-	pw_gzrf2crush1d = round(tmp_rmp_time*1e6);
+	pw_gzrf2crush1 = tmp_pw;
+	pw_gzrf2crush1a = tmp_pwa;
+	pw_gzrf2crush1d = tmp_pwd;
 	a_gzrf2crush1 = tmp_a;
 
 	if (ro_mode == 0) { /* GRE - crusher acts as a refocuser for rf2 slice select gradients */
 		tmp_area = a_gzrf2 * (pw_gzrf2 + (pw_gzrf2a + pw_gzrf2d)/2.0);
-		gradtrap(2*M_PI/GAMMA * 0.5 * tmp_area, GMAX, SLEWMAX, GRAD_UPDATE_TIME*1e-6, &tmp_a, &tmp_rmp_time, &tmp_plt_time);	
-		tmp_a *= -1;
+		amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+		tmp_a *= -0.5;
 	} /* otherwise, FSE - crusher is just a crusher */
-	pw_gzrf2crush2 = round(tmp_plt_time*1e6);
-	pw_gzrf2crush2a = round(tmp_rmp_time*1e6);
-	pw_gzrf2crush2d = round(tmp_rmp_time*1e6);
+	pw_gzrf2crush2 = tmp_pw;
+	pw_gzrf2crush2a = tmp_pwa;
+	pw_gzrf2crush2d = tmp_pwd;
 	a_gzrf2crush2 = tmp_a;
 		
 	/* Generate initial spiral trajectory */
@@ -2159,7 +2162,7 @@ int genspiral() {
 	float D = (float)opfov / 10.0; /* fov (cm) */
 	float gm = GMAX; /* gradient amplitude limit (G/cm) */
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
-	float gam = 4258; /* gyromagnetic ratio (G*Hz) */
+	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
 	float kzmax = nechoes / D / 2.0; /* kspace z sampling radius for SOS (cm^-1) */
 
