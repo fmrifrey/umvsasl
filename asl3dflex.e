@@ -889,7 +889,7 @@ STATUS predownload( void )
 	a_gzrf1r = tmp_a;
 
 	/* Set the parameters for the crusher gradients */
-	tmp_area = opxres / (opfov/10.0); /**** figure out an appropriate area for the crushers later ******/
+	tmp_area = 2*M_PI/GAMMA * opxres/(opfov/10.0) * 1e6; /* Area under crusher s.t. dk = 2*kmax (G/cm*us) */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
 	pw_gzblksatcrush = tmp_pw;
 	pw_gzblksatcrusha = tmp_pwa;
