@@ -250,7 +250,6 @@ int deadtime_tipdowncore = 0 with {0, , 0, INVIS, "Deadtime inside tipdowncore f
 #include "support_func.host.h"
 #include "helperfuns.h"
 #include "vds.c"
-#include "gradtrap.h"
 
 /* fec : Field strength dependency library */
 #include <sysDep.h>
@@ -2146,6 +2145,7 @@ int genspiral() {
 	int n;
 	float t;
 	int np, np_ze, np_sp, np_rd, np_kr;
+	int tmp_pwa, tmp_pw, tmp_pwd;
 	float Tr_ze, Tp_ze, T_sp, T_rd, Tr_kr, Tp_kr;
 	float t1, t2, t3;
 	float gxn, gyn, gzn, kxn, kyn, kzn;
@@ -2167,7 +2167,9 @@ int genspiral() {
 	float kzmax = nechoes / D / 2.0; /* kspace z sampling radius for SOS (cm^-1) */
 
 	/* generate the z encoding trapezoid gradient */
-	gradtrap(kzmax, sm, gm, dt, &h_ze, &Tr_ze, &Tp_ze);
+	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
+	Tr_ze = (tmp_pwa + tmp_pwd) / 2.0 * 1e-6;
+	Tp_ze = tmp_pw * 1e-6;
 	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
 	/* generate the spiral trajectory */
@@ -2193,7 +2195,9 @@ int genspiral() {
 	k0 = sqrt(pow(kx0,2) + pow(ky0,2) + pow(kz0,2));
 
 	/* generate the kspace rewinder */
-	gradtrap(k0, sm, gm, dt, &h_kr, &Tr_kr, &Tp_kr); 
+	amppwgrad(k0/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_kr, &tmp_pwa, &tmp_pw, &tmp_pwd);
+	Tr_kr = (tmp_pwa + tmp_pwd) / 2.0 * 1e-6;
+	Tp_kr = tmp_pw * 1e-6;
 	np_kr = round((2*Tr_kr + Tp_kr) / dt);
 
 	/* calculate time markers */
