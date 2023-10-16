@@ -1117,7 +1117,6 @@ STATUS predownload( void )
 		pitscan += optr;
 	for (framen  = 0; framen < nframes; framen++) {
 		for (trainn = 0; trainn < ntrains; trainn++) {
-			pitscan = 0;
 			if (ro_mode == 1) /* FSE only */
 				pitscan += dur_tipdowncore + TIMESSI;
 			pitscan += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
@@ -2175,7 +2174,7 @@ int genspiral() {
 	/* generate the spiral trajectory */
 	F[0] = spvd0 * D;
 	F[1] = (D*spvd1 - F[0]) / kxymax;
-	calc_vds(sm, gm, dt, dt, ((sptype2d<3)?(1):(2))*ntrains, F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
+	calc_vds(sm, gm, dt, dt, (sptype2d<3) ? (1) : (2), F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 
 	/* calculate gradients at end of spiral */
