@@ -1222,9 +1222,6 @@ STATUS predownload( void )
 	/* Save values to rhusers */
 	rhuser0 = nframes;
 	rhuser2 = nechoes;
-
-	/* Scale the transformation matrices */
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, nechoes, 0);
 	
 	/* Print scan info to a file */
 	finfo = fopen("scaninfo.txt", "w");
@@ -1974,7 +1971,7 @@ STATUS scancore( void )
 				setiamp(ia_gzw, &gzw, 0);
 
 				/* Set the transformation matrix */
-				setrotate(tmtxtbl[framen*nechoes + echon], echon);
+				setrotate(tmtxtbl[framen*nechoes + echon], 0);
 			}
 			else if (echon == 0) { /* load DAB for prescan processes with DABON for first echo */
 				fprintf(stderr, "scancore(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABON, PSD_LOAD_DAB_ALL)\n", echon);
@@ -2004,7 +2001,7 @@ STATUS scancore( void )
 			settrigger(TRIG_INTERN, 0);
 
 			/* Reset the rotation matrix */
-			setrotate(tmtx0, echon);
+			setrotate(tmtx0, 0);
 
 			/* Reset the rf2 amplitude */
 			setiamp(ia_rf2, &rf2, 0);
