@@ -1975,7 +1975,7 @@ STATUS scancore( void )
 				setiamp(ia_gzw, &gzw, 0);
 
 				/* Set the transformation matrix */
-				setrotate(tmtxtbl[framen*nechoes + echon], framen*nechoes + echon);
+				setrotate(tmtxtbl[framen*nechoes + echon], echon);
 			}
 			else if (echon == 0) { /* load DAB for prescan processes with DABON for first echo */
 				fprintf(stderr, "scancore(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABON, PSD_LOAD_DAB_ALL)\n", echon);
