@@ -988,6 +988,10 @@ STATUS predownload( void )
 	deadtime1_seqcore = (opte - avminte)/2 + ro_offset;
 	deadtime2_seqcore = (opte - avminte)/2 - ro_offset;
 
+	/* Round deadtimes to nearest sampling interval */
+	deadtime1_seqcore = deadtime1_seqcore + GRAD_UPDATE_TIME - deadtime1_seqcore % GRAD_UPDATE_TIME;
+	deadtime2_seqcore = deadtime2_seqcore - deadtime2_seqcore % GRAD_UPDATE_TIME;
+
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
 	a_gyw = YGRAD_max;
@@ -1320,7 +1324,7 @@ STATUS pulsegen( void )
 	tmploc = 0;	
 
 	fprintf(stderr, "pulsegen(): generating blksatrho & blksattheta (bulk saturation rf)...\n");
-	tmploc += 0; /* start time for blksat rf pulse */
+	tmploc += pgbuffertime; /* start time for blksat rf pulse */
 	EXTWAVE(RHO, blksatrho, tmploc, 5000, 1.0, 250, sech_7360.rho, , loggrd);
 	EXTWAVE(THETA, blksattheta, tmploc, 5000, 1.0, 250, sech_7360.theta, , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
@@ -1461,7 +1465,7 @@ STATUS pulsegen( void )
 	tmploc = 0;
 	
 	fprintf(stderr, "pulsegen(): generating fatsatrho (fat saturation rf pulse)...\n");
-	tmploc += 0; /* start time for fatsatrho */
+	tmploc += pgbuffertime; /* start time for fatsatrho */
 	SINC2(RHO, fatsatrho, tmploc + psd_rf_wait, 3200, 1.0, ,0.5, , , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_fatsatrho; /* end time for fatsatrho */
@@ -1971,7 +1975,7 @@ STATUS scancore( void )
 				setiamp(ia_gzw, &gzw, 0);
 
 				/* Set the transformation matrix */
-				setrotate(tmtxtbl[framen*nechoes + echon], 0);
+				setrotate(tmtxtbl[framen*nechoes + echon], framen*nechoes + echon);
 			}
 			else if (echon == 0) { /* load DAB for prescan processes with DABON for first echo */
 				fprintf(stderr, "scancore(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABON, PSD_LOAD_DAB_ALL)\n", echon);
