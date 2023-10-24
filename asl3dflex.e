@@ -1684,6 +1684,9 @@ STATUS psdinit( void )
 	setrotatearray( (short)nechoes, rsprot[0] );
 	setrfltrs( (int)filter_echo1, &echo1 );
 
+	/* Scale the rotation matrices */
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, nechoes*nframes, 0);
+
 	/* Store initial transformation matrix */
 	getrotate(tmtx0, 0);
 
@@ -2005,7 +2008,7 @@ STATUS scancore( void )
 			settrigger(TRIG_INTERN, 0);
 
 			/* Reset the rotation matrix */
-			setrotate(tmtx0, 0);
+			setrotate(tmtx0, echon);
 
 			/* Reset the rf2 amplitude */
 			setiamp(ia_rf2, &rf2, 0);
@@ -2130,7 +2133,7 @@ int genspiral() {
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
-	float kzmax = nechoes / D / 2.0; /* kspace z sampling radius for SOS (cm^-1) */
+	float kzmax = nleaves / D / 2.0; /* kspace z sampling radius for SOS (cm^-1) */
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
