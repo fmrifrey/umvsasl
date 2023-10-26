@@ -620,7 +620,8 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
-	FILE* finfo, fsid;
+	FILE* finfo;
+	FILE* fsid;
 	int framen, trainn, echon, ddan, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
