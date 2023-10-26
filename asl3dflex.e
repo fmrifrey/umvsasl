@@ -189,6 +189,7 @@ int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning o
 int nframes = 2 with {1, , 2, VIS, "Number of frames",};
 int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per frame",};
 int nleaves = 1 with {1, , 1, VIS, "Number of unique 3D kspace rotations/translations",};
+int nleafrep = 1 with {1, , 1, VIS, "Number of times to repeat a unique 3D kspace rotation/translation",};
 int ktransdim = 1 with {1, , 1, VIS, "Spiral interleaf transformation dimension (1 = echo, 2 = frame, 3 = both)",};
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",};
 float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
@@ -196,6 +197,7 @@ float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor"
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
+int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 
 /* ASL prep pulse cvs */
 int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are played)",};
@@ -807,7 +809,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				doblksattbl[framen] = (framen >= nm0frames) ? (1) : (0);
+				doblksattbl[framen] = (framen >= nm0frames) ? (doblksat) : (0);
 			break;
 		case -1:
 			return FAILURE;
@@ -892,7 +894,7 @@ STATUS predownload( void )
 	a_gzrf1r = tmp_a;
 
 	/* Set the parameters for the crusher gradients */
-	tmp_area = 2*M_PI/GAMMA * opxres/(opfov/10.0) * 1e6; /* Area under crusher s.t. dk = 2*kmax (G/cm*us) */
+	tmp_area = 2*M_PI/GAMMA * opxres/(opfov/10.0)/2.0 * 1e6; /* Area under crusher s.t. dk = kmax (G/cm*us) */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
 	pw_gzblksatcrush = tmp_pw;
 	pw_gzblksatcrusha = tmp_pwa;
@@ -940,6 +942,7 @@ STATUS predownload( void )
 		default :
 			return FAILURE;
 	}
+	nleaves = (nleaves - nleaves % nleafrep) / nleafrep;
 
 	/* Generate view transformations */
 	fprintf(stderr, "predownload(): calling genviews()\n");
@@ -948,6 +951,8 @@ STATUS predownload( void )
 		return FAILURE;
 	}
 
+	/* Scale the rotation matrices */
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, nechoes*nframes, 0);
 
 	/* Calculate minimum te */
 	avminte = 0;
@@ -1113,8 +1118,8 @@ STATUS predownload( void )
 				if (ro_mode == 1) /* FSE only */
 					avmintr += dur_tipdowncore + TIMESSI;	
 				avmintr += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
-				avmintr += dur_fatsatcore + TIMESSI;
-				avmintr += dur_blksatcore + TIMESSI;
+				avmintr += dofatsat * (dur_fatsatcore + TIMESSI);
+				avmintr += doblksattbl[framen] * (dur_blksatcore + TIMESSI);
 				if (prep1_id > 0)
 					avmintr += dur_prep1core + TIMESSI + prep1_pldtbl[framen] + TIMESSI;
 				if (prep2_id > 0)
@@ -1141,8 +1146,8 @@ STATUS predownload( void )
 		if (ro_mode == 1) /* FSE only */
 			pitscan += dur_tipdowncore + TIMESSI;
 		pitscan += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
-		pitscan += dur_fatsatcore + TIMESSI;
-		pitscan += dur_blksatcore + TIMESSI;
+		pitscan += dofatsat * (dur_fatsatcore + TIMESSI);
+		pitscan += doblksattbl[framen] * (dur_blksatcore + TIMESSI);
 		if (prep1_id > 0)
 			pitscan += dur_prep1core + prep1_pldtbl[framen] + TIMESSI;
 		if (prep2_id > 0)
@@ -1684,9 +1689,6 @@ STATUS psdinit( void )
 	setrotatearray( (short)nechoes, rsprot[0] );
 	setrfltrs( (int)filter_echo1, &echo1 );
 
-	/* Scale the rotation matrices */
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, nechoes*nframes, 0);
-
 	/* Store initial transformation matrix */
 	getrotate(tmtx0, 0);
 
@@ -1715,7 +1717,7 @@ STATUS scancore( void )
 		if (rspent != L_SCAN || framen < 0) { /* DISDAQS and prescan only - don't worry about any ASL prep */
 			/* Set duration of emptycore to optr deadtime */
 			ttmp = optr;
-			ttmp -= dur_fatsatcore + TIMESSI; /* fatsat */
+			ttmp -= dofatsat * (dur_fatsatcore + TIMESSI); /* fatsat */
 			if (ro_mode == 1)
 				ttmp -=  dur_tipdowncore + TIMESSI; /* fse tipdown */
 			ttmp -= nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI); /* flipcore + seqcore train */
@@ -1728,24 +1730,14 @@ STATUS scancore( void )
 
 		}			
 		else { /* only for non-disdaq frames */
-			if (doblksattbl[framen] > 0) {
+			if (doblksattbl[framen]) {
 				fprintf(stderr, "scancore(): playing bulk saturation core (%d us)\n", dur_blksatcore);
 				/* Play bulk saturation pulse */	
 				boffset(off_blksatcore);
 				startseq(0, MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 			}
-			else {
-				/* Set length of emptycore to duration of blksatcore */
-				setperiod(dur_blksatcore, &emptycore, 0);	
-
-				/* Play deadtime core (emptycore) */
-				fprintf(stderr, "scancore(): playing deadtime in place of bulk saturation core (%d us)\n", dur_blksatcore);
-				boffset(off_emptycore);
-				startseq(0, MAY_PAUSE);
-				settrigger(TRIG_INTERN, 0);	
-			}		
-
+			
 			if (tadjusttbl[framen] > 0) {
 				/* Set length of emptycore to tadjust */
 				setperiod(tadjusttbl[framen], &emptycore, 0);
@@ -1912,10 +1904,12 @@ STATUS scancore( void )
 		}
 
 		/* Play fat sat core */
-		fprintf(stderr, "scancore(): playing fatsatcore (%d us)...\n", dur_fatsatcore);
-		boffset(off_fatsatcore);
-		startseq(0, MAY_PAUSE);
-		settrigger(TRIG_INTERN, 0);
+		if (dofatsat) {
+			fprintf(stderr, "scancore(): playing fatsatcore (%d us)...\n", dur_fatsatcore);
+			boffset(off_fatsatcore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+		}
 
 		/* Play tipdown core */
 		if (ro_mode == 1) {
@@ -2307,6 +2301,7 @@ int genviews() {
 				default :
 					return 0;
 			}
+			leafn = (leafn - leafn % nleafrep) / nleafrep;
 
 			/* Initialize rotation angles/kz shift */
 			rx = 0.0;
