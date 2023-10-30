@@ -2270,7 +2270,10 @@ int genspiral() {
 int genviews() {
 
 	/* Declare values and matrices */
-	FILE* fID = fopen("kviews.txt","w");
+	FILE* fID_kviews = fopen("kviews.txt","w");
+	FILE* fID_rxryrzdz;
+	char fname[200];
+	char buff[200];
 	int leafn, framen, echon, n;
 	float rx, ry, rz, dz;
 	float Rx[9], Ry[9], Rz[9], Tz[9];
@@ -2279,9 +2282,14 @@ int genviews() {
 	/* Initialize z translation to identity matrix */
 	eye(Tz, 3);
 
-	/* Get original transformation matrix */
-	for (n = 0; n < 9; n++) T_0[n] = (float)rsprot[0][n] / MAX_PG_WAMP;
-	orthonormalize(T_0, 3, 3);
+        /* Get original transformation matrix */
+        for (n = 0; n < 9; n++) T_0[n] = (float)rsprot[0][n] / MAX_PG_WAMP;
+        orthonormalize(T_0, 3, 3);
+	
+	/* Open the schedule file */
+	sprintf(fname, "./aslprep/schedules/%05d/rxryrzdz.txt", schedule_id);
+	fprintf(stderr, "genviews(): opening %s...\n", fname);
+	fID_rxryrzdz = fopen(fname, "r");
 
 	/* Loop through all views */
 	for (framen = 0; framen < nframes; framen++) {
@@ -2303,31 +2311,42 @@ int genviews() {
 			}
 			leafn = (leafn - leafn % nleafrep) / nleafrep;
 
-			/* Initialize rotation angles/kz shift */
-			rx = 0.0;
-			ry = 0.0;
-			rz = 0.0;
-			dz = 0.0;
+			if (fID_rxryrzdz == 0) {
+				fprintf(stderr, "genviews(): schedule file not found, generating rotation angles and kz fraction for leaf %d\n", leafn);
 
-			/* Determine type of transformation */
-			switch (sptype3d) {
-				case 1 : /* Kz shifts */
-					dz += pow(-1, (float)leafn)/(float)nleaves * 2.0*floor((float)(leafn + 1) / 2.0);
-					break;
-				case 2 : /* Single axis rotation */
-					ry += 2.0*M_PI * (float)leafn / PHI;
-					break;
-				case 3 : /* Double axis rotations */
-					rx = 2.0 * M_PI * (float)leafn / PHI;
-					ry = acos(fmod(1 - 2*(leafn + 0.5) / (float)nleaves, 1));
-					break;
-				case 4: /* Debugging case */	
-					rx += M_PI * (float)leafn / nleaves;
-					break;
-				default:
-					return 0;
+				/* Initialize rotation angles/kz shift */
+				rx = 0.0;
+				ry = 0.0;
+				rz = 0.0;
+				dz = 0.0;
+
+				/* Determine type of transformation */
+				switch (sptype3d) {
+					case 1 : /* Kz shifts */
+						dz += pow(-1, (float)leafn)/(float)nleaves * 2.0*floor((float)(leafn + 1) / 2.0);
+						break;
+					case 2 : /* Single axis rotation */
+						ry += 2.0*M_PI * (float)leafn / PHI;
+						break;
+					case 3 : /* Double axis rotations */
+						rx = 2.0 * M_PI * (float)leafn / PHI;
+						ry = acos(fmod(1 - 2*(leafn + 0.5) / (float)nleaves, 1));
+						break;
+					case 4: /* Debugging case */	
+						rx += M_PI * (float)leafn / nleaves;
+						break;
+					default:
+						return 0;
+				}
 			}
-			
+			else {
+				fprintf(stderr, "genviews(): reading in rotation angles and kz fraction from file for leaf %d\n", leafn);
+
+				/* Loop through points in theta file */
+				fgets(buff, 200, fID_rxryrzdz);
+				sscanf(buff, "%f %f %f %f", &rx, &ry, &rz, &dz);
+			}			
+
 			/* Calculate the transformation matrices */
 			Tz[8] = dz;
 			genrotmat('x', rx, Rx);
@@ -2341,17 +2360,19 @@ int genviews() {
 			multmat(3,3,3,Ry,T,T);
 
 			/* Save the matrix to the table of matrices */
-			fprintf(fID, "%d \t%d \t%f \t%f \t%f \t%f \t", framen, echon, rx, ry, rz, dz);
+			fprintf(fID_kviews, "%d \t%d \t%f \t%f \t%f \t%f \t", framen, echon, rx, ry, rz, dz);
 			for (n = 0; n < 9; n++) {
-				fprintf(fID, "%f \t", T[n]);
+				fprintf(fID_kviews, "%f \t", T[n]);
 				tmtxtbl[framen*nechoes + echon][n] = (long)round(MAX_PG_IAMP*T[n]);
 			}
-			fprintf(fID, "\n");
+			fprintf(fID_kviews, "\n");
 		}
 	}
 
-	/* Close the file */
-	fclose(fID);
+	/* Close the files */
+	fclose(fID_kviews);
+	if (fID_rxryrzdz != 0)
+		fclose(fID_rxryrzdz);
 
 	return 1;
 };
