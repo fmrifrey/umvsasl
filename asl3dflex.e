@@ -174,6 +174,10 @@ float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 
 /* readout cvs */
+int nframes = 2 with {1, , 2, VIS, "Number of frames",};
+int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per frame",};
+int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
+int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
 int ro_offset = 0 with { , , 0, VIS, "Readout offset time from center of echo (us)",};
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
@@ -183,11 +187,9 @@ float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
 int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
 int rfspoil_gre = 0 with {0, 1, 0, VIS, "Option to do rf spoiling for GRE sequence",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
-int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
+int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
 /* Trajectory cvs */
-int nframes = 2 with {1, , 2, VIS, "Number of frames",};
-int nechoes = 16 with {1, MAXNECHOES, 17, VIS, "Number of echoes per frame",};
 int nleaves = 1 with {1, , 1, VIS, "Number of unique 3D kspace rotations/translations",};
 int nleafrep = 1 with {1, , 1, VIS, "Number of times to repeat a unique 3D kspace rotation/translation",};
 int ktransdim = 1 with {1, , 1, VIS, "Spiral interleaf transformation dimension (1 = echo, 2 = frame, 3 = both)",};
@@ -196,8 +198,6 @@ float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling facto
 float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
-int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
-int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 
 /* ASL prep pulse cvs */
 int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are played)",};
@@ -632,13 +632,14 @@ STATUS predownload( void )
 {
 	FILE* finfo;
 	FILE* fsid;
-	int framen, echon, ddan, slice;
+	int framen, ddan, echon, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
 	float prep1_b1, prep2_b1;
 	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
 	int tmp_pwa, tmp_pw, tmp_pwd;
 	float tmp_a, tmp_area;
+	int dur_allcores[MAXNFRAMES];
 
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
@@ -702,7 +703,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep1_pldtbl[framen] = prep1_pld;
+				prep1_pldtbl[framen] = (framen >= nm0frames) * prep1_pld;
 			break;
 		case -1:
 			return FAILURE;
@@ -727,7 +728,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs1tbl[framen] = (framen >= nm0frames) ? (prep1_tbgs1) : (0);
+				prep1_tbgs1tbl[framen] = (framen >= nm0frames) * prep1_tbgs1;
 			break;
 		case -1:
 			return FAILURE;
@@ -740,7 +741,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs2tbl[framen] = (framen >= nm0frames) ? (prep1_tbgs2) : (0);
+				prep1_tbgs2tbl[framen] = (framen >= nm0frames) * prep1_tbgs2;
 			break;
 		case -1:
 			return FAILURE;
@@ -758,7 +759,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep2_pldtbl[framen] = prep2_pld;
+				prep2_pldtbl[framen] = (framen >= nm0frames) * prep2_pld;
 			break;
 		case -1:
 			return FAILURE;
@@ -783,7 +784,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs1tbl[framen] = (framen >= nm0frames) ? (prep2_tbgs1) : (0);
+				prep2_tbgs1tbl[framen] = (framen >= nm0frames) * prep2_tbgs1;
 			break;
 		case -1:
 			return FAILURE;
@@ -796,7 +797,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs2tbl[framen] = (framen >= nm0frames) ? (prep2_tbgs2) : (0);
+				prep2_tbgs2tbl[framen] = (framen >= nm0frames) * prep2_tbgs2;
 			break;
 		case -1:
 			return FAILURE;
@@ -809,7 +810,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
-				doblksattbl[framen] = (framen >= nm0frames) ? (doblksat) : (0);
+				doblksattbl[framen] = (framen >= nm0frames) * doblksat;
 			break;
 		case -1:
 			return FAILURE;
@@ -1107,29 +1108,100 @@ STATUS predownload( void )
 	a_prep2rhoctl = prep2_b1 / maxB1Seq;
 	ia_prep2rhoctl = a_prep2rhoctl * max_pg_iamp;
 
+
+	/* Calculate the duration of blksatcore */
+	dur_blksatcore = 0;
+	dur_blksatcore += pgbuffertime;
+	dur_blksatcore += pw_blksatrho;
+	dur_blksatcore += pgbuffertime;
+	dur_blksatcore += pw_gzblksatcrusha + pw_gzblksatcrush + pw_gzblksatcrushd;
+	dur_blksatcore += pgbuffertime;
+
+	/* Calcualte the duration of prep1core */
+	dur_prep1core = 0;
+	dur_prep1core += pgbuffertime;
+	dur_prep1core += GRAD_UPDATE_TIME*prep1_len;
+	dur_prep1core += pgbuffertime;
+
+	/* Calcualte the duration of prep2core */
+	dur_prep2core = 0;
+	dur_prep2core += pgbuffertime;
+	dur_prep2core += GRAD_UPDATE_TIME*prep2_len;
+	dur_prep2core += pgbuffertime;
+
+	/* Calculate the duration of bkgsupcore */
+	dur_bkgsupcore = 0;
+	dur_bkgsupcore += pgbuffertime;
+	dur_bkgsupcore += pw_bkgsuprho;
+	dur_bkgsupcore += pgbuffertime;	
+
+	/* Calculate the duration of fatsatcore */
+	dur_fatsatcore = 0;
+	dur_fatsatcore += pgbuffertime;
+	dur_fatsatcore += pw_fatsatrho;
+	dur_fatsatcore += pgbuffertime;
+	dur_fatsatcore += pw_gzfatsatcrusha + pw_gzfatsatcrush + pw_gzfatsatcrushd;
+	dur_fatsatcore += pgbuffertime;
+	
+	/* Calcualte the duration of tipdowncore */
+	dur_tipdowncore = 0;
+	dur_tipdowncore += pgbuffertime;
+	dur_tipdowncore += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d;
+	dur_tipdowncore += pgbuffertime;
+	dur_tipdowncore += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd;
+	dur_tipdowncore += pgbuffertime;
+	dur_tipdowncore += deadtime_tipdowncore;
+
+	/* Calculate the duration of flipcore */
+	dur_flipcore = 0;
+	dur_flipcore += pgbuffertime;
+	dur_flipcore += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d;
+	dur_flipcore += pgbuffertime;
+	dur_flipcore += pw_gzrf2a + pw_gzrf2 + pw_gzrf2d;
+	dur_flipcore += pgbuffertime;
+	dur_flipcore += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d;
+	dur_flipcore += pgbuffertime; 
+
+	/* Calcualte the duration of seqcore */
+	dur_seqcore = 0;
+	dur_seqcore += deadtime1_seqcore + pgbuffertime;	
+	dur_seqcore += GRAD_UPDATE_TIME*grad_len;
+	dur_seqcore += pgbuffertime + deadtime2_seqcore;
+	
+	/* Calculate the duration of all the cores per frame */
+	for (framen = 0; framen < nframes; framen++) {
+		dur_allcores[framen] = 0; /* initialize to zero */
+
+		if (doblksattbl[framen])
+			dur_allcores[framen] += dur_blksatcore + TIMESSI; /* add bulk sat core */
+
+		if (prep1_id > 0 && prep1_lbltbl[framen] > -1) { /* add prep1 pulse/pld core */
+			dur_allcores[framen] += dur_prep1core + TIMESSI;
+			dur_allcores[framen] += (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
+		}
+
+		if (prep2_id > 0 && prep2_lbltbl[framen] > -1) { /* add prep2 pulse/pld core */
+			dur_allcores[framen] += dur_prep2core + TIMESSI;
+			dur_allcores[framen] += (prep2_pldtbl > 0) * (prep2_pldtbl[framen] + TIMESSI);
+		}
+
+		if (dofatsat) /* if fat sat is enabled */
+			dur_allcores[framen] += dur_fatsatcore + TIMESSI; /* add fat sat core */
+
+		if (ro_mode == 1) /* if sequence is FSE */
+			dur_allcores[framen] += dur_tipdowncore + TIMESSI; /* add tipdowncore */
+
+		dur_allcores[framen] += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI); /* add the readout cores */
+		fprintf(stderr, "dur_allcores[%d] = %dus\n", framen, dur_allcores[framen]);	
+	}
+
 	/* Read in tadjusttbl schedule */
 	sprintf(tmpstr, "tadjusttbl");
 	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
 	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
 		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++) {
-				avmintr = 0;
-				if (ro_mode == 1) /* FSE only */
-					avmintr += dur_tipdowncore + TIMESSI;	
-				avmintr += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
-				avmintr += dofatsat * (dur_fatsatcore + TIMESSI);
-				avmintr += doblksattbl[framen] * (dur_blksatcore + TIMESSI);
-				if (prep1_id > 0)
-					avmintr += dur_prep1core + TIMESSI + prep1_pldtbl[framen] + TIMESSI;
-				if (prep2_id > 0)
-					avmintr += dur_prep2core + TIMESSI + prep2_pldtbl[framen] + TIMESSI;
-				if (optr < avmintr) {
-					epic_error(use_ermes, "optr must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avmintr);
-					return FAILURE;
-				}
-				else
-					tadjusttbl[framen] = optr - avmintr - TIMESSI;
+				tadjusttbl[framen] = optr - dur_allcores[framen];
 			}
 			break;
 		case -1:
@@ -1143,16 +1215,7 @@ STATUS predownload( void )
 	for (ddan = 0; ddan < ndisdaqs; ddan++)
 		pitscan += optr;
 	for (framen  = 0; framen < nframes; framen++) {
-		if (ro_mode == 1) /* FSE only */
-			pitscan += dur_tipdowncore + TIMESSI;
-		pitscan += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
-		pitscan += dofatsat * (dur_fatsatcore + TIMESSI);
-		pitscan += doblksattbl[framen] * (dur_blksatcore + TIMESSI);
-		if (prep1_id > 0)
-			pitscan += dur_prep1core + prep1_pldtbl[framen] + TIMESSI;
-		if (prep2_id > 0)
-			pitscan += dur_prep2core + prep2_pldtbl[framen] + TIMESSI;
-		pitscan += tadjusttbl[framen] + TIMESSI;
+		pitscan += tadjusttbl[framen] + TIMESSI + dur_allcores[framen];
 	}
 	
 	/* Set up the filter structures to be downloaded for realtime 
@@ -1235,65 +1298,75 @@ STATUS predownload( void )
 	/* Print scan info to a file */
 	finfo = fopen("scaninfo.txt", "w");
 
-	fprintf(finfo, "Rx INFO:\n");
-	fprintf(finfo, "\t%-50s%20f\n", "X-Y field of view (mm):", opfov);
-	fprintf(finfo, "\t%-50s%20d\n", "Slice quantity:", opslquant);
-	fprintf(finfo, "\t%-50s%20f\n", "Slice thickness (mm):", opslthick);
+	fprintf(finfo, "cvs:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "opfov:", opfov);
+	fprintf(finfo, "\t%-50s%20d\n", "opslquant:", opslquant);
+	fprintf(finfo, "\t%-50s%20f\n", "opslthick:", opslthick);
+	fprintf(finfo, "\t%-50s%20f\n", "optr:", (float)optr);
 
-	fprintf(finfo, "\nTIME INFO:\n");
-	fprintf(finfo, "\t%-50s%20d\n", "Number of frames:", nframes);
-	fprintf(finfo, "\t%-50s%20d\n", "Number of M0 frames:", nm0frames);
-	fprintf(finfo, "\t%-50s%20d\n", "Number of disdaq frames:", ndisdaqs);
-	fprintf(finfo, "\t%-50s%20f\n", "Repetition time (ms):", (float)optr * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Total scan time (s):", (float)pitscan * 1e-6);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of bulk saturation core (ms):", (float)dur_blksatcore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of prep 1 core (ms):", (float)dur_prep1core * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of prep 2 core (ms):", (float)dur_prep2core * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of background suppression core (ms):", (float)dur_bkgsupcore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of fat saturation core (ms):", (float)dur_fatsatcore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of FSE tipdown core (ms):", (float)dur_tipdowncore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of flip core (ms):", (float)dur_flipcore * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Duration of readout core (ms):", (float)dur_seqcore * 1e-3);
-	
-	fprintf(finfo, "\nREADOUT INFO:\n");
-	fprintf(finfo, "\t%-50s%20d\n", "Readout mode (0 = GRE, 1 = FSE):", ro_mode);
-	fprintf(finfo, "\t%-50s%20f\n", "Echo time (ms):", (float)opte * 1e-3);
-	fprintf(finfo, "\t%-50s%20d\n", "Number of echoes per echo train:", nechoes);
-	fprintf(finfo, "\t%-50s%20d\n", "2D spiral type:", sptype2d);
-	fprintf(finfo, "\t%-50s%20d\n", "3D spiral type:", sptype3d);
-	fprintf(finfo, "\t%-50s%20f\n", "VD-spiral center oversampling factor:", spvd0);
-	fprintf(finfo, "\t%-50s%20f\n", "VD-spiral edge oversampling factor:", spvd1);
-	fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
-	fprintf(finfo, "\t%-50s%20f\n", "Maximum slew rate (G/cm/s^2):", SLEWMAX);
-	fprintf(finfo, "\t%-50s%20f\n", "Maximum gradient amplitude (G/cm/s):", GMAX);
-	fprintf(finfo, "\t%-50s%20f\n", "Flip angle (deg):", opflip);
-	fprintf(finfo, "\t%-50s%20f\n", "Variable flip angle attenuation factor:", varflipfac);
-	fprintf(finfo, "\t%-50s%20d\n", "GRE rf spoiling (on/off):", rfspoil_gre);
-	fprintf(finfo, "\t%-50s%20d\n", "FSE rf phase cycling (on/off):", phscyc_fse);
-	fprintf(finfo, "\t%-50s%20f\n", "Initial transmitter phase for tipdown pulse (rad):", phs_tip);
-	fprintf(finfo, "\t%-50s%20f\n", "Transmitter phase for inversion pulse (rad):", phs_inv);
-	fprintf(finfo, "\t%-50s%20f\n", "Receiver phase (rad):", phs_rx);
-	
-	fprintf(finfo, "\nASL PREP INFO:\n");
-	fprintf(finfo, "\t%-50s%20d\n", "Labeling schedule ID:", schedule_id);
-	fprintf(finfo, "\t%-50s%20d\n", "Prep 1 pulse ID:", prep1_id);
-	fprintf(finfo, "\t%-50s%20d\n", "Prep 1 modulation:", prep1_mod);
-	fprintf(finfo, "\t%-50s%20d\n", "Prep 1 number of cycles:", prep1_ncycles);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 gradient amplitude (G/cm/s):", prep1_gmax);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 RF amplitude (mG):", prep1_rfmax);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 post-labeling delay (ms):", (float)prep1_pld * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 background suppression pulse 1 time (ms):", (float)prep1_tbgs1 * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 1 background suppression pulse 2 time (ms):", (float)prep1_tbgs2 * 1e-3);
-	fprintf(finfo, "\t%-50s%20d\n", "Prep 2 pulse ID:", prep2_id);
-	fprintf(finfo, "\t%-50s%20d\n", "Prep 2 modulation:", prep2_mod);
-	fprintf(finfo, "\t%-50s%20d\n", "Prep 2 number of cycles:", prep2_ncycles);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 gradient amplitude (G/cm/s):", prep2_gmax);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 RF amplitude (mG):", prep2_rfmax);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 post-labeling delay (ms):", (float)prep2_pld * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 background suppression pulse 1 time (ms):", (float)prep2_tbgs1 * 1e-3);
-	fprintf(finfo, "\t%-50s%20f\n", "Prep 2 background suppression pulse 2 time (ms):", (float)prep2_tbgs2 * 1e-3);
-	fprintf(finfo, "\t%-50s%20d\n", "Bulk saturation pulse (on/off):", doblksat);
+	fprintf(finfo, "hardware cvs:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "SLEWMAX:", SLEWMAX);
+	fprintf(finfo, "\t%-50s%20f\n", "GMAX:", GMAX);
+	fprintf(finfo, "\t%-50s%20f\n", "RFMAX:", RFMAX);
 
+	fprintf(finfo, "readout cvs:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "nframes:", nframes);
+	fprintf(finfo, "\t%-50s%20d\n", "nechoes:", nechoes);	
+	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqs", ndisdaqs);
+	fprintf(finfo, "\t%-50s%20d\n", "dofatsat:", dofatsat);
+	fprintf(finfo, "\t%-50s%20d\n", "ro_mode:", ro_mode);
+	fprintf(finfo, "\t%-50s%20d\n", "ro_offset:", ro_offset);
+	fprintf(finfo, "\t%-50s%20d\n", "pgbuffertime:", pgbuffertime);
+	fprintf(finfo, "\t%-50s%20f\n", "phs_tip:", phs_tip);
+	fprintf(finfo, "\t%-50s%20f\n", "phs_inv:", phs_inv);
+	fprintf(finfo, "\t%-50s%20f\n", "phs_rx:", phs_rx);
+	fprintf(finfo, "\t%-50s%20d\n", "phscyc_fse:", phscyc_fse);
+	fprintf(finfo, "\t%-50s%20d\n", "rfspoil_gre:", rfspoil_gre);
+	fprintf(finfo, "\t%-50s%20f\n", "varflipfac:", varflipfac);
+	fprintf(finfo, "\t%-50s%20d\n", "kill_grads:", kill_grads);
+
+	fprintf(finfo, "trajectory cvs:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "nleaves:", nleaves);	
+	fprintf(finfo, "\t%-50s%20d\n", "nleafrep:", nleafrep);	
+	fprintf(finfo, "\t%-50s%20d\n", "ktransdim", ktransdim);
+	fprintf(finfo, "\t%-50s%20d\n", "nnav:", nnav);
+	fprintf(finfo, "\t%-50s%20f\n", "spvd0:", spvd0);
+	fprintf(finfo, "\t%-50s%20f\n", "spvd1:", spvd1);
+	fprintf(finfo, "\t%-50s%20d\n", "sptype2d:", sptype2d);
+	fprintf(finfo, "\t%-50s%20d\n", "sptype3d:", sptype3d);
+	
+	fprintf(finfo, "ASL prep cvs:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "nm0frames:", nm0frames);
+	fprintf(finfo, "\t%-50s%20d\n", "schedule_id:", schedule_id);
+	fprintf(finfo, "\t%-50s%20d\n", "doblksat:", doblksat);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_id:", prep1_id);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_pld:", prep1_pld);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_ncycles", prep1_ncycles);
+	fprintf(finfo, "\t%-50s%20f\n", "prep1_rfmax:", prep1_rfmax);
+	fprintf(finfo, "\t%-50s%20f\n", "prep1_gmax:", prep1_gmax);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_mod", prep1_mod);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs1", prep1_tbgs1);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs2", prep1_tbgs2);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_id:", prep2_id);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_pld:", prep2_pld);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_ncycles", prep2_ncycles);
+	fprintf(finfo, "\t%-50s%20f\n", "prep2_rfmax:", prep2_rfmax);
+	fprintf(finfo, "\t%-50s%20f\n", "prep2_gmax:", prep2_gmax);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_mod", prep2_mod);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs1", prep2_tbgs1);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs2", prep2_tbgs2);
+
+	fprintf(finfo, "\ntime cvs:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "pitscan:", pitscan);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_blksatcore:", dur_blksatcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_prep1core:", dur_prep1core);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_prep2core:", dur_prep2core);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_bkgsupcore:", dur_bkgsupcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_fatsatcore:", dur_fatsatcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_tipdowncore:", dur_tipdowncore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_flipcore:", dur_flipcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_seqcore:", dur_seqcore);
+	
 	fclose(finfo);
 
 @inline Prescan.e PSpredownload	
@@ -1345,8 +1418,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 	
 	fprintf(stderr, "pulsegen(): finalizing blksatcore...\n");
-	dur_blksatcore = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_blksatcore);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_blksatcore, tmploc);
 	SEQLENGTH(blksatcore, dur_blksatcore, blksatcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1368,8 +1440,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): finalizing prep1lblcore...\n");
-	dur_prep1core = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_prep1core);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_prep1core, tmploc);
 	SEQLENGTH(prep1lblcore, dur_prep1core, prep1lblcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1391,7 +1462,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): finalizing prep1ctlcore...\n");
-	fprintf(stderr, "\ttotal time: %dus\n", dur_prep1core);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_prep1core, tmploc);
 	SEQLENGTH(prep1ctlcore, dur_prep1core, prep1ctlcore);
 	fprintf(stderr, "\tDone.\n");
 	
@@ -1413,8 +1484,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): finalizing prep2lblcore...\n");
-	dur_prep2core = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_prep2core);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_prep2core, tmploc);
 	SEQLENGTH(prep2lblcore, dur_prep2core, prep2lblcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1436,7 +1506,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): finalizing prep2ctlcore...\n");
-	fprintf(stderr, "\ttotal time: %dus\n", dur_prep2core);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_prep2core, tmploc);
 	SEQLENGTH(prep2ctlcore, dur_prep2core, prep2ctlcore);
 	fprintf(stderr, "\tDone.\n");
 		
@@ -1457,8 +1527,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): finalizing bkgsupcore...\n");
-	dur_bkgsupcore = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_bkgsupcore);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_bkgsupcore, tmploc);
 	SEQLENGTH(bkgsupcore, dur_bkgsupcore, bkgsupcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1485,8 +1554,7 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): finalizing fatsatcore...\n");
-	dur_fatsatcore = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_fatsatcore);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_fatsatcore, tmploc);
 	SEQLENGTH(fatsatcore, dur_fatsatcore, fatsatcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1515,8 +1583,7 @@ STATUS pulsegen( void )
 	tmploc += deadtime_tipdowncore; /* add deadtime to account for TE */
 
 	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
-	dur_tipdowncore = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_tipdowncore);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipdowncore, tmploc);
 	SEQLENGTH(tipdowncore, dur_tipdowncore, tipdowncore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1549,9 +1616,8 @@ STATUS pulsegen( void )
 	fprintf(stderr, " end: %dus\n", tmploc);	
 	tmploc += pgbuffertime;
 
-	fprintf(stderr, "pulsegen(): finalizing spin echo refocuser core...\n");
-	dur_flipcore = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_flipcore);
+	fprintf(stderr, "pulsegen(): finalizing flip core...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_flipcore, tmploc);
 	SEQLENGTH(flipcore, dur_flipcore, flipcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1576,8 +1642,7 @@ STATUS pulsegen( void )
 	tmploc += deadtime2_seqcore; /* add post-readout deadtime */
 
 	fprintf(stderr, "pulsegen(): finalizing spiral readout core...\n");
-	dur_seqcore = tmploc;
-	fprintf(stderr, "\ttotal time: %dus\n", dur_seqcore);
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_seqcore, tmploc);
 	SEQLENGTH(seqcore, dur_seqcore, seqcore);
 	fprintf(stderr, "\tDone.\n");
 
@@ -1711,8 +1776,12 @@ STATUS scancore( void )
 	/* Set fat sat frequency */
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrho, 0);
 
+	fprintf(stderr, "===== SCANCORE ENTRY %d =====\n", rspent);
+
 	/* Loop through frames */
 	for (framen = -rspdda; framen < rspfct; framen++) {
+
+		fprintf(stderr, "scancore(): beginning frame %d/%d\n", framen, nframes);
 
 		if (rspent != L_SCAN || framen < 0) { /* DISDAQS and prescan only - don't worry about any ASL prep */
 			/* Set duration of emptycore to optr deadtime */
@@ -1724,6 +1793,7 @@ STATUS scancore( void )
 			setperiod(ttmp, &emptycore, 0);
 			
 			/* Play empty core */
+			fprintf(stderr, "scancore(): \tplaying disdaq TR deadtime (%d us)\n", ttmp);
 			boffset(off_emptycore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
@@ -1731,42 +1801,35 @@ STATUS scancore( void )
 		}			
 		else { /* only for non-disdaq frames */
 			if (doblksattbl[framen]) {
-				fprintf(stderr, "scancore(): playing bulk saturation core (%d us)\n", dur_blksatcore);
+				fprintf(stderr, "scancore(): \tplaying bulk saturation core (%d us)\n", dur_blksatcore);
 				/* Play bulk saturation pulse */	
 				boffset(off_blksatcore);
 				startseq(0, MAY_PAUSE);
 				settrigger(TRIG_INTERN, 0);
 			}
 			
-			if (tadjusttbl[framen] > 0) {
-				/* Set length of emptycore to tadjust */
-				setperiod(tadjusttbl[framen], &emptycore, 0);
+			/* Set length of emptycore to tadjust */
+			setperiod(tadjusttbl[framen], &emptycore, 0);
 
-				/* Play TR deadtime (emptycore) */
-				fprintf(stderr, "scancore(): playing TR deadtime (tadjust) (%d us)\n", tadjusttbl[framen]);
-				boffset(off_emptycore);
-				startseq(0, MAY_PAUSE);
-				settrigger(TRIG_INTERN, 0);
-			}
-
+			/* Play TR deadtime (emptycore) */
+			fprintf(stderr, "scancore(): \tplaying TR deadtime (tadjust) (%d us)\n", tadjusttbl[framen]);
+			boffset(off_emptycore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
 
 			/* Play prep1 core */
-			if (prep1_id > 0) {
-				if (prep1_lbltbl[framen] == -1) {
-					fprintf(stderr, "scancore(): playing deadtime in place of prep 1 pulse (%d us)...\n", dur_prep1core);
-					setperiod(dur_prep1core, &emptycore, 0);
-					boffset(off_emptycore);
-				}
-				else if (prep1_lbltbl[framen] == 0) { /* control */
-					fprintf(stderr, "scancore(): playing prep 1 control pulse (%d us)...\n", dur_prep1core);
+			if (prep1_lbltbl[framen] > -1) {
+
+				if (prep1_lbltbl[framen] == 0) { /* control */
+					fprintf(stderr, "scancore(): \tplaying prep 1 control pulse (%d us)...\n", dur_prep1core);
 					boffset(off_prep1ctlcore);
 				}
 				else if (prep1_lbltbl[framen] == 1){ /* label */
-					fprintf(stderr, "scancore(): playing prep 1 label pulse (%d us)...\n", dur_prep1core);
+					fprintf(stderr, "scancore(): \tplaying prep 1 label pulse (%d us)...\n", dur_prep1core);
 					boffset(off_prep1lblcore);
 				}
 				else {
-					fprintf(stderr, "scancore(): invalid pulse 1 type: %d for frame %d...\n", prep1_lbltbl[framen], framen);
+					fprintf(stderr, "scancore(): ERROR: invalid pulse 1 type: %d for frame %d...\n", prep1_lbltbl[framen], framen);
 					rspexit();
 				}
 
@@ -1774,21 +1837,21 @@ STATUS scancore( void )
 				settrigger(TRIG_INTERN, 0);
 
 				/* Play pld and background suppression */
-				if (prep1_pldtbl[framen] > TIMESSI) {
+				if (prep1_pldtbl[framen] > 0) {
 
 					/* Initialize pld before subtracting out tbgs timing */
 					ttmp = prep1_pldtbl[framen];
 
 					if (prep1_tbgs1tbl[framen] > 0) {
 						/* Play first background suppression delay/pulse */
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 delay (%d us)...\n", prep1_tbgs1tbl[framen]);
+						fprintf(stderr, "scancore(): \tplaying prep 1 bkg suppression pulse 1 delay (%d us)...\n", prep1_tbgs1tbl[framen]);
 						setperiod(prep1_tbgs1tbl[framen], &emptycore, 0);
 						ttmp -= prep1_tbgs1tbl[framen];
 						boffset(off_emptycore);
 						startseq(0, MAY_PAUSE);
 						settrigger(TRIG_INTERN, 0);
 
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						fprintf(stderr, "scancore(): \tplaying prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
 						ttmp -= dur_bkgsupcore;
 						boffset(off_bkgsupcore);
 						startseq(0, MAY_PAUSE);
@@ -1797,15 +1860,15 @@ STATUS scancore( void )
 
 					if (prep1_tbgs2tbl[framen] > 0) {
 						/* Play 2nd background suppression delay/pulse */
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 2 delay (%d us)...\n", prep1_tbgs2tbl[framen]);
+						fprintf(stderr, "scancore(): \tplaying prep 1 bkg suppression pulse 2 delay (%d us)...\n", prep1_tbgs2tbl[framen]);
 						setperiod(prep1_tbgs2tbl[framen], &emptycore, 0);
-						ttmp -= prep1_tbgs2tbl[framen];
+						ttmp -= prep1_tbgs2tbl[framen] + TIMESSI;
 						boffset(off_emptycore);
 						startseq(0, MAY_PAUSE);
 						settrigger(TRIG_INTERN, 0);
 
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
-						ttmp -= dur_bkgsupcore;
+						fprintf(stderr, "scancore(): \tplaying prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						ttmp -= dur_bkgsupcore + TIMESSI;
 						boffset(off_bkgsupcore);
 						startseq(0, MAY_PAUSE);
 						settrigger(TRIG_INTERN, 0);
@@ -1813,36 +1876,32 @@ STATUS scancore( void )
 
 					/* Check that ttmp is non-negative */
 					if (ttmp < 0) {
-						fprintf(stderr, "scancore(): invalid pld and background suppression time combination for frame %d...\n", framen);
+						fprintf(stderr, "scancore(): ERROR: invalid pld and background suppression time combination for frame %d...\n", framen);
 						rspexit();
 					}
 
 					/* Play remaining PLD deadtime */
-					fprintf(stderr, "scancore(): playing prep 1 post-label delay (%d us), total end delay = %d us...\n", prep1_pldtbl[framen], ttmp);
+					fprintf(stderr, "scancore(): \tplaying prep 1 post-label delay (%d us), total end delay = %d us...\n", prep1_pldtbl[framen], ttmp);
 					setperiod(ttmp, &emptycore, 0);
 					boffset(off_emptycore);
 					startseq(0, MAY_PAUSE);
 					settrigger(TRIG_INTERN, 0);
 				}
 			}
-
+			
 			/* Play prep2 core */
-			if (prep2_id > 0) {
-				if (prep2_lbltbl[framen] == -1) {
-					fprintf(stderr, "scancore(): playing deadtime in place of prep 1 pulse (%d us)...\n", dur_prep2core);
-					setperiod(dur_prep2core, &emptycore, 0);
-					boffset(off_emptycore);
-				}
-				else if (prep2_lbltbl[framen] == 0) { /* control */
-					fprintf(stderr, "scancore(): playing prep 1 control pulse (%d us)...\n", dur_prep2core);
+			if (prep2_lbltbl[framen] > -1) {
+
+				if (prep2_lbltbl[framen] == 0) { /* control */
+					fprintf(stderr, "scancore(): \tplaying prep 2 control pulse (%d us)...\n", dur_prep2core);
 					boffset(off_prep2ctlcore);
 				}
 				else if (prep2_lbltbl[framen] == 1){ /* label */
-					fprintf(stderr, "scancore(): playing prep 1 label pulse (%d us)...\n", dur_prep2core);
+					fprintf(stderr, "scancore(): \tplaying prep 2 label pulse (%d us)...\n", dur_prep2core);
 					boffset(off_prep2lblcore);
 				}
 				else {
-					fprintf(stderr, "scancore(): invalid pulse 1 type: %d for frame %d...\n", prep2_lbltbl[framen], framen);
+					fprintf(stderr, "scancore(): ERROR: invalid pulse 1 type: %d for frame %d...\n", prep2_lbltbl[framen], framen);
 					rspexit();
 				}
 
@@ -1850,21 +1909,21 @@ STATUS scancore( void )
 				settrigger(TRIG_INTERN, 0);
 
 				/* Play pld and background suppression */
-				if (prep2_pldtbl[framen] > TIMESSI) {
+				if (prep2_pldtbl[framen] > 0) {
 
 					/* Initialize pld before subtracting out tbgs timing */
 					ttmp = prep2_pldtbl[framen];
 
 					if (prep2_tbgs1tbl[framen] > 0) {
 						/* Play first background suppression delay/pulse */
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 delay (%d us)...\n", prep2_tbgs1tbl[framen]);
+						fprintf(stderr, "scancore(): \tplaying prep 2 bkg suppression pulse 1 delay (%d us)...\n", prep2_tbgs1tbl[framen]);
 						setperiod(prep2_tbgs1tbl[framen], &emptycore, 0);
 						ttmp -= prep2_tbgs1tbl[framen];
 						boffset(off_emptycore);
 						startseq(0, MAY_PAUSE);
 						settrigger(TRIG_INTERN, 0);
 
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						fprintf(stderr, "scancore(): \tplaying prep 2 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
 						ttmp -= dur_bkgsupcore;
 						boffset(off_bkgsupcore);
 						startseq(0, MAY_PAUSE);
@@ -1873,15 +1932,15 @@ STATUS scancore( void )
 
 					if (prep2_tbgs2tbl[framen] > 0) {
 						/* Play 2nd background suppression delay/pulse */
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 2 delay (%d us)...\n", prep2_tbgs2tbl[framen]);
+						fprintf(stderr, "scancore(): \tplaying prep 2 bkg suppression pulse 2 delay (%d us)...\n", prep2_tbgs2tbl[framen]);
 						setperiod(prep2_tbgs2tbl[framen], &emptycore, 0);
-						ttmp -= prep2_tbgs2tbl[framen];
+						ttmp -= prep2_tbgs2tbl[framen] + TIMESSI;
 						boffset(off_emptycore);
 						startseq(0, MAY_PAUSE);
 						settrigger(TRIG_INTERN, 0);
 
-						fprintf(stderr, "scancore(): playing prep 1 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
-						ttmp -= dur_bkgsupcore;
+						fprintf(stderr, "scancore(): \tplaying prep 2 bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore);
+						ttmp -= dur_bkgsupcore + TIMESSI;
 						boffset(off_bkgsupcore);
 						startseq(0, MAY_PAUSE);
 						settrigger(TRIG_INTERN, 0);
@@ -1889,12 +1948,12 @@ STATUS scancore( void )
 
 					/* Check that ttmp is non-negative */
 					if (ttmp < 0) {
-						fprintf(stderr, "scancore(): invalid pld and background suppression time combination for frame %d...\n", framen);
+						fprintf(stderr, "scancore(): ERROR: invalid pld and background suppression time combination for frame %d...\n", framen);
 						rspexit();
 					}
 
 					/* Play remaining PLD deadtime */
-					fprintf(stderr, "scancore(): playing prep 1 post-label delay (%d us), total end delay = %d us...\n", prep2_pldtbl[framen], ttmp);
+					fprintf(stderr, "scancore(): \tplaying prep 2 post-label delay (%d us), total end delay = %d us...\n", prep2_pldtbl[framen], ttmp);
 					setperiod(ttmp, &emptycore, 0);
 					boffset(off_emptycore);
 					startseq(0, MAY_PAUSE);
@@ -1905,7 +1964,7 @@ STATUS scancore( void )
 
 		/* Play fat sat core */
 		if (dofatsat) {
-			fprintf(stderr, "scancore(): playing fatsatcore (%d us)...\n", dur_fatsatcore);
+			fprintf(stderr, "scancore(): \tplaying fatsatcore (%d us)...\n", dur_fatsatcore);
 			boffset(off_fatsatcore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
@@ -1913,7 +1972,7 @@ STATUS scancore( void )
 
 		/* Play tipdown core */
 		if (ro_mode == 1) {
-			fprintf(stderr, "scancore(): playing tipdowncore (%dus)...\n", dur_tipdowncore);
+			fprintf(stderr, "scancore(): \tplaying tipdowncore (%dus)...\n", dur_tipdowncore);
 			setphase(phs_tip, &rf1, 0);
 			boffset(off_tipdowncore);
 			startseq(0, MAY_PAUSE);
@@ -1922,10 +1981,9 @@ STATUS scancore( void )
 
 		/* Play readout (refocusers + spiral gradients */
 		for (echon = 0; echon < nechoes; echon++) {
-			fprintf(stderr, "scancore(): rspent = %d, frame %d/%d, echo %d/%d...\n", rspent, framen, nframes, echon, nechoes);
+			fprintf(stderr, "scancore(): \tbeginning echo %d/%d...\n", echon, nechoes);
 
 			/* Turn off the gradients */
-			fprintf(stderr, "scancore(): scaling gradients to zero...\n");
 			setiamp(0, &gxw, 0);
 			setiamp(0, &gyw, 0);
 			setiamp(0, &gzw, 0);
@@ -1939,14 +1997,13 @@ STATUS scancore( void )
 				setphase(phs_tip, &echo1, 0);
 
 			/* Play the refocuser core */
-			fprintf(stderr, "scancore(): playing flip pulse (%d us)...\n", dur_flipcore);
+			fprintf(stderr, "scancore(): \t\tplaying flip pulse (%d us)...\n", dur_flipcore);
 			boffset(off_flipcore);
 			startseq(echon, (short)MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 
 			/* Determine space in memory for data storage */	
 			if (framen < 0) { /* turn off DAQ for disdaq frames */
-				fprintf(stderr, "scancore(): loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)\n");
 				loaddab(&echo1,
 						0,
 						0,
@@ -1956,7 +2013,6 @@ STATUS scancore( void )
 						PSD_LOAD_DAB_ALL);
 			}
 			else if (rspent == L_SCAN) { /* load DAB for SCAN process */
-				fprintf(stderr, "scancore(): loaddab(&echo1, %d, 0, DABSTORE, %d, DABON, PSD_LOAD_DAB_ALL)\n", echon, framen + 1);
 				loaddab(&echo1,
 						echon,
 						0,
@@ -1966,7 +2022,6 @@ STATUS scancore( void )
 						PSD_LOAD_DAB_ALL);
 				
 				/* Restore the gradients */
-				fprintf(stderr, "scancore(): restoring gradients...\n");
 				setiamp(ia_gxw, &gxw, 0);
 				setiamp(ia_gyw, &gyw, 0);
 				setiamp(ia_gzw, &gzw, 0);
@@ -1975,7 +2030,6 @@ STATUS scancore( void )
 				setrotate(tmtxtbl[framen*nechoes + echon], echon);
 			}
 			else if (echon == 0) { /* load DAB for prescan processes with DABON for first echo */
-				fprintf(stderr, "scancore(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABON, PSD_LOAD_DAB_ALL)\n", echon);
 				loaddab(&echo1,
 						echon,
 						0,
@@ -1985,7 +2039,6 @@ STATUS scancore( void )
 						PSD_LOAD_DAB_ALL);
 			}
 			else { /* load DAB for prescan with DABOFF for subsequent echoes */
-				fprintf(stderr, "scancore(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)\n", echon);
 				loaddab(&echo1,
 						echon,
 						0,
@@ -1996,7 +2049,7 @@ STATUS scancore( void )
 			}
 
 			/* Play the readout core */
-			fprintf(stderr, "scancore(): playing seqcore (%dus)...\n", dur_seqcore);
+			fprintf(stderr, "scancore(): \t\tplaying seqcore (%dus)...\n", dur_seqcore);
 			boffset(off_seqcore);
 			startseq(echon, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
@@ -2017,8 +2070,8 @@ STATUS scancore( void )
 	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
 	settrigger(TRIG_INTERN, 0);
 	startseq(0, MAY_PAUSE);  
-	
-	fprintf(stderr, "Done.\n");
+
+	fprintf(stderr, "Done.\n\n");
 
 	return SUCCESS;
 }
@@ -2298,18 +2351,20 @@ int genviews() {
 			/* Determine leaf index */
 			switch (ktransdim) {
 				case 1 : /* transform by echoes */
-					leafn = echon % nleaves;
+					leafn = echon;
 					break;
 				case 2 : /* transform by frames */
-					leafn = framen % nleaves;
+					leafn = framen;
 					break;
 				case 3 : /* transform by both echoes/frames */
-					leafn = (framen*nechoes + echon) % nleaves;
+					leafn = framen*nechoes + echon;
 					break;
 				default :
 					return 0;
 			}
-			leafn = (leafn - leafn % nleafrep) / nleafrep;
+			leafn -= leafn % nleafrep;
+			leafn /= nleafrep;
+			leafn = leafn % nleaves;
 
 			if (fID_rxryrzdz == 0) {
 				fprintf(stderr, "genviews(): schedule file not found, generating rotation angles and kz fraction for leaf %d\n", leafn);
@@ -2323,7 +2378,7 @@ int genviews() {
 				/* Determine type of transformation */
 				switch (sptype3d) {
 					case 1 : /* Kz shifts */
-						dz += pow(-1, (float)leafn)/(float)nleaves * 2.0*floor((float)(leafn + 1) / 2.0);
+						dz += pow(-1, (float)leafn)*(float)nleafrep/(float)nleaves * 2.0*floor((float)(leafn + 1) / 2.0);
 						break;
 					case 2 : /* Single axis rotation */
 						ry += 2.0*M_PI * (float)leafn / PHI;
