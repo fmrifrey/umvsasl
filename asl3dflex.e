@@ -186,6 +186,7 @@ float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion 
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
 int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
 int rfspoil_gre = 0 with {0, 1, 0, VIS, "Option to do rf spoiling for GRE sequence",};
+float crushfac = 1.0 with {0, 1, 0, VIS, "Crusher amplitude factor (dk_crush = crushfac*kmax)",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
@@ -895,7 +896,7 @@ STATUS predownload( void )
 	a_gzrf1r = tmp_a;
 
 	/* Set the parameters for the crusher gradients */
-	tmp_area = 2*M_PI/GAMMA * opxres/(opfov/10.0)/2.0 * 1e6; /* Area under crusher s.t. dk = kmax (G/cm*us) */
+	tmp_area = crushfac * 2*M_PI/GAMMA * opxres/(opfov/10.0)/2.0 * 1e6; /* Area under crusher s.t. dk = crushfac*kmax (G/cm*us) */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
 	pw_gzblksatcrush = tmp_pw;
 	pw_gzblksatcrusha = tmp_pwa;
@@ -2378,7 +2379,7 @@ int genviews() {
 				/* Determine type of transformation */
 				switch (sptype3d) {
 					case 1 : /* Kz shifts */
-						dz += pow(-1, (float)leafn)*(float)nleafrep/(float)nleaves * 2.0*floor((float)(leafn + 1) / 2.0);
+						dz += pow(-1, (float)leafn)/(float)nleaves * 2.0*floor((float)(leafn + 1) / 2.0);
 						break;
 					case 2 : /* Single axis rotation */
 						ry += 2.0*M_PI * (float)leafn / PHI;
