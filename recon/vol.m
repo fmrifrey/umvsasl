@@ -47,6 +47,10 @@ classdef vol
             
         end
         
+        function plotkspace(obj)
+            plot3(obj.klocs(:,1),obj.klocs(:,2),obj.klocs(:,3));
+        end
+        
         function [im,imc] = recon(obj,varargin)
             
             % Set default arguments

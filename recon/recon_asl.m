@@ -6,27 +6,23 @@ D = seq('ccfac',0.25); % Compress coils down to 25%
 
 fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 
-%% Assign volumes
-for i = 1:floor(D.aqdims(2)/2)
-    fprintf("Assigning volumes for echo %d...\n", i);
+%% Assign volumes for each frame
+for i = 1:D.aqdims(2) % aqdims(2) is the number of frames in asl3dflex
     t = tic;
-    
-    % Control
-    D = D.setup_vol(2*(i-1) + 1, 'all'); % all echoes in each odd frame make up a control volume
-    % Label
-    D = D.setup_vol(2*i, 'all'); % all echoes in each even frame make up a label volume
-    
+    D = D.setup_vol(i,'all','all');
     fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 end
 
 %% Create coil sensitivity map
-fprintf("Creating sensitivity map...\n");
-t = tic;
-
-% Create the sensitivity map
-D = D.make_sense();
-
-fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
+if D.ncoils > 1
+    fprintf("Creating sensitivity map...\n");
+    t = tic;
+    
+    % Create the sensitivity map
+    D = D.make_sense();
+    
+    fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
+end
 
 %% Recon
 fprintf("Reconning...\n");
@@ -42,7 +38,7 @@ fprintf("Subtracting...\n");
 t = tic;
 
 % Reconstruct the whole sequence
-sub = im(:,:,:,1:2:end) - im(:,:,:,2:2:end);
+sub = im(:,:,:,6:2:end) - im(:,:,:,5:2:end);
 
 fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 
