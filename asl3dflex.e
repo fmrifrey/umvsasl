@@ -1928,7 +1928,7 @@ int play_flip(int flipn) {
 
 	/* Play the flip core */
 	boffset(off_flipcore);
-	startseq(echon, (short)MAY_PAUSE);
+	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 	ttotal += dur_flipcore + TIMESSI;
 
@@ -1976,9 +1976,11 @@ STATUS prescanCore() {
 
 		if (ro_mode == 1) {
 			fprintf(stderr, "prescanCore(): Playing FSE tip pulse for prescan iteration %d...\n", view);
+			play_tip();
 		}
 
 		fprintf(stderr, "prescanCore(): Playing flip pulse for prescan iteration %d...\n", view);
+		play_flip(0);
 
 		/* Load the DAB */	
 		if (view < 1) {
