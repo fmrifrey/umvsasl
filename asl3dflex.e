@@ -170,7 +170,7 @@ float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 /* readout cvs */
 int nframes = 2 with {1, , 2, VIS, "Number of frames",};
 int nshots = 1 with {1, , 1, VIS, "Number of shots per frame",};
-int nechoes = 16 with {1, MAXNECHOES, 66, VIS, "Number of echoes per shot",};
+int nechoes = 16 with {1, MAXNECHOES, 16, VIS, "Number of echoes per shot",};
 int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
@@ -181,7 +181,7 @@ float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion 
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
 int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
 int rfspoil_gre = 0 with {0, 1, 0, VIS, "Option to do rf spoiling for GRE sequence",};
-float crushfac = 1.0 with {0, 1, 0, VIS, "Crusher amplitude factor (dk_crush = crushfac*kmax)",};
+float crushfac = 1.0 with {0, 10, 0, VIS, "Crusher amplitude factor (dk_crush = crushfac*kmax)",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
@@ -834,7 +834,7 @@ STATUS predownload( void )
 @inline Prescan.e PSfilter
 
 	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
-	pislquant = nechoes;	/* # of 2nd pass slices */
+	pislquant = 10;	/* # of 2nd pass slices */
 
 	/* For Prescan: Declare the entry point table 	*/
 	if( entrytabinit( entry_point_table, (int)ENTRY_POINT_MAX ) == FAILURE ) 
@@ -1733,8 +1733,7 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
    lines before the line above.  The code inline'd from Prescan.e
    adds more entry points and closes the list. */
 
-/* Initial transformation matrix */
-long tmtx0[9];
+long tmtx0[9]; /* Initial transformation matrix */
 
 STATUS psdinit( void )
 {
@@ -1746,12 +1745,9 @@ STATUS psdinit( void )
 	syncon( &seqcore );		/* Activate sync for core */
 	syncoff( &pass );		/* Deactivate sync during pass */
 	seqCount = 0;		/* Set SPGR sequence counter */
-	settriggerarray( (short)nechoes, rsptrigger );
-	setrotatearray( (short)nechoes, rsprot[0] );
+	setrotatearray( 1, rsprot[0] );
+	settriggerarray( 1, rsptrigger );
 	setrfltrs( (int)filter_echo1, &echo1 );
-
-	/* Store initial transformation matrix */
-	getrotate(tmtx0, 0);
 			
 	/* Set rf1, rf2 tx and rx frequency */
 	setfrequency((int)xmitfreq1, &rf1, 0);
@@ -1760,6 +1756,9 @@ STATUS psdinit( void )
 
 	/* Set fat sat frequency */
 	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrho, 0);
+	
+	/* Get the original rotation matrix */
+	getrotate( tmtx0, 0 );
 
 	return SUCCESS;
 }   /* end psdinit() */
@@ -1902,7 +1901,7 @@ int play_fatsat() {
 /* PLAY_TIP() Function for playing FSE tipdown pulse and TE deadtime */
 int play_tip() {
 	int ttotal = 0;
-	fprintf(stderr, "\tplay_readout(): playing FSE tipdown pulse and echo time delay (%d us)...\n", dur_tipcore + TIMESSI);
+	fprintf(stderr, "\tplay_tip(): playing FSE tipdown pulse and echo time delay (%d us)...\n", dur_tipcore + TIMESSI);
 
 	/* Play the tipcore */
 	setphase(phs_tip, &rf1, 0);
@@ -1916,13 +1915,13 @@ int play_tip() {
 
 int play_flip(int flipn) {
 	int ttotal = 0;
-	fprintf(stderr, "\tplay_readout(): playing flipcore (%d us)...\n", dur_flipcore);
+	fprintf(stderr, "\tplay_flip(): playing flipcore (%d us)...\n", dur_flipcore);
 
 	/* Set the flip angle & phase */
 	setiamp((int)(flipfactbl[flipn]*ia_rf2), &rf2, 0);
 	setphase(flipphstbl[flipn], &rf2, 0);
 	if (ro_mode == 1) /* FSE, sweep the phs table */
-		setphase(flipphstbl[flipn], &echo1, 0);
+		setphase(flipphstbl[flipn] + M_PI/2, &echo1, 0);
 	else /* GRE, phs_flip = phs_tip */
 		setphase(phs_tip, &echo1, 0);
 
@@ -1942,7 +1941,7 @@ int play_readout() {
 
 	/* Play the seqcore */
 	boffset(off_seqcore);
-	startseq(echon, MAY_PAUSE);
+	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 	ttotal += dur_seqcore + TIMESSI; 
 
@@ -1967,6 +1966,9 @@ STATUS play_endscan() {
 /* PRESCANCORE() Function for playing prescan sequence */
 STATUS prescanCore() {
 
+	/* Initialize the rotation matrix */
+	setrotate( tmtx0, 0 );
+	
 	/* Kill the gradients */
 	setiamp(0, &gxw, 0);
 	setiamp(0, &gyw, 0);
@@ -2053,6 +2055,7 @@ STATUS scan( void )
 	}
 
 	int ttotal = 0;
+	int rotidx;
 	fprintf(stderr, "scan(): Beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);
 	
 	/* Play disdaqs */
@@ -2072,7 +2075,7 @@ STATUS scan( void )
 			ttotal += play_flip(0);
 
 			/* Load the DAB */		
-			fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon);
+			fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon+1);
 			loaddab(&echo1,
 					echon,
 					0,
@@ -2138,12 +2141,13 @@ STATUS scan( void )
 						echon,
 						0,
 						DABSTORE,
-						framen*nshots + shotn,
+						framen*nshots + shotn + 1,
 						DABON,
 						PSD_LOAD_DAB_ALL);		
 
 				/* Set the view transformation matrix */
-				setrotate(tmtxtbl[framen*nshots*nechoes + shotn*nechoes + echon], echon);
+				rotidx = framen*nshots*nechoes + shotn*nechoes + echon;
+				setrotate( tmtxtbl[rotidx], 0 );
 
 				/* Kill the gradients if specified */
 				if (kill_grads) {
@@ -2156,7 +2160,7 @@ STATUS scan( void )
 				ttotal += play_readout();
 
 				/* Reset the rotation matrix */
-				setrotate(tmtx0, echon);
+				setrotate( tmtx0, 0 );
 
 				/* Restore the gradients */
 				setiamp(ia_gxw, &gxw, 0);
@@ -2228,12 +2232,9 @@ int genspiral(FILE* fID_rxryrzdz) {
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
-	float kzmax;
+	float kzmax = kxymax;
 	if (fID_rxryrzdz == 0 && sptype3d == 1)
 		kzmax = nechoes / D / 2.0;
-	else
-		kzmax = kxymax;
-
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
@@ -2427,7 +2428,7 @@ int genviews(FILE* fID_rxryrzdz) {
 							break;		
 						case 4: /* Debugging case */
 							rx = M_PI/2.0*echon;
-							ry = M_PI/2.0*shotn;	
+							ry = M_PI/4.0*shotn;	
 							break;
 						default:
 							return 0;
