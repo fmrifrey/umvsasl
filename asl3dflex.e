@@ -2410,18 +2410,18 @@ int genviews(FILE* fID_rxryrzdz) {
 						case 1 : /* Kz shifts */
 							rx = 0;
 							ry = 0;
-							rz = 2.0 * M_PI * shotn / PHI;
+							rz = 2.0*M_PI * shotn / PHI;
 							dz = pow(-1.0, echon) / (float)nechoes * 2.0*floor((float)(echon + 1) / 2.0);
 							dz += pow(-1.0, shotn) / (float)(nshots*nechoes) * 2.0*floor((float)(shotn + 1) / 2.0);
 							break;
 						case 2 : /* Single axis rotation */
-							rx = 2.0*M_PI * echon / PHI;
-							ry = 2.0*M_PI * shotn / PHI;
+							rx = 2.0*M_PI * (shotn*nechoes + echon) / PHI;
+							ry = 0;
 							rz = 0;
 							dz = 0;
 							break;
 						case 3 : /* Double axis rotations */
-							rx = acos(fmod(echon*phi1, 1.0)); /* polar angle */
+							rx = acos(fmod((shotn*nechoes + echon)*phi1, 1.0)); /* polar angle */
 							ry = 0;
 							rz = 2.0*M_PI * fmod((shotn*nechoes + echon)*phi2, 1.0); /* azimuthal angle */
 							dz = 0;		
