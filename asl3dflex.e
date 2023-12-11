@@ -131,6 +131,19 @@ int prep2_grad_ctl[MAXWAVELEN];
 int tadjusttbl[MAXNFRAMES];
 int doblksattbl[MAXNFRAMES];
 
+/* Declare PCASL variables */
+int 	pcasl_Duration = 1800ms;
+int 	pcasl_Npulses = 1800;
+float 	pcasl_RFamp = 22;/*mGauss*/
+float 	pcasl_RFphs;
+int 	pcasl_RFdur = 500us;
+float 	pcasl_RFdeltaphs;
+float 	pcasl_Gamp;
+float	pcasl_Gref_amp;
+float 	pcasl_Gf;
+int 	pcasl_rate = 1000us;
+
+
 /* Declare receiver and Tx frequencies */
 float recfreq;
 float xmitfreq1;
@@ -219,6 +232,7 @@ int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppres
 int dur_blksatcore = 0 with {0, , 0, INVIS, "Duration of the bulk saturation core (us)",};
 int dur_prep1core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 1 cores (us)",};
 int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
+int dur_pcaslcore = 1000 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
 int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
 int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
 int dur_tipcore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
@@ -1502,6 +1516,31 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): finalizing prep2ctlcore...\n");
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_prep2core, tmploc);
 	SEQLENGTH(prep2ctlcore, dur_prep2core, prep2ctlcore);
+	fprintf(stderr, "\tDone.\n");
+		
+
+	/*********************************/
+	/* Generate PCASL core */
+	/*********************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of PCASL core\n");
+	tmploc = 0;	
+
+	fprintf(stderr, "pulsegen(): generating PCASL slice select gradient and RF...\n");
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	TRAPEZOID(ZGRAD, gzpcasl,  tmploc + pw_gzpcasla, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	EXTWAVE(RHO, rhopcasl, tmploc+pw_gzpcasld, 500, 1.0, 125, myHanning.rho, , loggrd);
+	tmploc += pw_gzpcasl + pw_gzpcasla + pw_gzpcasld;
+	fprintf(stderr, "\tend: %dus, ", tmploc);
+
+	fprintf(stderr, "pulsegen(): generating PCASL refocus gradients...\n");
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	TRAPEZOID(ZGRAD, gzpcaslref,  tmploc + pw_gzpcaslrefa, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	tmploc += pw_gzpcaslref + pw_gzpcaslrefa + pw_gzpcaslrefd;
+	fprintf(stderr, "\tend: %dus, ", tmploc);
+
+	fprintf(stderr, "pulsegen(): finalizing pcaslcore...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_pcaslcore, tmploc);
+	SEQLENGTH(pcaslcore, dur_pcaslcore, pcaslcore);
 	fprintf(stderr, "\tDone.\n");
 		
 	
