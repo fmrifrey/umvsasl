@@ -675,7 +675,7 @@ STATUS predownload( void )
 				if (ro_mode == 0 && rfspoil_gre == 0) /* non-rf spoiled GRE */
 					flipphstbl[echon] = phs_tip;
 				else if (ro_mode == 0 && rfspoil_gre == 1) /* rf spoiled GRE */
-					flipphstbl[echon] = phs_tip + M_PI * (fmod(pow((float)echon*SPOIL_SEED, 2.0), 2.0) - 1.0);
+					flipphstbl[echon] = phs_tip + M_PI * 117/180 * echon;
 				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
 					flipphstbl[echon] = phs_inv;
 				else /* phase cycled FSE */
@@ -1923,7 +1923,7 @@ int play_flip(int flipn) {
 	if (ro_mode == 1) /* FSE, sweep the phs table */
 		setphase(flipphstbl[flipn] + M_PI/2, &echo1, 0);
 	else /* GRE, phs_flip = phs_tip */
-		setphase(phs_tip, &echo1, 0);
+		setphase(flipphstbl[flipn], &echo1, 0);
 
 	/* Play the flip core */
 	boffset(off_flipcore);
