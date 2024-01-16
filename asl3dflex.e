@@ -180,7 +180,7 @@ float phs_tip = 0.0 with { , , 0.0, VIS, "Initial transmitter phase for tipdown 
 float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion pulse",};
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
 int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
-int rfspoil_gre = 0 with {0, 1, 0, VIS, "Option to do rf spoiling for GRE sequence",};
+float spgr_phsinc = 117 with {0, , 117, VIS, "Phase increment (deg) for RF spoiling in GRE mode",};
 float crushfac = 1.0 with {0, 10, 0, VIS, "Crusher amplitude factor (dk_crush = crushfac*kmax)",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
@@ -672,10 +672,8 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
 			for (echon = 0; echon < nechoes; echon++) {
-				if (ro_mode == 0 && rfspoil_gre == 0) /* non-rf spoiled GRE */
-					flipphstbl[echon] = phs_tip;
-				else if (ro_mode == 0 && rfspoil_gre == 1) /* rf spoiled GRE */
-					flipphstbl[echon] = phs_tip + M_PI * 117/180 * echon;
+				if (ro_mode == 0) /* GRE mode */
+					flipphstbl[echon] = phs_tip + M_PI * spgr_phsinc/180 * pow(echon,2.0);
 				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
 					flipphstbl[echon] = phs_inv;
 				else /* phase cycled FSE */
@@ -1318,7 +1316,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20f\n", "phs_inv:", phs_inv);
 	fprintf(finfo, "\t%-50s%20f\n", "phs_rx:", phs_rx);
 	fprintf(finfo, "\t%-50s%20d\n", "phscyc_fse:", phscyc_fse);
-	fprintf(finfo, "\t%-50s%20d\n", "rfspoil_gre:", rfspoil_gre);
+	fprintf(finfo, "\t%-50s%20f\n", "spgr_phsinc:", spgr_phsinc);
 	fprintf(finfo, "\t%-50s%20f\n", "varflipfac:", varflipfac);
 	fprintf(finfo, "\t%-50s%20d\n", "kill_grads:", kill_grads);
 
@@ -2234,7 +2232,7 @@ int genspiral(FILE* fID_rxryrzdz) {
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
 	float kzmax = kxymax;
 	if (fID_rxryrzdz == 0 && sptype3d == 1)
-		kzmax = nechoes / D / 2.0;
+		kzmax = nshots*nechoes / D / 2.0;
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
@@ -2244,7 +2242,7 @@ int genspiral(FILE* fID_rxryrzdz) {
 
 	/* generate the spiral trajectory */
 	F[0] = spvd0 * D;
-	F[1] = (D*spvd1 - F[0]) / kxymax;
+	F[1] = 2*pow(D,2)/opxres *(spvd1 - spvd0);
 	calc_vds(sm, gm, dt, dt, (sptype2d<3) ? (1) : (2), F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 

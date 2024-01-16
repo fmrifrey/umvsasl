@@ -86,13 +86,7 @@ classdef vol
                 C = R.C;
                 
                 % Incorporate sensitivity encoding into system matrix
-                Ac = repmat({[]},obj.ncoils,1);
-                for coiln = 1:obj.ncoils
-                    tmp = args.smap(:,:,:,coiln);
-                    tmp = Gdiag(tmp(true(obj.dim*ones(1,3))),'mask',true(obj.dim*ones(1,3)));
-                    Ac{coiln} = obj.Gm * tmp;
-                end
-                A = block_fatrix(Ac, 'type', 'col');
+                A = Asense(obj.Gm,args.smap);
                 
                 % Reshape density weighting matrix
                 W = Gdiag(repmat(obj.dcf(:)./obj.Gm.arg.basis.transform,1,obj.ncoils));
@@ -100,11 +94,11 @@ classdef vol
                 % Recon preconditioner using conjugate-phase
                 im_cp = A' * reshape(W * obj.kdata, [], 1);
                 im_cp = embed(im_cp,true(obj.dim*ones(1,3)));
-                im_cp = ir_wls_init_scale(A, obj.kdata(:), im_cp);
+%                 im_cp = ir_wls_init_scale(A, obj.kdata(:), im_cp);
                 
                 % Recon using preconditioned conjugate gradient (iterative)
                 if args.niter > 0
-                    im_pcg = qpwls_pcg1(im_cp(true(obj.dim*ones(1,3))), A, 1, obj.kdata(:), C, ...
+                    im_pcg = qpwls_pcg1(im_cp(true(obj.dim*ones(1,3))), A, 1, obj.kdata(:), 0, ...
                         'niter', nargs.iter);
                     im = embed(im_pcg,true(obj.dim*ones(1,3)));
                     

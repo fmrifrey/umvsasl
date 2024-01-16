@@ -141,7 +141,7 @@ classdef seq
             % Construct the volume
             if isempty(twinidx) % if no Gmri object already exists
                 obj.vols = [obj.vols;
-                    vol(klocs, kdat, obj.dim, obj.fov, [], [])
+                    vol( klocs, kdat, obj.dim, obj.fov, [], [] )
                     ];
             else % if we can copy a Gmri object
                 fprintf('Copying Gmri object and dcf from vol %d\n', twinidx);
