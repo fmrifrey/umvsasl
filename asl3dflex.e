@@ -190,7 +190,7 @@ int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",}
 float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
 float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 3 with {1, 4, 1, VIS, "1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
+int sptype3d = 3 with {1, 4, 1, VIS, "0 = 2D (shotxshot rot only) 1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
 
 /* ASL prep pulse cvs */
 int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are played)",};
@@ -498,7 +498,7 @@ STATUS cveval( void )
 	sptype2d = opuser5;
 
 	piuset += use6;
-	cvdesc(opuser6, "3D spiral: 1=stack 2=1-ax-rots 3=2-ax-rots");
+	cvdesc(opuser6, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
 	cvdef(opuser6, 3);
 	opuser6 = 3;
 	cvmin(opuser6, 1);
@@ -2405,12 +2405,16 @@ int genviews(FILE* fID_rxryrzdz) {
 
 					/* Determine type of transformation */
 					switch (sptype3d) {
+						case 0 : /* 2D - shot bt shot rotations only */
+							rx = 0;
+							ry = 0;
+							rz = 2.0*M_PI * shotn / PHI;
+							dz = 0;
 						case 1 : /* Kz shifts */
 							rx = 0;
 							ry = 0;
 							rz = 2.0*M_PI * shotn / PHI;
-							dz = pow(-1.0, echon) / (float)nechoes * 2.0*floor((float)(echon + 1) / 2.0);
-							dz += pow(-1.0, shotn) / (float)(nshots*nechoes) * 2.0*floor((float)(shotn + 1) / 2.0);
+							dz = 2.0/(float)(nshots*nechoes) * (pow(-1.0,echon)*nshots*floor((float)(echon + 1)/2.0) + (float)shotn);
 							break;
 						case 2 : /* Single axis rotation */
 							rx = 2.0*M_PI * (shotn*nechoes + echon) / PHI;
