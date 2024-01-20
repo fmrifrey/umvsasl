@@ -1,4 +1,4 @@
-classdef vol
+classdef asl3df_frame
     
     properties
         klocs % kspace trajectory sampling locations for kspace volume
@@ -12,7 +12,7 @@ classdef vol
     
     methods
         
-        function obj = vol(klocs, kdata, dim, fov, Gm, dcf)
+        function obj = asl3df_frame(klocs, kdata, dim, fov, Gm, dcf)
             
             % Assign kspace locations and data
             obj.klocs = klocs;
@@ -25,14 +25,14 @@ classdef vol
             
             % If no Gmri object is passed, create it
             if isempty(Gm) || nargin < 5
-                nufft_args = {dim*ones(1,3),...
-                    6*ones(1,3),...
-                    2*dim*ones(1,3),...
-                    dim*ones(1,3)/2,...
+                nufft_args = {dim,...
+                    6*ones(size(dim)),...
+                    2*dim,...
+                    dim/2,...
                     'table',...
                     2^10,...
                     'minmax:kb'};
-                Gm = Gmri(klocs, true(dim*ones(1,3)), ...
+                Gm = Gmri(klocs(:,1:length(dim)), true(dim), ...
                     'fov', fov, 'basis', {'rect'}, 'nufft', nufft_args(:)');
             end
             
@@ -48,7 +48,11 @@ classdef vol
         end
         
         function plotkspace(obj)
-            plot3(obj.klocs(:,1),obj.klocs(:,2),obj.klocs(:,3));
+            if length(obj.dim) == 2 % 2D
+                plot(obj.klocs(:,1),obj.klocs(:,2));
+            else % 3D
+                plot3(obj.klocs(:,1),obj.klocs(:,2),obj.klocs(:,3));
+            end
         end
         
         function [im,imc] = recon(obj,varargin)
@@ -68,12 +72,12 @@ classdef vol
             % Coil-wise recon with RMS coil combo
             if isempty(args.smap) || nargout == 2
                 % Reconstruct the coil-wise images
-                imc = reshape(obj.Gm'*(W*obj.kdata), [obj.dim*ones(1,3),obj.ncoils]);
+                imc = reshape(obj.Gm'*(W*obj.kdata), [obj.dim,obj.ncoils]);
 
                 if obj.ncoils == 1 % Save single coil data
-                    im = imc(:,:,:,1);
+                    im = imc;
                 else % RMS coil combo
-                    im = sqrt(mean(imc.^2,4));
+                    im = sqrt(mean(imc.^2,ndims(imc)));
                 end
             end
             
@@ -81,8 +85,8 @@ classdef vol
             if ~isempty(args.smap)
                 
                 % Make regularizer
-                R = Reg1(ones(obj.dim*ones(1,3)), 'beta', 2^-12 * numel(obj.kdata)/3, ...
-                    'mask', true(obj.dim*ones(1,3)));
+                R = Reg1(ones(obj.dim), 'beta', 2^-12 * numel(obj.kdata)/3, ...
+                    'mask', true(obj.dim));
                 C = R.C;
                 
                 % Incorporate sensitivity encoding into system matrix
@@ -93,14 +97,14 @@ classdef vol
                 
                 % Recon preconditioner using conjugate-phase
                 im_cp = A' * reshape(W * obj.kdata, [], 1);
-                im_cp = embed(im_cp,true(obj.dim*ones(1,3)));
+                im_cp = embed(im_cp,true(obj.dim));
 %                 im_cp = ir_wls_init_scale(A, obj.kdata(:), im_cp);
                 
                 % Recon using preconditioned conjugate gradient (iterative)
                 if args.niter > 0
-                    im_pcg = qpwls_pcg1(im_cp(true(obj.dim*ones(1,3))), A, 1, obj.kdata(:), 0, ...
+                    im_pcg = qpwls_pcg1(im_cp(true(obj.dim)), A, 1, obj.kdata(:), 0, ...
                         'niter', nargs.iter);
-                    im = embed(im_pcg,true(obj.dim*ones(1,3)));
+                    im = embed(im_pcg,true(obj.dim));
                     
                 else % ...or save image with CP recon
                     im = im_cp;
