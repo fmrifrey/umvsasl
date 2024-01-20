@@ -97,8 +97,8 @@ classdef asl3df_frame
                 
                 % Recon preconditioner using conjugate-phase
                 im_cp = A' * reshape(W * obj.kdata, [], 1);
+                im_cp = ir_wls_init_scale(A, obj.kdata(:), im_cp);
                 im_cp = embed(im_cp,true(obj.dim));
-%                 im_cp = ir_wls_init_scale(A, obj.kdata(:), im_cp);
                 
                 % Recon using preconditioned conjugate gradient (iterative)
                 if args.niter > 0

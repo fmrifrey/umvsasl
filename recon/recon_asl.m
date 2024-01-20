@@ -42,11 +42,11 @@ fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 % fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 
 %% Write to file
-% fprintf("Writing the images to file...\n");
-% t = tic;
-% 
-% % Write out
-% writenii('im_mag', abs(im));
-% writenii('im_ang', angle(im));
-% 
-% fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
+fprintf("Writing the images to file...\n");
+t = tic;
+
+% Write out
+writenii('im_mag', abs(im));
+writenii('im_ang', angle(im));
+
+fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
