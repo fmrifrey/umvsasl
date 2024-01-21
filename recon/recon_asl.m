@@ -21,7 +21,7 @@ if D.ncoils > 1
     t = tic;
     
     % Create the sensitivity map
-    D = D.make_sense(2);
+    D = D.make_sense(1);
     
     fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 end
