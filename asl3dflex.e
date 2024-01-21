@@ -1999,7 +1999,7 @@ STATUS prescanCore() {
 		play_deadtime(500000);
 
 	}
-
+	
 	/* Restore the gradients */
 	setiamp(ia_gxw, &gxw, 0);
 	setiamp(ia_gyw, &gyw, 0);
@@ -2054,8 +2054,26 @@ STATUS scan( void )
 
 	int ttotal = 0;
 	int rotidx;
-	fprintf(stderr, "scan(): Beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);
+	fprintf(stderr, "scan(): Beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);	
 	
+	/* Play an empty acquisition to reset the DAB after prescan */
+	if (disdaqn == 0) {
+		/* Turn the DABOFF */
+		loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
+
+		/* Kill the gradients */
+		setiamp(0, &gxw, 0);
+		setiamp(0, &gyw, 0);
+		setiamp(0, &gzw, 0);
+
+		play_readout();
+
+		/* Restore the gradients */
+		setiamp(ia_gxw, &gxw, 0);
+		setiamp(ia_gyw, &gyw, 0);
+		setiamp(ia_gzw, &gzw, 0);
+	}
+
 	/* Play disdaqs */
 	for (disdaqn = 0; disdaqn < ndisdaqs; disdaqn++) {
 		/* Calculate and play deadtime */

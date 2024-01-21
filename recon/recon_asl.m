@@ -8,7 +8,10 @@ fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 
 %% Assign volumes for each frame
 for i = 1:D.aqdims(2) % aqdims(2) is the number of frames in asl3dflex
-    D = D.setup_frame(i,'all','all');
+    D = D.setup_frame(i, ... % frame #
+        'all', ... % shot #
+        'all' ... % echo #
+        );
     fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 end
 
