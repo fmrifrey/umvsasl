@@ -1933,15 +1933,27 @@ int play_flip(int flipn) {
 }
 
 /* PLAY_READOUT() Function for playing the readout section */
-int play_readout() {
+int play_readout(int grad_off) {
 	int ttotal = 0;
 	fprintf(stderr, "\tplay_readout(): playing seqcore (%d us)...\n", dur_seqcore);
+
+	if (grad_off) {
+		/* Kill the gradients */
+		setiamp(0, &gxw, 0);
+		setiamp(0, &gyw, 0);
+		setiamp(0, &gzw, 0);
+	}
 
 	/* Play the seqcore */
 	boffset(off_seqcore);
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 	ttotal += dur_seqcore + TIMESSI; 
+
+	/* Restore the gradients */
+	setiamp(ia_gxw, &gxw, 0);
+	setiamp(ia_gyw, &gyw, 0);
+	setiamp(ia_gzw, &gzw, 0);
 
 	fprintf(stderr, "\tplay_readout(): Done.\n");
 	return ttotal;
@@ -1993,7 +2005,7 @@ STATUS prescanCore() {
 		}
 
 		fprintf(stderr, "prescanCore(): playing readout for prescan iteration %d...\n", view);
-		play_readout();
+		play_readout(1); /* kill the gradients */
 
 		fprintf(stderr, "prescanCore(): playing deadtime for prescan iteration %d...\n", view);
 		play_deadtime(500000);
@@ -2060,18 +2072,7 @@ STATUS scan( void )
 	if (disdaqn == 0) {
 		/* Turn the DABOFF */
 		loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
-
-		/* Kill the gradients */
-		setiamp(0, &gxw, 0);
-		setiamp(0, &gyw, 0);
-		setiamp(0, &gzw, 0);
-
-		play_readout();
-
-		/* Restore the gradients */
-		setiamp(ia_gxw, &gxw, 0);
-		setiamp(ia_gyw, &gyw, 0);
-		setiamp(ia_gzw, &gzw, 0);
+		play_readout(1); /* 1 = kill the gradients */
 	}
 
 	/* Play disdaqs */
@@ -2100,18 +2101,8 @@ STATUS scan( void )
 					DABOFF,
 					PSD_LOAD_DAB_ALL);		
 
-			/* Kill the gradients */
-			setiamp(0, &gxw, 0);
-			setiamp(0, &gyw, 0);
-			setiamp(0, &gzw, 0);
-
 			fprintf(stderr, "scan(): playing readout for disdaq %d (%d us)...\n", disdaqn, dur_seqcore);
-			ttotal += play_readout();
-
-			/* Restore the gradients */
-			setiamp(ia_gxw, &gxw, 0);
-			setiamp(ia_gyw, &gyw, 0);
-			setiamp(ia_gzw, &gzw, 0);
+			ttotal += play_readout(1); /* 1 = kill the gradients */
 		}
 	}
 
@@ -2165,23 +2156,11 @@ STATUS scan( void )
 				rotidx = framen*nshots*nechoes + shotn*nechoes + echon;
 				setrotate( tmtxtbl[rotidx], 0 );
 
-				/* Kill the gradients if specified */
-				if (kill_grads) {
-					setiamp(0, &gxw, 0);
-					setiamp(0, &gyw, 0);
-					setiamp(0, &gzw, 0);
-				}
-
 				fprintf(stderr, "scan(): playing readout for frame %d, shot %d, echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
-				ttotal += play_readout();
+				ttotal += play_readout(kill_grads);
 
 				/* Reset the rotation matrix */
 				setrotate( tmtx0, 0 );
-
-				/* Restore the gradients */
-				setiamp(ia_gxw, &gxw, 0);
-				setiamp(ia_gyw, &gyw, 0);
-				setiamp(ia_gzw, &gzw, 0);
 			}
 
 		}
