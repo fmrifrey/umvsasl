@@ -1286,6 +1286,7 @@ STATUS predownload( void )
 	rhuser1 = nframes;
 	rhuser2 = nshots;
 	rhuser3 = nechoes;
+	rhuser4 = sptype3d;
 	
 	/* Print scan info to a file */
 	finfo = fopen("scaninfo.txt", "w");
