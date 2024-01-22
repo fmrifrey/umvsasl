@@ -1979,11 +1979,6 @@ STATUS prescanCore() {
 	/* Initialize the rotation matrix */
 	setrotate( tmtx0, 0 );
 	
-	/* Kill the gradients */
-	setiamp(0, &gxw, 0);
-	setiamp(0, &gyw, 0);
-	setiamp(0, &gzw, 0);
-
 	for (view = 1 - rspdda; view < rspvus + 1; view++) {
 
 		if (ro_mode == 1) {
@@ -2011,11 +2006,6 @@ STATUS prescanCore() {
 		play_deadtime(500000);
 
 	}
-	
-	/* Restore the gradients */
-	setiamp(ia_gxw, &gxw, 0);
-	setiamp(ia_gyw, &gyw, 0);
-	setiamp(ia_gzw, &gzw, 0);
 
 	rspexit();
 
@@ -2070,6 +2060,13 @@ STATUS scan( void )
 	
 	/* Play an empty acquisition to reset the DAB after prescan */
 	if (disdaqn == 0) {
+		/* David Frey (1/22/2024):
+		When disdaqs play, they reset the buffer by calling DABOFF so that prescan data can be written.
+		If no disdaqs are played (i.e. MRF), then the first acquisiton may be corrupted by prescan data.
+		These lines run a single empty acqusition, but will introduce a slight delay in the sequence.
+		This may cause issues when running fMRI stimulus that starts at the beginning of the sequence trigger.
+		*/
+
 		/* Turn the DABOFF */
 		loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
 		play_readout(1); /* 1 = kill the gradients */
