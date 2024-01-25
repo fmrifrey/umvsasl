@@ -1214,6 +1214,9 @@ STATUS predownload( void )
 				pitscan += dur_blksatcore + TIMESSI; /* add bulk sat core */
 			}
 
+			/* add tadjust */
+			pitscan += tadjusttbl[framen];
+
 			if (prep1_id > 0) { /* add prep1 pulse/pld core */
 				if (prep1_lbltbl[framen] == 0)
 					fprintf(fseq, "%-50s%20dus%20dus\n", "prep1 ctl pulse", (int)pitscan, dur_prep1core);
