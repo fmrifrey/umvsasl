@@ -131,19 +131,6 @@ int prep2_grad_ctl[MAXWAVELEN];
 int tadjusttbl[MAXNFRAMES];
 int doblksattbl[MAXNFRAMES];
 
-/* Declare PCASL variables */
-int 	pcasl_Duration = 1800ms;
-int 	pcasl_Npulses = 1800;
-float 	pcasl_RFamp = 22;/*mGauss*/
-float 	pcasl_RFphs;
-int 	pcasl_RFdur = 500us;
-float 	pcasl_RFdeltaphs;
-float 	pcasl_Gamp;
-float	pcasl_Gref_amp;
-float 	pcasl_Gf;
-int 	pcasl_rate = 1000us;
-
-
 /* Declare receiver and Tx frequencies */
 float recfreq;
 float xmitfreq1;
@@ -232,7 +219,7 @@ int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppres
 int dur_blksatcore = 0 with {0, , 0, INVIS, "Duration of the bulk saturation core (us)",};
 int dur_prep1core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 1 cores (us)",};
 int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
-int dur_pcaslcore = 1000 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
+int dur_pcaslcore = 1500 with {0, , 0, INVIS, "Duration of the PCASL core",};
 int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
 int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
 int dur_tipcore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
@@ -243,6 +230,24 @@ int dur_readout = 0 with {0, , 0, INVIS, "Duration of the whole readout section 
 int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime inside seqcore (us)",};
 int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime inside seqcore (us)",};
 int deadtime_tipcore = 0 with {0, , 0, INVIS, "Deadtime inside tipcore for FSE readout (us)",};
+
+/* Declare PCASL variables */
+int	pcasl_flag=0; /* when this is turned to 1, prep1 pulse gets replaced with a PCASL pulse*/
+int 	pcasl_Duration = 1800ms; /* this is the bolus duration, not the duration of a single cycle */
+int	pcasl_period = 1500; /* this is the duration of one of the PCASL 'units' */ 
+int 	pcasl_Npulses = 1800;
+int 	pcasl_RFamp_dac = 0;
+float 	pcasl_RFamp = 25;/*mGauss*/
+float 	pcasl_delta_phs;
+float 	pcasl_delta_phs_correction;
+int 	pcasl_RFdur = 500us;
+float 	pcasl_Gamp =  0.6; /* slice select lobe for PCASL RF pulse G/cm*/
+float	pcasl_Gave = 0.06;
+float	pcasl_Gref_amp;    /* refocuser gradient */
+int	pcasl_ramp = 124us;
+float	pcasl_distance = 12; /*cm*/
+float	pcasl_RFfreq;
+
 
 @host
 /*********************************************************************
@@ -690,7 +695,7 @@ STATUS predownload( void )
 					flipphstbl[echon] = phs_tip;
 				else if (ro_mode == 0 && rfspoil_gre == 1) /* rf spoiled GRE */
 					flipphstbl[echon] = phs_tip + M_PI * (fmod(pow((float)echon*SPOIL_SEED, 2.0), 2.0) - 1.0);
-				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
+				else if (ro_mode == 1 && phscyc_fse == 0) /* FSE with no phase cycling */
 					flipphstbl[echon] = phs_inv;
 				else /* phase cycled FSE */
 					flipphstbl[echon] = phs_inv * pow(-1.0, (float)echon);
@@ -1110,6 +1115,54 @@ STATUS predownload( void )
 	a_prep2rhoctl = prep2_b1 / maxB1Seq;
 	ia_prep2rhoctl = a_prep2rhoctl * max_pg_iamp;
 
+	/*----------------- PCASL  specific calculations  ----------- */
+	float mom1, mom2;
+
+	/* Trapezoid durations */
+	pw_gzpcasl = pcasl_RFdur;
+	pw_gzpcasla = pcasl_ramp;
+	pw_gzpcasld = pcasl_ramp;
+
+	pw_gzpcaslref =  40;
+	pw_gzpcaslrefa = pcasl_ramp;
+	pw_gzpcaslrefd = pcasl_ramp;
+
+	fprintf(stderr, "\npredownload(): calculations for PCASL pulses ");
+	fprintf(stderr, "\nPCASL SS gradient: %f ", pcasl_Gamp);
+
+	pcasl_RFfreq = pcasl_distance * GAMMA/2/M_PI * pcasl_Gamp ;
+	fprintf(stderr, "\nPCASL RF frequency offset: %f", pcasl_RFfreq);
+
+	/* The gradient moment from the first trapezoid */
+	mom1 = pcasl_Gamp*(pcasl_RFdur+2*pcasl_ramp) ;
+	/* Gradient moment of refocuser is calculated to maintain a specific pcal_Gave  
+		pcasl_Gave =  (mom1 + mom2)/pcasl_period );
+	The refocuser pulse is actually a triangle, so ...
+		mom2 = pcasl_Gref_amp * pcasl_ramp 
+	now solve for pcasl_Gref_amp ...
+	*/
+	pcasl_Gref_amp = (pcasl_Gave/pcasl_period - mom1) / (pw_gzpcaslref + pw_gzpcaslrefa);
+	mom2 = pcasl_Gref_amp * pcasl_ramp ;
+
+	/* Change the values of the gradient amplitudes */
+	a_gzpcasl = pcasl_Gamp;
+	a_gzpcaslref = pcasl_Gref_amp;
+
+	fprintf(stderr, "\nPCASL refocuser gradient : %f ", pcasl_Gref_amp);
+
+	/* calculate linear phase increment for PCASL train */
+	pcasl_delta_phs = -GAMMA*(mom1 + mom2) * pcasl_distance;
+	fprintf(stderr, "\nPCASL linear phase increment: %f ", pcasl_delta_phs);
+
+	pcasl_delta_phs += pcasl_delta_phs_correction;
+	fprintf(stderr, "\nCorrected PCASL linear phase increment: %f ", pcasl_delta_phs);
+
+	/* calculate PCASL amplitude of RF pulses in DAC units*/
+	pcasl_RFamp_dac = (int)(pcasl_RFamp * max_pg_iamp / maxB1Seq); 
+	fprintf(stderr, "\n PCASL RF ampliture in DAC untis: %d ", pcasl_RFamp_dac);
+	
+	/* adjust the pcasl_core to accomodate TIMESSI*/
+	dur_pcaslcore = pcasl_period - TIMESSI;
 
 	/* Calculate the duration of blksatcore */
 	dur_blksatcore = 0;
@@ -1130,6 +1183,7 @@ STATUS predownload( void )
 	dur_prep2core += pgbuffertime;
 	dur_prep2core += GRAD_UPDATE_TIME*prep2_len;
 	dur_prep2core += pgbuffertime;
+
 
 	/* Calculate the duration of bkgsupcore */
 	dur_bkgsupcore = 0;
@@ -1182,6 +1236,12 @@ STATUS predownload( void )
 
 		if (doblksattbl[framen])
 			dur_allcores[framen] += dur_blksatcore + TIMESSI; /* add bulk sat core */
+
+		if (pcasl_flag)	{
+			/* currently the labeling duration and PLD are constant - no MRF yet */
+			pcasl_Npulses = (int)floor(pcasl_Duration/(pcasl_period ));
+			dur_allcores[framen] += pcasl_Npulses * pcasl_period ;
+		}
 
 		if (prep1_id > 0 && prep1_lbltbl[framen] > -1) { /* add prep1 pulse/pld core */
 			dur_allcores[framen] += dur_prep1core + TIMESSI;
@@ -1374,6 +1434,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "dur_tipcore:", dur_tipcore);
 	fprintf(finfo, "\t%-50s%20d\n", "dur_flipcore:", dur_flipcore);
 	fprintf(finfo, "\t%-50s%20d\n", "dur_seqcore:", dur_seqcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_pcaslcore:", dur_pcaslcore);
 	
 	fclose(finfo);
 
@@ -1401,7 +1462,32 @@ STATUS predownload( void )
 STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
-	int tmploc;
+	int tmploc;	
+
+	/*********************************/
+	/* Generate PCASL core */
+	/*********************************/	
+	fprintf(stderr, "\npulsegen(): beginning pulse generation of PCASL core\n");
+	tmploc = 0;	
+
+	fprintf(stderr, "\npulsegen(): generating PCASL slice select gradient and RF...\n");
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	TRAPEZOID(ZGRAD, gzpcasl,  tmploc + pw_gzpcasla, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	EXTWAVE(RHO, rfpcasl, tmploc + pw_gzpcasla + psd_rf_wait , 500, 1.0, 250, myhanning.rho, , loggrd);
+	tmploc += pw_gzpcasl + pw_gzpcasla + pw_gzpcasld;
+	fprintf(stderr, "\tend: %dus, ", tmploc);
+
+	fprintf(stderr, "\npulsegen(): generating PCASL refocus gradient...\n");
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	TRAPEZOID(ZGRAD, gzpcaslref,  tmploc + pw_gzpcaslrefa, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	tmploc += pw_gzpcaslref + pw_gzpcaslrefa + pw_gzpcaslrefd;
+	fprintf(stderr, "\tend: %dus, ", tmploc);
+
+	fprintf(stderr, "\npulsegen(): finalizing pcaslcore...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %d us)\n", dur_pcaslcore, tmploc);
+	SEQLENGTH(pcaslcore, dur_pcaslcore, pcaslcore);
+	fprintf(stderr, "\tDone.\n");
+
 
 	/*********************************/
 	/* Generate bulk saturation core */
@@ -1516,31 +1602,6 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): finalizing prep2ctlcore...\n");
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_prep2core, tmploc);
 	SEQLENGTH(prep2ctlcore, dur_prep2core, prep2ctlcore);
-	fprintf(stderr, "\tDone.\n");
-		
-
-	/*********************************/
-	/* Generate PCASL core */
-	/*********************************/	
-	fprintf(stderr, "pulsegen(): beginning pulse generation of PCASL core\n");
-	tmploc = 0;	
-
-	fprintf(stderr, "pulsegen(): generating PCASL slice select gradient and RF...\n");
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	TRAPEZOID(ZGRAD, gzpcasl,  tmploc + pw_gzpcasla, GRAD_UPDATE_TIME*1000, 0, loggrd);
-	EXTWAVE(RHO, rhopcasl, tmploc+pw_gzpcasld, 500, 1.0, 125, myHanning.rho, , loggrd);
-	tmploc += pw_gzpcasl + pw_gzpcasla + pw_gzpcasld;
-	fprintf(stderr, "\tend: %dus, ", tmploc);
-
-	fprintf(stderr, "pulsegen(): generating PCASL refocus gradients...\n");
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	TRAPEZOID(ZGRAD, gzpcaslref,  tmploc + pw_gzpcaslrefa, GRAD_UPDATE_TIME*1000, 0, loggrd);
-	tmploc += pw_gzpcaslref + pw_gzpcaslrefa + pw_gzpcaslrefd;
-	fprintf(stderr, "\tend: %dus, ", tmploc);
-
-	fprintf(stderr, "pulsegen(): finalizing pcaslcore...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_pcaslcore, tmploc);
-	SEQLENGTH(pcaslcore, dur_pcaslcore, pcaslcore);
 	fprintf(stderr, "\tDone.\n");
 		
 	
@@ -1837,30 +1898,95 @@ int play_deadtime(int deadtime) {
 	
 	return ttotal;
 }
+/* test function to do the PCASL loop */
+int play_pcasl(s32* offset){
+	int i;
+	float tmpPHI;
+
+	fprintf(stderr, "\tplay_pcasl(): Loop...\n");
+	for (i=0; i<pcasl_Npulses; i++){
+		setiamp((int)(pcasl_RFamp_dac), &rfpcasl, 0);
+		setphase(tmpPHI, &rfpcasl, 0  );
+		tmpPHI += pcasl_delta_phs;
+		boffset(offset);
+		startseq(0, MAY_PAUSE);
+		settrigger(TRIG_INTERN, 0);
+	}
+
+	fprintf(stderr, "\tplay_pcasl(): Done.\n");	
+	return 1;
+}
 
 /* PLAY_ASLPREP() Function for playing asl prep pulses & delays */
-int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs1, int tbgs2, int pld) {
+int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs1, int tbgs2, int pld, int doPCASL) {
 	int ttotal = 0;
 	int ttmp;
+	int i;
+	float tmpPHI;
 
-	/* Play the pulse */	
-	switch (type) {
-		case 0: /* control */
-			fprintf(stderr, "\tplay_aslprep(): playing control pulse (%d us)...\n", dur + TIMESSI);
-			boffset(off_ctlcore);
-			break;
-		case 1: /* label */
-			fprintf(stderr, "\tplay_aslprep(): playing label pulse (%d us)...\n", dur + TIMESSI);
-			boffset(off_lblcore);
-			break;
-		default: /* invalid */
-			fprintf(stderr, "\tplay_aslprep(): ERROR - invalid type (%d)\n", type);
-			rspexit();
-			return -1;
+
+	if (doPCASL){
+		/* Play PCASL pulse train instead of VSASL single pulses */
+		pcasl_Npulses = (int)(floor(pcasl_Duration/pcasl_period));
+		tmpPHI = 0;	
+
+		/* set the RF frequency for labeling pulses */
+		setfrequency((int)pcasl_RFfreq, &rfpcasl, 0);
+
+		switch (type) {
+			case 0: /* control PCASL: loop alternating the sign of the RF pulse. update the phase*/
+				fprintf(stderr, "\tplay_aslprep(): playing PCASL control pulse (%d us)...\n", pcasl_period);
+				for (i=0; i<pcasl_Npulses; i++){
+					setiamp((int)(pow(-1,i)*pcasl_RFamp_dac), &rfpcasl, 0);
+					/* may need to use setiphase() and 
+					   precompute integer phases into a table ? */
+					setphase(tmpPHI, &rfpcasl, 0  );
+					tmpPHI += pcasl_delta_phs;
+					boffset(off_pcaslcore);
+					startseq(0, MAY_PAUSE);
+					settrigger(TRIG_INTERN, 0);
+				}
+				break;
+
+			case 1: /* label PCASL : loop the PCASL core updating the phse of the RF pulses*/
+				fprintf(stderr, "\tplay_aslprep(): playing PCASL label pulse (%d us)...\n", pcasl_period );
+				for (i=0; i<pcasl_Npulses; i++){
+					setiamp((int)(pcasl_RFamp_dac), &rfpcasl, 0);
+					setphase(tmpPHI, &rfpcasl, 0  );
+					tmpPHI += pcasl_delta_phs;
+					boffset(off_pcaslcore);
+					startseq(0, MAY_PAUSE);
+					settrigger(TRIG_INTERN, 0);
+				}
+				break;
+
+			default: /* invalid */
+				fprintf(stderr, "\tplay_aslprep(): ERROR - invalid type (%d)\n", type);
+				rspexit();
+				return -1;
+		}
+		ttotal += pcasl_Npulses*(pcasl_period);
 	}	
+	else{
+		/* Play the VSASL pulse */	
+		switch (type) {
+			case 0: /* control */
+				fprintf(stderr, "\tplay_aslprep(): playing control pulse (%d us)...\n", dur + TIMESSI);
+				boffset(off_ctlcore);
+				break;
+			case 1: /* label */
+				fprintf(stderr, "\tplay_aslprep(): playing label pulse (%d us)...\n", dur + TIMESSI);
+				boffset(off_lblcore);
+				break;
+			default: /* invalid */
+				fprintf(stderr, "\tplay_aslprep(): ERROR - invalid type (%d)\n", type);
+				rspexit();
+				return -1;
+		}	
+		ttotal += dur + TIMESSI;
+	}
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
-	ttotal += dur + TIMESSI;
 
 	/* Play pld and background suppression */
 	if (pld > 0) {
@@ -1952,6 +2078,7 @@ int play_tip() {
 	return ttotal;	
 }
 
+/* PLAY_FLIP() Function for playing GRE tipdown pulse or the FSE refocusing pulses */
 int play_flip(int flipn) {
 	int ttotal = 0;
 	fprintf(stderr, "\tplay_flip(): playing flipcore (%d us)...\n", dur_flipcore);
@@ -2097,7 +2224,7 @@ STATUS scan( void )
 	int rotidx;
 	fprintf(stderr, "scan(): Beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);
 	
-	/* Play disdaqs */
+	/* Play disdaqs (does the TR match teh rest of the time series?) */
 	for (disdaqn = 0; disdaqn < ndisdaqs; disdaqn++) {
 		/* Calculate and play deadtime */
 		fprintf(stderr, "scan(): Playing TR deadtime for disdaq %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
@@ -2142,34 +2269,43 @@ STATUS scan( void )
 	for (framen = 0; framen < nframes; framen++) {
 		for (shotn = 0; shotn < nshots; shotn++) {
 
+			/* Bulk saturation pulse */
 			if (doblksattbl[framen] > 0) {
 				fprintf(stderr, "scan(): Playing bulk saturation pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_blksat();
 			}
-
+			/* delay 1 */
 			fprintf(stderr, "scan(): Playing TR deadtime for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 			ttotal += play_deadtime(tadjusttbl[framen]);		
 
+			/* prep pulse 1 , BGS and delay 2 */
 			if (prep1_lbltbl[framen] > -1) {
 				fprintf(stderr, "scan(): Playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_aslprep(prep1_lbltbl[framen], off_prep1ctlcore, off_prep1lblcore, dur_prep1core, prep1_tbgs1tbl[framen], prep1_tbgs2tbl[framen], prep1_pldtbl[framen]);
+				ttotal += play_aslprep(prep1_lbltbl[framen], off_prep1ctlcore, off_prep1lblcore, dur_prep1core, prep1_tbgs1tbl[framen], prep1_tbgs2tbl[framen], prep1_pldtbl[framen],pcasl_flag);
 			}
-			
+		
+			/* testing the pcasl core */
+			/* if (pcasl_flag) play_pcasl( off_pcaslcore); */
+	
+			/* prep pulse 2, BGS and delay 3 */
 			if (prep2_lbltbl[framen] > -1) {
 				fprintf(stderr, "scan(): Playing prep2 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_aslprep(prep2_lbltbl[framen], off_prep2ctlcore, off_prep2lblcore, dur_prep2core, prep2_tbgs1tbl[framen], prep2_tbgs2tbl[framen], prep2_pldtbl[framen]);
+				ttotal += play_aslprep(prep2_lbltbl[framen], off_prep2ctlcore, off_prep2lblcore, dur_prep2core, prep2_tbgs1tbl[framen], prep2_tbgs2tbl[framen], prep2_pldtbl[framen], 0);
 			}
 
+			/* fat sat pulse */
 			if (dofatsat) {
 				fprintf(stderr, "scan(): Playing fat sat pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_fatsat();
 			}
 
+			/* FSE:  tipdown */
 			if (ro_mode == 1) {
 				fprintf(stderr, "scan(): Playing FSE tip pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_tip();	
 			}
 
+			/* readout echo train ... either GRE or FSE */
 			for (echon = 0; echon < nechoes; echon++) {
 				fprintf(stderr, "scan(): Playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
 				ttotal += play_flip(echon);
@@ -2194,7 +2330,7 @@ STATUS scan( void )
 					setiamp(0, &gyw, 0);
 					setiamp(0, &gzw, 0);
 				}
-
+				/* play the gradients and acquire the data */
 				fprintf(stderr, "scan(): playing readout for frame %d, shot %d, echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
 				ttotal += play_readout();
 
@@ -2283,7 +2419,7 @@ int genspiral(FILE* fID_rxryrzdz) {
 
 	/* generate the spiral trajectory */
 	F[0] = spvd0 * D;
-	F[1] = (D*spvd1 - F[0]) / kxymax;
+	F[1] = (D*spvd1 - F[0]) / kxymax; /* <----- LHG - I don't understand this calculation */
 	calc_vds(sm, gm, dt, dt, (sptype2d<3) ? (1) : (2), F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 
