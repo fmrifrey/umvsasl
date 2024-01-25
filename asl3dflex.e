@@ -210,7 +210,7 @@ int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)"
 int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
 int prep2_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 2: number of cycles",};
 float prep2_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 2: maximum RF amplitude",};
-float prep2_gmax = 3 with {0, , 3, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
+float prep2_gmax = 1.5 with {0, , 1.5, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
 int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep2_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 1st background suppression delay (0 = no pulse)",};
 int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppression delay (0 = no pulse)",};
@@ -626,15 +626,15 @@ STATUS predownload( void )
 {
 	FILE* finfo;
 	FILE* fsid;
+	FILE* fseq;
 	FILE* fID_rxryrzdz;	
-	int framen, ddan, echon, slice;
+	int framen, ddan, shotn, echon, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
 	float prep1_b1, prep2_b1;
 	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
 	int tmp_pwa, tmp_pw, tmp_pwd;
 	float tmp_a, tmp_area;
-	int dur_allcores[MAXNFRAMES];
 
 	/*********************************************************************/
 #include "predownload.in"	/* include 'canned' predownload code */
@@ -795,6 +795,11 @@ STATUS predownload( void )
 		case -1:
 			return FAILURE;
 	}
+	
+	/* Read in doblksat */
+	sprintf(tmpstr, "doblksat");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	readschedule(schedule_id, &doblksat, tmpstr, 1);
 	
 	/* Read in doblksattbl schedule */
 	sprintf(tmpstr, "doblksattbl");
@@ -1160,55 +1165,83 @@ STATUS predownload( void )
 		dur_readout += dur_tipcore + TIMESSI;
 	dur_readout += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
 
-	/* Calculate the duration of all the cores per frame */
-	for (framen = 0; framen < nframes; framen++) {
-		dur_allcores[framen] = 0; /* initialize to zero */
-
-		if (doblksattbl[framen])
-			dur_allcores[framen] += dur_blksatcore + TIMESSI; /* add bulk sat core */
-
-		if (prep1_id > 0 && prep1_lbltbl[framen] > -1) { /* add prep1 pulse/pld core */
-			dur_allcores[framen] += dur_prep1core + TIMESSI;
-			dur_allcores[framen] += (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
-		}
-
-		if (prep2_id > 0 && prep2_lbltbl[framen] > -1) { /* add prep2 pulse/pld core */
-			dur_allcores[framen] += dur_prep2core + TIMESSI;
-			dur_allcores[framen] += (prep2_pldtbl > 0) * (prep2_pldtbl[framen] + TIMESSI);
-		}
-
-		if (dofatsat) /* if fat sat is enabled */
-			dur_allcores[framen] += dur_fatsatcore + TIMESSI; /* add fat sat core */
-
-		if (ro_mode == 1) /* if sequence is FSE */
-			dur_allcores[framen] += dur_tipcore + TIMESSI; /* add tipcore */
-
-		dur_allcores[framen] += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI); /* add the readout cores */
-		fprintf(stderr, "dur_allcores[%d] = %dus\n", framen, dur_allcores[framen]);	
-	}
-
 	/* Read in tadjusttbl schedule */
 	sprintf(tmpstr, "tadjusttbl");
 	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
 	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
 		case 0:
 			for (framen = 0; framen < nframes; framen++) {
-				tadjusttbl[framen] = optr - dur_allcores[framen];
+				tadjusttbl[framen] = optr;
+				if (doblksat)
+					tadjusttbl[framen] -= dur_blksatcore + TIMESSI; /* add bulk sat core */
+
+				if (prep1_id > 0) { /* add prep1 pulse/pld core */
+					tadjusttbl[framen] -= dur_prep1core + TIMESSI;
+					tadjusttbl[framen] -= (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
+				}
+
+				if (prep2_id > 0) { /* add prep2 pulse/pld core */
+					tadjusttbl[framen] -= dur_prep2core + TIMESSI;
+					tadjusttbl[framen] -= (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
+				}
+
+				if (dofatsat) /* if fat sat is enabled */
+					tadjusttbl[framen] -= dur_fatsatcore + TIMESSI; /* add fat sat core */
+
+				tadjusttbl[framen] -= dur_readout; /* add the readout cores */
 			}
 			break;
 		case -1:
 			return FAILURE;
 	}
 
-	/* Determine total scan time */
+	/* Loop through sequence and write out timing */
 	pidmode = PSD_CLOCK_NORM;
 	pitslice = optr;
-	pitscan = 0;
-	for (ddan = 0; ddan < ndisdaqs; ddan++)
-		pitscan += optr;
-	for (framen  = 0; framen < nframes; framen++) {
-		pitscan += nshots*(tadjusttbl[framen] + TIMESSI + dur_allcores[framen]);
+	pitscan = 0; /* pitscan controls the clock time on the interface */	
+	fseq = fopen("scansequence.txt","w");
+	fprintf(fseq, "%-50s%22s%22s\n\n", "event label", "start time", "duration");
+	for (ddan = 0; ddan < ndisdaqs; ddan++) {
+		pitscan += optr - dur_readout;
+		fprintf(fseq, "%-50s%20dus%20dus\n", "disdaq readout", (int)pitscan, dur_readout);
+		pitscan += dur_readout;
 	}
+	for (framen = 0; framen < nframes; framen++) {
+		for (shotn = 0; shotn < nshots; shotn++) {
+			if (doblksat) {
+				if (doblksattbl[framen] == 1)
+					fprintf(fseq, "%-50s%20dus%20dus\n", "bulk sat pulse", (int)pitscan, dur_blksatcore);
+				pitscan += dur_blksatcore + TIMESSI; /* add bulk sat core */
+			}
+
+			if (prep1_id > 0) { /* add prep1 pulse/pld core */
+				if (prep1_lbltbl[framen] == 0)
+					fprintf(fseq, "%-50s%20dus%20dus\n", "prep1 ctl pulse", (int)pitscan, dur_prep1core);
+				else if (prep1_lbltbl[framen] == 1)
+					fprintf(fseq, "%-50s%20dus%20dus\n", "prep1 lbl pulse", (int)pitscan, dur_prep1core);
+				pitscan += dur_prep1core + TIMESSI;
+				pitscan += (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
+			}
+
+			if (prep2_id > 0) { /* add prep2 pulse/pld core */
+				if (prep2_lbltbl[framen] == 0)
+					fprintf(fseq, "%-50s%20dus%20dus\n", "prep2 ctl pulse", (int)pitscan, dur_prep2core);
+				else if (prep2_lbltbl[framen] == 1)
+					fprintf(fseq, "%-50s%20dus%20dus\n", "prep2 lbl pulse", (int)pitscan, dur_prep2core);
+				pitscan += dur_prep2core + TIMESSI;
+				pitscan += (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
+			}
+
+			if (dofatsat) { /* if fat sat is enabled */
+				fprintf(fseq, "%-50s%20dus%20dus\n", "fat sat pulse", (int)pitscan, dur_fatsatcore);
+				pitscan += dur_fatsatcore + TIMESSI; /* add fat sat core */
+			}
+
+			fprintf(fseq, "%-50s%20dus%20dus\n", "readout", (int)pitscan, dur_readout);
+			pitscan += dur_readout; /* add the readout cores */
+		}
+	}
+	fclose(fseq);
 	
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
@@ -1765,22 +1798,6 @@ STATUS psdinit( void )
 
 @inline Prescan.e PScore
 
-/* PLAY_BLKSAT() Function for playing bulk saturation pulse */
-int play_blksat() {
-	int ttotal = 0;
-	fprintf(stderr, "\tplay_blksat(): playing bulk saturation pulse (%d us)...\n", dur_blksatcore + TIMESSI);
-	
-	/* Play bulk saturation pulse */	
-	boffset(off_blksatcore);
-	startseq(0, MAY_PAUSE);
-	settrigger(TRIG_INTERN, 0);
-	ttotal += dur_blksatcore + TIMESSI;
-
-	fprintf(stderr, "\tplay_blksat(): Done.\n");
-
-	return ttotal;
-}
-
 /* PLAY_DEADTIME() Function for playing TR deadtime */
 int play_deadtime(int deadtime) {
 	int ttotal = 0;
@@ -1798,6 +1815,26 @@ int play_deadtime(int deadtime) {
 	return ttotal;
 }
 
+/* PLAY_BLKSAT() Function for playing bulk saturation pulse */
+int play_blksat(int doblksatf) {
+
+	if (doblksatf) {
+		/* Play bulk saturation pulse */	
+		fprintf(stderr, "\tplay_blksat(): playing bulk saturation pulse (%d us)...\n", dur_blksatcore + TIMESSI);
+
+		boffset(off_blksatcore);
+		startseq(0, MAY_PAUSE);
+		settrigger(TRIG_INTERN, 0);
+	}
+	else {
+		play_deadtime(dur_blksatcore + TIMESSI);	
+	}
+
+	fprintf(stderr, "\tplay_blksat(): Done.\n");
+
+	return dur_blksatcore + TIMESSI;
+}
+
 /* PLAY_ASLPREP() Function for playing asl prep pulses & delays */
 int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs1, int tbgs2, int pld) {
 	int ttotal = 0;
@@ -1813,6 +1850,11 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			fprintf(stderr, "\tplay_aslprep(): playing label pulse (%d us)...\n", dur + TIMESSI);
 			boffset(off_lblcore);
 			break;
+		case -1:
+			ttotal = dur + TIMESSI + pld + TIMESSI;
+			fprintf(stderr, "\tplay_aslprep(): playing deadtime in place of asl prep pulse (%d us)...\n", ttotal);
+			play_deadtime(ttotal);
+			return ttotal;
 		default: /* invalid */
 			fprintf(stderr, "\tplay_aslprep(): ERROR - invalid type (%d)\n", type);
 			rspexit();
@@ -2108,20 +2150,20 @@ STATUS scan( void )
 	for (framen = 0; framen < nframes; framen++) {
 		for (shotn = 0; shotn < nshots; shotn++) {
 
-			if (doblksattbl[framen] > 0) {
+			if (doblksat) {
 				fprintf(stderr, "scan(): Playing bulk saturation pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_blksat();
+				ttotal += play_blksat(doblksattbl[framen]);
 			}
 
 			fprintf(stderr, "scan(): Playing TR deadtime for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 			ttotal += play_deadtime(tadjusttbl[framen]);		
 
-			if (prep1_lbltbl[framen] > -1) {
+			if (prep1_id > 0) {
 				fprintf(stderr, "scan(): Playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_aslprep(prep1_lbltbl[framen], off_prep1ctlcore, off_prep1lblcore, dur_prep1core, prep1_tbgs1tbl[framen], prep1_tbgs2tbl[framen], prep1_pldtbl[framen]);
 			}
-			
-			if (prep2_lbltbl[framen] > -1) {
+
+			if (prep2_id > 0) {
 				fprintf(stderr, "scan(): Playing prep2 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_aslprep(prep2_lbltbl[framen], off_prep2ctlcore, off_prep2lblcore, dur_prep2core, prep2_tbgs1tbl[framen], prep2_tbgs2tbl[framen], prep2_pldtbl[framen]);
 			}
