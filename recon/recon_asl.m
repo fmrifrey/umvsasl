@@ -2,7 +2,7 @@
 fprintf("Setting up recon...\n");
 t = tic;
 
-D = asl3df_seq('ccfac',0.25); % Compress coils down to 25%
+D = asl3df_seq('ccfac',1,'force3D',1); % Compress coils down to 25%
 
 fprintf("Done. Time elapsed = %0.3fs\n", toc(t));
 

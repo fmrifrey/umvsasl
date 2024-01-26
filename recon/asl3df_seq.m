@@ -22,6 +22,7 @@ classdef asl3df_seq
             
             % Assign defaults
             defaults = struct( ...
+                'force3D',   0, ...
                 'pfile', './P*.7', ...
                 'kviews', './kviews*.txt', ...
                 'ktraj', './ktraj*.txt', ...
@@ -51,7 +52,7 @@ classdef asl3df_seq
                 phdr.rdb.user2, phdr.rdb.user3]; % ndat, frames, shots, echoes
             obj.ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
             obj.dim = [phdr.image.dim_X,phdr.image.dim_X];
-            if phdr.rdb.user4 > 0 % if image is 3d
+            if (phdr.rdb.user4 > 0 || args.force3D) % if image is 3d
                 obj.dim = [obj.dim, phdr.image.dim_X];
             end
             obj.fov = phdr.image.dfov/10 * ones(size(obj.dim));
