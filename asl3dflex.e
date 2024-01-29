@@ -971,16 +971,16 @@ STATUS predownload( void )
 
 	/* Calculate tipcore deadtime */
 	deadtime_tipcore = opte/2;
-	deadtime_tipcore -= pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+	deadtime_tipcore -= (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* rf1 rewinder pulse */
+	deadtime_tipcore -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* rf1 rewinder pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
 	deadtime_tipcore -= TIMESSI; /* inter-core time */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d; /* crush1 pulse */
+	deadtime_tipcore -= (pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d); /* crush1 pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= pw_gzrf2a + pw_gzrf2/2; /* 1st half of rf2 pulse */
-	
+	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */
+
 	/* Calculate seqcore deadtime */
 	deadtime1_seqcore = (opte - avminte)/2 + ro_offset;
 	deadtime2_seqcore = (opte - avminte)/2 - ro_offset;
@@ -1173,20 +1173,20 @@ STATUS predownload( void )
 			for (framen = 0; framen < nframes; framen++) {
 				tadjusttbl[framen] = optr;
 				if (doblksat)
-					tadjusttbl[framen] -= dur_blksatcore + TIMESSI; /* add bulk sat core */
+					tadjusttbl[framen] -= (dur_blksatcore + TIMESSI); /* add bulk sat core */
 
 				if (prep1_id > 0) { /* add prep1 pulse/pld core */
-					tadjusttbl[framen] -= dur_prep1core + TIMESSI;
+					tadjusttbl[framen] -= (dur_prep1core + TIMESSI);
 					tadjusttbl[framen] -= (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
 				}
 
 				if (prep2_id > 0) { /* add prep2 pulse/pld core */
-					tadjusttbl[framen] -= dur_prep2core + TIMESSI;
+					tadjusttbl[framen] -= (dur_prep2core + TIMESSI);
 					tadjusttbl[framen] -= (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
 				}
 
 				if (dofatsat) /* if fat sat is enabled */
-					tadjusttbl[framen] -= dur_fatsatcore + TIMESSI; /* add fat sat core */
+					tadjusttbl[framen] -= (dur_fatsatcore + TIMESSI); /* add fat sat core */
 
 				tadjusttbl[framen] -= dur_readout; /* add the readout cores */
 			}
@@ -1423,6 +1423,35 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 	int tmploc;
+	
+	/***********************************/
+	/* Generate spin echo tipdown core */
+	/***********************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of tipcore (rf tipdown core for FSE readout)\n");
+	tmploc = 0;
+
+	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
+	tmploc += pgbuffertime; /* start time for rf1 pulse */
+	SLICESELZ(rf1, tmploc + pw_gzrf1a, 6400, (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf1 pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+
+	fprintf(stderr, "pulsegen(): generating gzrf1r (90deg tipdown gradient refocuser)...\n");
+	tmploc += pgbuffertime; /* start time for gzrf1r */
+	TRAPEZOID(ZGRAD, gzrf1r, tmploc + pw_gzrf1ra, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* end time for gzrf1r pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime; /* add some buffer */
+
+	tmploc += deadtime_tipcore; /* add deadtime to account for TE */
+
+	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipcore, tmploc);
+	SEQLENGTH(tipcore, dur_tipcore, tipcore);
+	fprintf(stderr, "\tDone.\n");
+
 
 	/*********************************/
 	/* Generate bulk saturation core */
@@ -1585,35 +1614,6 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): finalizing fatsatcore...\n");
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_fatsatcore, tmploc);
 	SEQLENGTH(fatsatcore, dur_fatsatcore, fatsatcore);
-	fprintf(stderr, "\tDone.\n");
-
-
-	/***********************************/
-	/* Generate spin echo tipdown core */
-	/***********************************/	
-	fprintf(stderr, "pulsegen(): beginning pulse generation of tipcore (rf tipdown core for FSE readout)\n");
-	tmploc = 0;
-
-	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	tmploc += pgbuffertime; /* start time for rf1 pulse */
-	SLICESELZ(rf1, tmploc + pw_gzrf1a, 6400, (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf1 pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-
-	fprintf(stderr, "pulsegen(): generating gzrf1r (90deg tipdown gradient refocuser)...\n");
-	tmploc += pgbuffertime; /* start time for gzrf1r */
-	TRAPEZOID(ZGRAD, gzrf1r, tmploc + pw_gzrf1ra, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* end time for gzrf1r pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-	tmploc += pgbuffertime; /* add some buffer */
-
-	tmploc += deadtime_tipcore; /* add deadtime to account for TE */
-
-	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipcore, tmploc);
-	SEQLENGTH(tipcore, dur_tipcore, tipcore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -1877,14 +1877,14 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			/* Play first background suppression delay/pulse */
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 delay (%d us)...\n", tbgs1 + TIMESSI);		
 			setperiod(tbgs1, &emptycore, 0);
-			ttmp -= tbgs1 + TIMESSI;
+			ttmp -= (tbgs1 + TIMESSI);
 			boffset(off_emptycore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 			ttotal += tbgs1 + TIMESSI;
 
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore + TIMESSI);
-			ttmp -= dur_bkgsupcore + TIMESSI;
+			ttmp -= (dur_bkgsupcore + TIMESSI);
 			boffset(off_bkgsupcore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
@@ -1895,14 +1895,14 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			/* Play second background suppression delay/pulse */
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 delay (%d us)...\n", tbgs2 + TIMESSI);		
 			setperiod(tbgs2, &emptycore, 0);
-			ttmp -= tbgs2 + TIMESSI;
+			ttmp -= (tbgs2 + TIMESSI);
 			boffset(off_emptycore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 			ttotal += tbgs2 + TIMESSI;
 
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 (%d us)...\n", dur_bkgsupcore + TIMESSI);
-			ttmp -= dur_bkgsupcore + TIMESSI;
+			ttmp -= (dur_bkgsupcore + TIMESSI);
 			boffset(off_bkgsupcore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
