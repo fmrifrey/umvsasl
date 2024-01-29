@@ -55,6 +55,45 @@ classdef asl3df_frame
             end
         end
         
+        function showraw(obj,type,coil)
+            % Set default type
+            if nargin < 2 || isempty(type)
+                type = 'abs';
+            end
+            
+            % Set coil default
+            if nargin < 3 || isempty(coil)
+                coil = 'mean';
+            end
+            
+            % Get raw data
+            raw = obj.kdata;
+            
+            % Determine coil combination to show
+            if ischar(coil) && strcmpi(coil,'mean') % show coil-wise mean
+                raw = mean(raw,2);
+            elseif ischar(coil) && strcmpi(coil,'all') % show all coils
+                raw = raw;
+            else % show specific coil data
+                raw = raw(:,coil);
+            end
+            
+            switch lower(type)
+                case 'abs' % plot magnitude
+                    plot(abs(raw));
+                case 'angle' % plot phase
+                    plot(angle(raw));
+                case 'real' % plot real
+                    plot(real(raw));
+                case 'imag' % plot imaginary
+                    plot(imag(raw));
+                case 'log' % plot log scale
+                    raw(abs(raw(:)) < eps()) = eps();
+                    plot(log(abs(raw)));
+            end
+            
+        end
+        
         function [im,imc] = recon(obj,varargin)
             
             % Set default arguments
