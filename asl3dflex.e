@@ -1423,34 +1423,6 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 	int tmploc;
-	
-	/***********************************/
-	/* Generate spin echo tipdown core */
-	/***********************************/	
-	fprintf(stderr, "pulsegen(): beginning pulse generation of tipcore (rf tipdown core for FSE readout)\n");
-	tmploc = 0;
-
-	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	tmploc += pgbuffertime; /* start time for rf1 pulse */
-	SLICESELZ(rf1, tmploc + pw_gzrf1a, 6400, (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf1 pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-
-	fprintf(stderr, "pulsegen(): generating gzrf1r (90deg tipdown gradient refocuser)...\n");
-	tmploc += pgbuffertime; /* start time for gzrf1r */
-	TRAPEZOID(ZGRAD, gzrf1r, tmploc + pw_gzrf1ra, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* end time for gzrf1r pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-	tmploc += pgbuffertime; /* add some buffer */
-
-	tmploc += deadtime_tipcore; /* add deadtime to account for TE */
-
-	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipcore, tmploc);
-	SEQLENGTH(tipcore, dur_tipcore, tipcore);
-	fprintf(stderr, "\tDone.\n");
 
 
 	/*********************************/
@@ -1614,6 +1586,35 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): finalizing fatsatcore...\n");
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_fatsatcore, tmploc);
 	SEQLENGTH(fatsatcore, dur_fatsatcore, fatsatcore);
+	fprintf(stderr, "\tDone.\n");
+
+	
+	/***********************************/
+	/* Generate spin echo tipdown core */
+	/***********************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of tipcore (rf tipdown core for FSE readout)\n");
+	tmploc = 0;
+
+	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
+	tmploc += pgbuffertime; /* start time for rf1 pulse */
+	SLICESELZ(rf1, tmploc + pw_gzrf1a, 3200, (opslthick + opslspace)*opslquant, 90.0, 2, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf1 pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+
+	fprintf(stderr, "pulsegen(): generating gzrf1r (90deg tipdown gradient refocuser)...\n");
+	tmploc += pgbuffertime; /* start time for gzrf1r */
+	TRAPEZOID(ZGRAD, gzrf1r, tmploc + pw_gzrf1ra, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* end time for gzrf1r pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime; /* add some buffer */
+
+	tmploc += deadtime_tipcore; /* add deadtime to account for TE */
+
+	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipcore, tmploc);
+	SEQLENGTH(tipcore, dur_tipcore, tipcore);
 	fprintf(stderr, "\tDone.\n");
 
 
