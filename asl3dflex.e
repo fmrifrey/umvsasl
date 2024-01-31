@@ -237,7 +237,7 @@ int 	pcasl_Duration = 1800ms; /* this is the bolus duration, not the duration of
 int	pcasl_period = 1500; /* this is the duration of one of the PCASL 'units' */ 
 int 	pcasl_Npulses = 1800;
 int 	pcasl_RFamp_dac = 0;
-float 	pcasl_RFamp = 25;/*mGauss*/
+float 	pcasl_RFamp = 30;/*mGauss*/
 float 	pcasl_delta_phs;
 float 	pcasl_delta_phs_correction;
 int 	pcasl_RFdur = 500us;
@@ -245,7 +245,7 @@ float 	pcasl_Gamp =  0.6; /* slice select lobe for PCASL RF pulse G/cm*/
 float	pcasl_Gave = 0.06;
 float	pcasl_Gref_amp;    /* refocuser gradient */
 int	pcasl_ramp = 124us;
-float	pcasl_distance = 12; /*cm*/
+float	pcasl_distance = -12; /*cm*/
 float	pcasl_RFfreq;
 
 
@@ -1138,14 +1138,18 @@ STATUS predownload( void )
 
 	/* The gradient moment from the first trapezoid */
 	mom1 = pcasl_Gamp*(pcasl_RFdur+2*pcasl_ramp) ;
-	/* Gradient moment of refocuser is calculated to maintain a specific pcal_Gave  
+	/* Gradient moment of refocuser is calculated to maintain a specific gradient moment
+	for the pcasl module.  This moment is expressed as an average gradient : pcasl_Gave 
+	mom1 and mom2 are the gradient moments due to each of the lobes in the pcasl module
+	most papers specify G_ss and G_ave, so we have to calculate the amplitude of the G_ref
+  
 		pcasl_Gave =  (mom1 + mom2)/pcasl_period );
-	The refocuser pulse is actually a triangle, so ...
-		mom2 = pcasl_Gref_amp * pcasl_ramp 
+		mom2 = pcasl_Gref_amp * (pw_gzpcaslref + pw_gzpcaslrefa) 
+
 	now solve for pcasl_Gref_amp ...
 	*/
 	pcasl_Gref_amp = (pcasl_Gave/pcasl_period - mom1) / (pw_gzpcaslref + pw_gzpcaslrefa);
-	mom2 = pcasl_Gref_amp * pcasl_ramp ;
+	mom2 = pcasl_Gref_amp * (pw_gzpcaslref + pw_gzpcaslrefa); 
 
 	/* Change the values of the gradient amplitudes */
 	a_gzpcasl = pcasl_Gamp;
@@ -1161,7 +1165,10 @@ STATUS predownload( void )
 	fprintf(stderr, "\nCorrected PCASL linear phase increment: %f ", pcasl_delta_phs);
 
 	/* calculate PCASL amplitude of RF pulses in DAC units*/
-	pcasl_RFamp_dac = (int)(pcasl_RFamp * max_pg_iamp / maxB1Seq); 
+	pcasl_RFamp_dac = (int)(pcasl_RFamp * max_pg_iamp / maxB1Seq);
+	a_rfpcasl = pcasl_RFamp / maxB1Seq;
+	ia_rfpcasl = pcasl_RFamp_dac;
+
 	fprintf(stderr, "\n PCASL RF ampliture in DAC untis: %d ", pcasl_RFamp_dac);
 	
 	/* adjust the pcasl_core to accomodate TIMESSI*/
@@ -1211,7 +1218,7 @@ STATUS predownload( void )
 	dur_tipcore += pgbuffertime;
 	dur_tipcore += deadtime_tipcore;
 
-	/* Calculate the duration of flipcore */
+	/* Calculate the duration of flipcore (GRE) this is also the refocuser is FSE */
 	dur_flipcore = 0;
 	dur_flipcore += pgbuffertime;
 	dur_flipcore += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d;
@@ -1515,8 +1522,10 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\npulsegen(): generating PCASL slice select gradient and RF...\n");
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	TRAPEZOID(ZGRAD, gzpcasl,  tmploc + pw_gzpcasla, GRAD_UPDATE_TIME*1000, 0, loggrd);
-	EXTWAVE(RHO, rfpcasl, tmploc + pw_gzpcasla + psd_rf_wait , 500, 1.0, 250, myhanning.rho, , loggrd);
-	tmploc += pw_gzpcasl + pw_gzpcasla + pw_gzpcasld;
+	tmploc += pw_gzpcasla ;
+	fprintf(stderr, "\tRF start: %dus, ", tmploc);
+	EXTWAVE(RHO, rfpcasl, tmploc  , 500, 1.0, 250, myhanning.rho, , loggrd);
+	tmploc += pw_gzpcasl + pw_gzpcasld;
 	fprintf(stderr, "\tend: %dus, ", tmploc);
 
 	fprintf(stderr, "\npulsegen(): generating PCASL refocus gradient...\n");
@@ -1968,7 +1977,7 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 	int ttotal = 0;
 	int ttmp;
 	int i;
-	float CLvar=1.0;
+	float CLvar = 1.0; /* variable to switch from control to label... (+1 or -1)*/
 	float tmpPHI;
 
 	if (doPCASL){
@@ -2000,7 +2009,7 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 		}
 		/* Execute the PCASL train loop here */
 		for (i=0; i<pcasl_Npulses; i++){
-			setiamp((int)(pow(-CLvar,i)*pcasl_RFamp_dac), &rfpcasl, 0);
+			setiamp((int)(pow(CLvar,i) * pcasl_RFamp_dac), &rfpcasl, 0);
 			/* may need to use setiphase() and 
 			   precompute integer phases into a table ? */
 			setphase(tmpPHI, &rfpcasl, 0  );
@@ -2332,7 +2341,7 @@ STATUS scan( void )
 			fprintf(stderr, "scan(): Playing TR deadtime for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 			ttotal += play_deadtime(tadjusttbl[framen]);		
 
-			if (prep1_id > 0 || doPCASL > 0) {
+			if (prep1_id > 0 || pcasl_flag > 0) {
 				fprintf(stderr, "scan(): Playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_aslprep(prep1_lbltbl[framen], off_prep1ctlcore, off_prep1lblcore, dur_prep1core, prep1_tbgs1tbl[framen], prep1_tbgs2tbl[framen], prep1_pldtbl[framen],pcasl_flag);
 			}
