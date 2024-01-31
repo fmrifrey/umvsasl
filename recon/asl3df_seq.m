@@ -1,8 +1,8 @@
-classdef seq
+classdef asl3df_seq
     
     properties
         kspace % raw complex data from pfile with kspace trajectory
-        vols % data parsed into inidividual timeseries volumes
+        frames % data parsed into inidividual timeseries frames
         
         % Data acquisition properties
         aqdims
@@ -18,7 +18,7 @@ classdef seq
     
     methods
         
-        function obj = seq(varargin)
+        function obj = asl3df_seq(varargin)
             
             % Assign defaults
             defaults = struct( ...
@@ -50,8 +50,11 @@ classdef seq
             obj.aqdims = [phdr.rdb.frame_size, phdr.rdb.user1, ...
                 phdr.rdb.user2, phdr.rdb.user3]; % ndat, frames, shots, echoes
             obj.ncoils = phdr.rdb.dab(2) - phdr.rdb.dab(1) + 1;
-            obj.dim = phdr.image.dim_X;
-            obj.fov = phdr.image.dfov/10;
+            obj.dim = [phdr.image.dim_X,phdr.image.dim_X];
+            if phdr.rdb.user4 > 0 % if image is 3d
+                obj.dim = [obj.dim, phdr.image.dim_X];
+            end
+            obj.fov = phdr.image.dfov/10 * ones(size(obj.dim));
             obj.tr = phdr.image.tr*1e-3;
             obj.te = phdr.image.te*1e-3;
             
@@ -90,16 +93,16 @@ classdef seq
                 end
             end
             
-            % Initialize volumes array and sensitivity map
-            obj.vols = [];
+            % Initialize frames array and sensitivity map
+            obj.frames = [];
             obj.smap = [];
             
         end
         
-        function obj = setup_vol(obj,aqidx1,aqidx2,aqidx3)
+        function obj = setup_frame(obj,aqidx1,aqidx2,aqidx3)
             
-            vidx = length(obj.vols) + 1;
-            fprintf('Setting up volume %d...\n', vidx);
+            vidx = length(obj.frames) + 1;
+            fprintf('Setting up frame %d...\n', vidx);
             
             % Set 'all' case
             if strcmpi(aqidx1,'all')
@@ -120,7 +123,7 @@ classdef seq
             klocs = [];
             kdat = [];
             
-            % Loop through and concat acquisition data for desired volume
+            % Loop through and concat acquisition data for desired frame
             for i = aqidx1
                 for j = aqidx2
                     for k = aqidx3
@@ -130,36 +133,47 @@ classdef seq
                 end
             end
             
-            % Check if we can copy the Gmri object / dcf from another vol
+            % Check if we can copy the Gmri object / dcf from another frame
             twinidx = [];
             for i = 1:vidx-1
-                if isequal(obj.vols(i).klocs, klocs)
+                if isequal(obj.frames(i).klocs, klocs)
                     twinidx = i;
                 end
             end
             
-            % Construct the volume
+            % Construct the frame
             if isempty(twinidx) % if no Gmri object already exists
-                obj.vols = [obj.vols;
-                    vol(klocs, kdat, obj.dim, obj.fov, [], [])
+                obj.frames = [obj.frames;
+                    asl3df_frame( klocs, kdat, obj.dim, obj.fov, [], [] )
                     ];
             else % if we can copy a Gmri object
-                fprintf('Copying Gmri object and dcf from vol %d\n', twinidx);
-                obj.vols = [obj.vols;
-                    vol(klocs, kdat, obj.dim, obj.fov, obj.vols(twinidx).Gm, obj.vols(twinidx).dcf)
+                fprintf('Copying Gmri object and dcf from frame %d\n', twinidx);
+                obj.frames = [obj.frames;
+                    asl3df_frame(klocs, kdat, obj.dim, obj.fov, obj.frames(twinidx).Gm, obj.frames(twinidx).dcf)
                     ];
             end
             
         end
         
-        function obj = make_sense(obj)
+        function obj = make_sense(obj,fn)
+
+            % Set default frame number to 1
+            if nargin < 2 || isempty(fn)
+                fn = 1;
+            end
             
             % Reconstruct the coil x coil image
-            [~,imc] = obj.vols(1).recon();
+            [~,imc] = obj.frames(fn).recon();
             
             % Estimate sensitivity map using eSPIRIT
-            obj.smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
+            if ndims(imc) == 3 % 2D
+                imc = permute(imc,[1,2,4,3]);
+                tmp_smap = bart('ecalib -b0 -m1', fftc(imc,1:2));
+                obj.smap = squeeze(permute(tmp_smap,[1,2,4,3]));
+            else % 3D
+                obj.smap = bart('ecalib -b0 -m1', fftc(imc,1:3));
                 
+            end
         end
         
         function im = recon(obj,varargin)
@@ -175,28 +189,31 @@ classdef seq
             args = vararginparser(defaults, varargin{:});
             
             % Initialize image matrix
-            im = zeros(obj.dim,obj.dim,obj.dim,length(obj.vols));
+            im = zeros([length(obj.frames),obj.dim]);
             
             % Reconstruct
             if args.parallelize % using parallel pool
                 % Copy variables to avoid broadcasting
-                pp_vols = obj.vols;
+                pp_frames = obj.frames;
                 pp_smap = args.smap;
                 niter = args.niter;
                 
-                % Loop through volumes
-                parfor i = 1:length(obj.vols)
-                    im(:,:,:,i) = pp_vols(i).recon( ...
-                        'smap', pp_smap, 'niter', niter);
+                % Loop through frames
+                parfor i = 1:length(obj.frames)
+                    im(i,:) = reshape(pp_frames(i).recon( ...
+                        'smap', pp_smap, 'niter', niter),[],1);
                 end
             else % without using parallel pool
-                % Loop through volumes
-                for i = 1:length(obj.vols)
-                    im(:,:,:,i) = obj.vols.recon( ...
-                        'smap', args.smap, 'niter', args.niter);
+                % Loop through frames
+                for i = 1:length(obj.frames)
+                    im(i,:) = reshape(obj.frames.recon( ...
+                        'smap', args.smap, 'niter', args.niter),1,[]);
                 end
             end
-                
+            
+            % permute image
+            im = permute(im,[2:length(obj.dim)+1,1]);
+            
         end
         
     end
