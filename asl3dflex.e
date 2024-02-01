@@ -990,15 +990,15 @@ STATUS predownload( void )
 
 	/* Calculate tipcore deadtime */
 	deadtime_tipcore = opte/2;
-	deadtime_tipcore -= pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+	deadtime_tipcore -= (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* rf1 rewinder pulse */
+	deadtime_tipcore -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* rf1 rewinder pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
 	deadtime_tipcore -= TIMESSI; /* inter-core time */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d; /* crush1 pulse */
+	deadtime_tipcore -= (pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d); /* crush1 pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= pw_gzrf2a + pw_gzrf2/2; /* 1st half of rf2 pulse */
+	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */
 	
 	/* Calculate seqcore deadtime */
 	deadtime1_seqcore = (opte - avminte)/2 + ro_offset;
@@ -1248,25 +1248,25 @@ STATUS predownload( void )
 			for (framen = 0; framen < nframes; framen++) {
 				tadjusttbl[framen] = optr;
 				if (doblksat)
-					tadjusttbl[framen] -= dur_blksatcore + TIMESSI; /* add bulk sat core */
+					tadjusttbl[framen] -= (dur_blksatcore + TIMESSI); /* add bulk sat core */
 
 				if (prep1_id > 0) { /* add prep1 pulse/pld core */
-					tadjusttbl[framen] -= dur_prep1core + TIMESSI;
+					tadjusttbl[framen] -= (dur_prep1core + TIMESSI);
 					tadjusttbl[framen] -= (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
 				}
 				else if (pcasl_flag)	{
 					/* currently the labeling duration and PLD are constant - no MRF yet */
 					pcasl_Npulses = (int)floor(pcasl_Duration/(pcasl_period ));
-					tadjusttbl[framen] -= pcasl_Npulses * pcasl_period ;
+					tadjusttbl[framen] -= (pcasl_Npulses * pcasl_period) ;
 				}
 
 				if (prep2_id > 0) { /* add prep2 pulse/pld core */
-					tadjusttbl[framen] -= dur_prep2core + TIMESSI;
+					tadjusttbl[framen] -= (dur_prep2core + TIMESSI);
 					tadjusttbl[framen] -= (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
 				}
 
 				if (dofatsat) /* if fat sat is enabled */
-					tadjusttbl[framen] -= dur_fatsatcore + TIMESSI; /* add fat sat core */
+					tadjusttbl[framen] -= (dur_fatsatcore + TIMESSI); /* add fat sat core */
 
 				tadjusttbl[framen] -= dur_readout; /* add the readout cores */
 			}
@@ -2056,14 +2056,14 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			/* Play first background suppression delay/pulse */
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 delay (%d us)...\n", tbgs1 + TIMESSI);		
 			setperiod(tbgs1, &emptycore, 0);
-			ttmp -= tbgs1 + TIMESSI;
+			ttmp -= (tbgs1 + TIMESSI);
 			boffset(off_emptycore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 			ttotal += tbgs1 + TIMESSI;
 
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore + TIMESSI);
-			ttmp -= dur_bkgsupcore + TIMESSI;
+			ttmp -= (dur_bkgsupcore + TIMESSI);
 			boffset(off_bkgsupcore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
@@ -2074,14 +2074,14 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			/* Play second background suppression delay/pulse */
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 delay (%d us)...\n", tbgs2 + TIMESSI);		
 			setperiod(tbgs2, &emptycore, 0);
-			ttmp -= tbgs2 + TIMESSI;
+			ttmp -= (tbgs2 + TIMESSI);
 			boffset(off_emptycore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
 			ttotal += tbgs2 + TIMESSI;
 
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 (%d us)...\n", dur_bkgsupcore + TIMESSI);
-			ttmp -= dur_bkgsupcore + TIMESSI;
+			ttmp -= (dur_bkgsupcore + TIMESSI);
 			boffset(off_bkgsupcore);
 			startseq(0, MAY_PAUSE);
 			settrigger(TRIG_INTERN, 0);
