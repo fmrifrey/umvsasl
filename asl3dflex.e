@@ -35,7 +35,6 @@
 #include "epicconf.h"
 #include "pulsegen.h"
 #include "epic_error.h"
-#include "epicfuns.h"
 #include "epic_loadcvs.h"
 #include "InitAdvisories.h"
 #include "psdiopt.h"
@@ -1417,6 +1416,7 @@ STATUS predownload( void )
  * with @pulsedef, and must return SUCCESS or FAILURE.               *
  *********************************************************************/
 #include "support_func.h"
+#include "epicfuns.h"
 
 
 STATUS pulsegen( void )
