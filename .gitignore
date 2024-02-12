@@ -24,3 +24,4 @@ tgt_mgd/
 dev-linux32/
 host32/
 ice-agp/
+.vscode/
