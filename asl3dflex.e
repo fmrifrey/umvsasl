@@ -35,7 +35,6 @@
 #include "epicconf.h"
 #include "pulsegen.h"
 #include "epic_error.h"
-#include "epicfuns.h"
 #include "epic_loadcvs.h"
 #include "InitAdvisories.h"
 #include "psdiopt.h"
@@ -237,7 +236,7 @@ int 	pcasl_Duration = 1800ms; /* this is the bolus duration, not the duration of
 int	pcasl_period = 1500; /* this is the duration of one of the PCASL 'units' */ 
 int 	pcasl_Npulses = 1800;
 int 	pcasl_RFamp_dac = 0;
-float 	pcasl_RFamp = 30;/*mGauss*/
+float 	pcasl_RFamp = 50;/*mGauss*/
 float 	pcasl_delta_phs;
 float 	pcasl_delta_phs_correction;
 int 	pcasl_RFdur = 500us;
@@ -245,8 +244,11 @@ float 	pcasl_Gamp =  0.6; /* slice select lobe for PCASL RF pulse G/cm*/
 float	pcasl_Gave = 0.06;
 float	pcasl_Gref_amp;    /* refocuser gradient */
 int	pcasl_ramp = 124us;
-float	pcasl_distance = -12; /*cm*/
+float	pcasl_distance = -16; /*cm*/
 float	pcasl_RFfreq;
+
+/* adding velocity selectivity shift to the VSI pulses (optional)*/
+float	vel_target = 0.0;
 
 
 @host
@@ -307,7 +309,14 @@ int readprep(int id, int *len,
 int readschedule(int id, int* var, char* varname, int lines);
 int readschedulef(int id, float* var, char* varname, int lines);
 int gentadjusttbl();
-int genlbltbl(int mod, int* lbltbl);
+int genlbltbl(int mod, int* lbltbl); 
+int calc_vsi_phs_from_velocity(
+	int* vsi_pulse_mag, 
+	int* vsi_pulse_phs, 
+	int* vsi_pulse_grad, 
+	float vel_target, 
+	int vsi_train_len, 
+	double vsi_Gmax);
 
 /* Define function for calculating max B1 of a sinc pulse */
 float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
@@ -753,6 +762,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
+				/* LHG :   this doesn't look right .... */
 				prep1_tbgs2tbl[framen] = (framen >= nm0frames) * prep1_tbgs2;
 			break;
 		case -1:
@@ -771,6 +781,7 @@ STATUS predownload( void )
 		case 0:
 			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
 			for (framen = 0; framen < nframes; framen++)
+				/* LHG :   this doesn't look right .... */
 				prep2_pldtbl[framen] = (framen >= nm0frames) * prep2_pld;
 			break;
 		case -1:
@@ -851,8 +862,32 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to read in ASL prep 2 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-	
-	
+
+	if (vel_target > 0.0)
+	{
+		fprintf(stderr, "predownload(): calling calc_vsi_phs_from_velocity() to adjust the phase oni both of the prep pulses\n");
+		if (0 == calc_vsi_phs_from_velocity (prep1_rho_lbl, prep1_theta_lbl, prep1_grad_lbl, vel_target, prep1_len, prep1_gmax))
+		{
+			epic_error(use_ermes,"failure to adjust phase of prep1 lbl pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}
+		if ( 0 == calc_vsi_phs_from_velocity (prep2_rho_lbl, prep2_theta_lbl, prep2_grad_lbl, vel_target, prep2_len, prep2_gmax))
+		{
+			epic_error(use_ermes,"failure to adjust phase of prep1 ctl pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}
+		if (0 == calc_vsi_phs_from_velocity (prep1_rho_ctl, prep1_theta_ctl, prep1_grad_ctl, vel_target, prep1_len, prep1_gmax))
+		{
+			epic_error(use_ermes,"failure to adjust phase of prep2 lbl pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}
+		if (0 == calc_vsi_phs_from_velocity (prep2_rho_ctl, prep2_theta_ctl, prep2_grad_ctl, vel_target, prep2_len, prep2_gmax))
+		{
+			epic_error(use_ermes,"failure to adjust phase of prep2 ctl pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+			return FAILURE;
+		}
+	}
+
 @inline Prescan.e PSfilter
 
 	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
@@ -999,7 +1034,7 @@ STATUS predownload( void )
 	deadtime_tipcore -= (pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d); /* crush1 pulse */
 	deadtime_tipcore -= pgbuffertime; /* buffer */
 	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */
-	
+
 	/* Calculate seqcore deadtime */
 	deadtime1_seqcore = (opte - avminte)/2 + ro_offset;
 	deadtime2_seqcore = (opte - avminte)/2 - ro_offset;
@@ -1164,11 +1199,12 @@ STATUS predownload( void )
 	pcasl_delta_phs += pcasl_delta_phs_correction;
 	fprintf(stderr, "\nCorrected PCASL linear phase increment: %f ", pcasl_delta_phs);
 
-	/* calculate PCASL amplitude of RF pulses in DAC units*/
-	pcasl_RFamp_dac = (int)(pcasl_RFamp * max_pg_iamp / maxB1Seq);
-	a_rfpcasl = pcasl_RFamp / maxB1Seq;
+	/* scale the  PCASL amplitude of RF pulses for the RHO channel... also in DAC units*/
+	a_rfpcasl = pcasl_RFamp * 1e-3 / maxB1Seq;
+	pcasl_RFamp_dac = (int)(a_rfpcasl* max_pg_iamp);
 	ia_rfpcasl = pcasl_RFamp_dac;
 
+	fprintf(stderr, "\n PCASL RF ampliture : %f, a_rfpcasl: %f ",pcasl_RFamp, a_rfpcasl  );
 	fprintf(stderr, "\n PCASL RF ampliture in DAC untis: %d ", pcasl_RFamp_dac);
 	
 	/* adjust the pcasl_core to accomodate TIMESSI*/
@@ -1244,13 +1280,17 @@ STATUS predownload( void )
 	sprintf(tmpstr, "tadjusttbl");
 	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
 	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
+		/* what to do if the schedule is not there  or it's the wrong size */
 		case 0:
 			for (framen = 0; framen < nframes; framen++) {
-				tadjusttbl[framen] = optr;
-				if (doblksat)
-					tadjusttbl[framen] -= (dur_blksatcore + TIMESSI); /* add bulk sat core */
 
-				if (prep1_id > 0) { /* add prep1 pulse/pld core */
+				/* start with tadjust set to TR and then subtract all the other time blocks */
+				tadjusttbl[framen] = optr;
+
+				if (doblksat)
+					tadjusttbl[framen] -= (dur_blksatcore + TIMESSI); /* bulk sat core */
+
+				if (prep1_id > 0) { /* prep1 pulse/pld core */
 					tadjusttbl[framen] -= (dur_prep1core + TIMESSI);
 					tadjusttbl[framen] -= (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
 				}
@@ -1260,7 +1300,7 @@ STATUS predownload( void )
 					tadjusttbl[framen] -= (pcasl_Npulses * pcasl_period) ;
 				}
 
-				if (prep2_id > 0) { /* add prep2 pulse/pld core */
+				if (prep2_id > 0) { /* prep2 pulse/pld core */
 					tadjusttbl[framen] -= (dur_prep2core + TIMESSI);
 					tadjusttbl[framen] -= (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
 				}
@@ -1506,6 +1546,7 @@ STATUS predownload( void )
  * with @pulsedef, and must return SUCCESS or FAILURE.               *
  *********************************************************************/
 #include "support_func.h"
+#include "epicfuns.h"
 
 
 STATUS pulsegen( void )
@@ -1538,6 +1579,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %d us)\n", dur_pcaslcore, tmploc);
 	SEQLENGTH(pcaslcore, dur_pcaslcore, pcaslcore);
 	fprintf(stderr, "\tDone.\n");
+
 
 
 	/*********************************/
@@ -1703,7 +1745,7 @@ STATUS pulsegen( void )
 	SEQLENGTH(fatsatcore, dur_fatsatcore, fatsatcore);
 	fprintf(stderr, "\tDone.\n");
 
-
+	
 	/***********************************/
 	/* Generate spin echo tipdown core */
 	/***********************************/	
@@ -1712,7 +1754,7 @@ STATUS pulsegen( void )
 
 	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
 	tmploc += pgbuffertime; /* start time for rf1 pulse */
-	SLICESELZ(rf1, tmploc + pw_gzrf1a, 6400, (opslthick + opslspace)*opslquant, 90.0, 4, 1, loggrd);
+	SLICESELZ(rf1, tmploc + pw_gzrf1a, 3200, (opslthick + opslspace)*opslquant, 90.0, 2, 1, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf1 pulse */
 	fprintf(stderr, " end: %dus\n", tmploc);
@@ -2879,6 +2921,50 @@ int readschedulef(int id, float* var, char* varname, int lines) {
 
 	return 1;
 }
+
+/* this function adds a linear phase shift to the velocity selective pulses
+ in order to shift the velocity selectivity profile to a different velocity */
+int calc_vsi_phs_from_velocity (int* vsi_pulse_mag, int* vsi_pulse_phs, int* vsi_pulse_grad, float vel_target, int vsi_train_len, double vsi_Gmax)
+{
+	/* GAMMA_H1 26754 in (rad/s)/Gauss */
+	double phase_val;
+	double grad_val;
+	double pos=0.0;
+	double dt = 4e-6;
+	double delta_phs = 0.0;
+	int 	i;
+	int	DACMAX = 32766;
+	int	tmp;
+
+	for (i=1; i<vsi_train_len; i++)
+	{
+		/* from DAC units to radians */
+		phase_val = M_PI * (double)(vsi_pulse_phs[i]) /  (double)FS_PI  ; 		
+		/* from DAC units to G/cm */
+		grad_val = vsi_Gmax * (double)(vsi_pulse_grad[i]) / (double)DACMAX ;
+
+		/* increment the phase */
+		phase_val -=  delta_phs;
+		/* calc the phase gained by moving spins during THIS interval */
+		pos += vel_target*dt; 
+		delta_phs += GAMMA * grad_val * pos * dt ;
+
+		/* from radians to DAC ... unwrap first  , then make them even numbers only. */	
+		phase_val = atan2( sin(phase_val), cos(phase_val));
+		tmp = (int)(phase_val / M_PI * FS_PI);
+		vsi_pulse_phs[i] = 2*(tmp/2);
+
+	}
+
+	for (i=0; i<vsi_train_len; i++)
+	{
+		if (vsi_pulse_mag[i] == 0) 
+			vsi_pulse_phs[i] = 0;
+
+	}
+	return 1;
+}	
+
 
 int genlbltbl(int mod, int* lbltbl)
 {

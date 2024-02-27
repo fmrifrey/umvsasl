@@ -10,8 +10,8 @@
 #
 # ====================================================================
 
-PWD        = /home/hernan/epic/RX28R4/asl3dflex
-TOP        = /ESE_MR28.0_R03
+PWD        = /home/hernan/epic/MR30/asl3dflex
+TOP        = /ESE_MR30.1_R01
 OS_NAME    = Linux
 OS_RELEASE = 5_14_21__150400_24_81__default
 
@@ -90,14 +90,14 @@ test::
 #    Epic and Epic+ preprocessors.
 #
 
-CREATE_HOSTDECL_DEFS    = $(TOP)/psd/bin/createHostdeclDefs
-CREATE_CNV_ENDIAN_INPUT = $(TOP)/psd/bin/createCnvEndianInput
-EC                      = $(TOP)/psd/bin/ec
-EP_PROCESS              = $(TOP)/psd/bin/processefile
-EP_MERGE                = $(TOP)/psd/bin/mergehfiles
-EP_BRT                  = $(TOP)/psd/bin/buildruntime
-EP_CONTIG               = $(TOP)/psd/bin/contigCVs
-EP_LINK                 = $(TOP)/psd/bin/createEpicPlusLinks
+CREATE_HOSTDECL_DEFS    = $(TOP)/psd/build-tools/export/noarch/bin/createHostdeclDefs
+CREATE_CNV_ENDIAN_INPUT = $(TOP)/psd/build-tools/export/noarch/bin/createCnvEndianInput
+EC                      = $(TOP)/psd/build-tools/export/noarch/bin/ec
+EP_PROCESS              = $(TOP)/psd/build-tools/export/dev-linux32/bin/processefile
+EP_MERGE                = $(TOP)/psd/build-tools/export/dev-linux32/bin/mergehfiles
+EP_BRT                  = $(TOP)/psd/build-tools/export/dev-linux32/bin/buildruntime
+EP_CONTIG               = $(TOP)/psd/build-tools/export/noarch/bin/contigCVs
+EP_LINK                 = $(TOP)/psd/build-tools/export/noarch/bin/createEpicPlusLinks
 
 ENDIAN_CONVERTER =     $(TOP)/3p/endian_converter/endian_converter
 
@@ -137,15 +137,30 @@ CNV_ENDIAN_FILES = $(PSD).cnvendian.input.c \
 #
 # --------------------------------------------------------------------
 
+# Global PSD compiler optimization flag.  By default we apply -O2 optimization.
+# Call
+
+# --------------------------------------------------------------------
+#
+#  Rule: "PsdOptimization(LEVEL)"
+#
+
+PSD_OPTIMIZATION_FLAG = -OLEVEL
+
+# -------------------------------------------------------------------- to overwrite the setting.
+
+PSD_OPTIMIZATION_FLAG = -O2
+
+#
+# End common GCC parameter definitions.
+#
+
 # --------------------------------------------------------------------
 #
 #  Rule: "StandardSuffixRules()"
 #
 
-.SUFFIXES:
-.SUFFIXES: .e .epic .epicplus
-
-.e.epic:
+%.epic: %.e
 	@echo "=========================================================="
 	@echo "   Processing $*"
 	@echo "=========================================================="
@@ -160,7 +175,7 @@ CNV_ENDIAN_FILES = $(PSD).cnvendian.input.c \
 
 	$(TOUCH) ${@F}
 
-.e.epicplus:
+%.epicplus: %.e
 	@echo "=========================================================="
 	@echo "   Processing $*"
 	@echo "=========================================================="
@@ -300,17 +315,18 @@ hw-mgd:: hw
 
 hw-ice:: hw
 
-DIR_CVCONST_INCLUDE = $(TOP)/psd/include/private
+DIR_CVCONST_INCLUDE = $(TOP)/psd/psd-platform/export/noarch/include/epic
 
-DIR_EP_FEATURES_INCLUDE = $(TOP)/psd/epicplus_features
+EP_FEATURES_INCLUDE = -I$(TOP)/psd/app-fast-gradient-echo-2d/src/main/epicplus_features
 
 EPIC_INCLUDES = \
     $(ADD_E_INCLUDES) \
     -I. \
-    -I$(TOP)/psd/include \
-    -I$(TOP)/psd/include/private \
-    -I$(TOP)/psd/include/private/support \
-    -I$(TOP)/psd/psdsource \
+    -I$(TOP)/psd/external-interface/export/noarch/include \
+    -I$(TOP)/psd/geometry-orientation/export/noarch/include \
+    -I$(TOP)/psd/psd-platform/export/noarch/include     -I$(TOP)/psd/psd-platform/export/noarch/include/psdIF     -I$(TOP)/psd/psd-platform/export/noarch/include/support     -I$(TOP)/psd/psd-platform/export/noarch/include/pgen_on_host     -I$(TOP)/psd/psd-platform/export/noarch/include/pulsegen \
+    -I$(TOP)/psd/psd-applications/export/noarch/inline \
+    $(EPLUS_FEATURES_INCLUDES) \
     -I$(TOP)/lx/em/include \
     -I$(TOP)/lx/include \
     -I$(TOP)/host/foundation-libs/CnvEndianLib/host_static \
