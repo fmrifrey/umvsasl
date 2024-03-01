@@ -113,7 +113,7 @@ tr = phdr.image.tr*1e-3;
 te = phdr.image.te*1e-3;
 
 % Reshape raw to make things a little easier
-raw = reshape(raw(:,1:end-2,:,:,:), ... % clip out last 2 views
+raw = reshape(raw(:,1:nshots*nframes,:,:,:), ...
     ndat, nshots, nframes, nechoes, ncoils); % raw = [ndat x nshots x nframes x nechoes x ncoils]
 raw = permute(raw, [1,4,2,3,5]); % raw = [ndat x nechoes x nshots x nframes x ncoils]
 
