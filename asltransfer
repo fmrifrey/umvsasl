@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for DATA in /usr/g/mrraw/asldata*; do
+	printf 'transferring data... '
+	if rsync --perms --chmod=ugo+rw -r $DATA djfrey@wood:/export/data/asl3dflex/$(date '+%Y%m%d'); then
+		printf 'SUCCESS\n'
+		rm -rf $DATA
+	else
+		printf 'FAILURE\n'
+	fi
+done

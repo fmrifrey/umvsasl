@@ -21,7 +21,6 @@ host/
 sim_linux/
 tgt_ice/
 tgt_mgd/
-<<<<<<< HEAD
 asl3dflex.cnvendian.api.h
 asl3dflex.cnvendian.c
 asl3dflex.cnvendian.globalvar.h
@@ -32,9 +31,12 @@ asl3dflex.cvcopy.cpp
 *.trace
 *.swp
 *.log
-
-=======
 dev-linux32/
 host32/
 ice-agp/
->>>>>>> origin/grefse
+*.bak*
+.asl3dflex.e.swo
+.vscode/
+.~lock.vel_target_phs.txt#
+asl3dflex.bak.e
+
