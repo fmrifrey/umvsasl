@@ -1,4 +1,4 @@
-function im = recon3dflex(varargin)
+function [im,smap] = recon3dflex(varargin)
 % function im = recon3dflex(varargin)
 %
 % Part of asl3dflex project by Luis Hernandez-Garcia and David Frey
@@ -128,7 +128,7 @@ for shotn = 1:nshots
         
         % Append kspace locations and data
         klocs = cat(1,klocs,ktraj*T');
-        kdata = cat(1,kdata,squeeze(raw(:,echon,shotn,:,:)));
+        kdata = cat(1,kdata,reshape((raw(:,echon,shotn,:,:)),ndat,nframes,ncoils));
         
     end
 end
