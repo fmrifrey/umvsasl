@@ -869,10 +869,8 @@ STATUS predownload( void )
 	pw_bkgsuptheta = pw_bkgsuprho;
 	
 	/* Update the bulk saturation pulse parameters */
-	/*
-	res_blksatrho = res_bkgsuprho/2;
-	pw_blksatrho = pw_bkgsuprho/2;
-	*/
+	res_blksatrho = 250;
+	pw_blksatrho = 2500;
 	a_blksattheta = 1.0;
 	res_blksattheta = res_blksatrho;
 	pw_blksattheta = pw_blksatrho;
@@ -1549,8 +1547,8 @@ STATUS pulsegen( void )
 
 	fprintf(stderr, "pulsegen(): generating bkgsuprho & bkgsuptheta (background suppression rf)...\n");
 	tmploc += pgbuffertime; /* start time for bkgsup rf */
-	EXTWAVE(RHO, bkgsuprho, tmploc, 5000, 1.0, 250, sech_7360.rho, , loggrd);
-	EXTWAVE(THETA, bkgsuptheta, tmploc, 5000, 1.0, 250, sech_7360.theta, , loggrd);
+	EXTWAVE(RHO, bkgsuprho, tmploc, 5000, 1.0, 500, sech_7360.rho, , loggrd);
+	EXTWAVE(THETA, bkgsuptheta, tmploc, 5000, 1.0, 500, sech_7360.theta, , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_bkgsuprho; /* end time for bkg sup rf */
 	fprintf(stderr, " end: %dus\n", tmploc);	
