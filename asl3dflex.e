@@ -195,6 +195,9 @@ float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling facto
 float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
 int sptype3d = 3 with {0, 4, 1, VIS, "0 = 2D (shotxshot rot only) 1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
+float F0 = 0 with { , , 0, INVIS, "vds fov coefficient 0",};
+float F1 = 0 with { , , 0, INVIS, "vds fov coefficient 1",};
+float F2 = 0 with { , , 0, INVIS, "vds fov coefficient 2",};
 
 /* ASL prep pulse cvs */
 int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are played)",};
@@ -1034,6 +1037,9 @@ STATUS predownload( void )
 	
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
+	F0 = spvd0 * (float)opfov / 10.0;
+	F1 = 2*pow((float)opfov/10.0,2)/opxres *(spvd1 - spvd0);
+	F2 = 0;
 	if (genspiral(fID_rxryrzdz) == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
@@ -2605,7 +2611,7 @@ int genspiral(FILE* fID_rxryrzdz) {
 	float gxn, gyn, gzn, kxn, kyn, kzn;
 	float gx0, gy0, g0, kx0, ky0, kz0, k0;
 	float h_ze, h_kr;
-	float F[2];
+	float F[3];
 
 	/* declare waveforms */
 	float *gx_sp, *gy_sp;
@@ -2629,8 +2635,9 @@ int genspiral(FILE* fID_rxryrzdz) {
 	np_ze = round((2*Tr_ze + Tp_ze) / dt);
 
 	/* generate the spiral trajectory */
-	F[0] = spvd0 * D;
-	F[1] = 2*pow(D,2)/opxres *(spvd1 - spvd0);
+	F[0] = F0;
+	F[1] = F1;
+	F[2] = F2;
 	calc_vds(sm, gm, dt, dt, (sptype2d<3) ? (1) : (2), F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 
