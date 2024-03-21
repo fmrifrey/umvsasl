@@ -1116,9 +1116,12 @@ STATUS predownload( void )
 	cvmin(ro_offset, -deadtime1_seqcore + pgbuffertime);
 	cvmax(ro_offset, deadtime2_seqcore - pgbuffertime); 
 
+	deadtime1_seqcore += ro_offset;
+	deadtime2_seqcore -= ro_offset;
+
 	/* Round deadtimes to nearest sampling interval */
-	deadtime1_seqcore = deadtime1_seqcore + GRAD_UPDATE_TIME - deadtime1_seqcore % GRAD_UPDATE_TIME;
-	deadtime2_seqcore = deadtime2_seqcore - deadtime2_seqcore % GRAD_UPDATE_TIME;
+	deadtime1_seqcore += GRAD_UPDATE_TIME - (deadtime1_seqcore % GRAD_UPDATE_TIME);
+	deadtime2_seqcore -= (deadtime2_seqcore % GRAD_UPDATE_TIME);
 
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
