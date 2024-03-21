@@ -49,8 +49,8 @@
 
 /* Define important values */
 #define MAXWAVELEN 50000 /* Maximum wave length for gradients */
-#define MAXNTRAINS 50 /* Maximum number of echo trains per frame */
-#define MAXNECHOES 50 /* Maximum number of echoes per echo train */
+#define MAXNTRAINS 512 /* Maximum number of echo trains per frame */
+#define MAXNECHOES 512 /* Maximum number of echoes per echo train */
 #define MAXNFRAMES 1000 /* Maximum number of temporal frames */
 #define MAXITR 50 /* Maximum number of iterations for iterative processes */
 #define GAMMA 26754 /* Gyromagnetic ratio (rad/s/G) */
@@ -316,8 +316,8 @@ float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
 
 /* Declare trajectory generation function prototypes */
-int genspiral(FILE* fID_rxryrzdz);
-int genviews(FILE* fID_rxryrzdz);
+int genspiral(FILE* fID_partitions);
+int genviews(FILE* fID_partitions);
 
 /* Declare function prototypes from aslprep.h */
 int readprep(int id, int *len,
@@ -668,7 +668,7 @@ STATUS predownload( void )
 	FILE* finfo;
 	FILE* fsid;
 	FILE* fseq;
-	FILE* fID_rxryrzdz;	
+	FILE* fID_partitions;	
 	int framen, ddan, shotn, echon, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
@@ -1032,30 +1032,30 @@ STATUS predownload( void )
 	a_gzrf2crush2 = tmp_a;
 		
 	/* Open the transformations schedule file */
-	sprintf(tmpstr, "./aslprep/schedules/%05d/rxryrzdz.txt", schedule_id);
+	sprintf(tmpstr, "./aslprep/schedules/%05d/partitions.txt", schedule_id);
 	fprintf(stderr, "predownload(): opening %s...\n", tmpstr);
-	fID_rxryrzdz = fopen(tmpstr, "r");
+	fID_partitions = fopen(tmpstr, "r");
 	
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
 	F0 = spvd0 * (float)opfov / 10.0;
 	F1 = 2*pow((float)opfov/10.0,2)/opxres *(spvd1 - spvd0);
 	F2 = 0;
-	if (genspiral(fID_rxryrzdz) == 0) {
+	if (genspiral(fID_partitions) == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
 	
 	/* Generate view transformations */
 	fprintf(stderr, "predownload(): calling genviews()\n");
-	if (genviews(fID_rxryrzdz) == 0) {
+	if (genviews(fID_partitions) == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
 
 	/* Close the transformations file */
-	if (fID_rxryrzdz != 0)
-		fclose(fID_rxryrzdz);
+	if (fID_partitions != 0)
+		fclose(fID_partitions);
 
 	/* Scale the rotation matrices */
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, nechoes*nshots*nframes, 0);
@@ -2604,7 +2604,7 @@ void dummylinks( void )
 * Define the functions that will run on the host 
 * during predownload operations
 *****************************************************/
-int genspiral(FILE* fID_rxryrzdz) {
+int genspiral(FILE* fID_partitions) {
 
 	/* 4 parts of the gradient waveform:
 	 * 	- Z-encode (*_ze):		kZ encoding step
@@ -2643,7 +2643,7 @@ int genspiral(FILE* fID_rxryrzdz) {
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
 	float kzmax = kxymax;
-	if (fID_rxryrzdz == 0 && sptype3d == 1)
+	if (fID_partitions == 0 && sptype3d == 1)
 		kzmax = nshots*nechoes / D / 2.0;
 
 	/* generate the z encoding trapezoid gradient */
@@ -2784,14 +2784,14 @@ int genspiral(FILE* fID_rxryrzdz) {
 	return 1;
 }
 
-int genviews(FILE* fID_rxryrzdz) {
+int genviews(FILE* fID_partitions) {
 
 	/* Declare values and matrices */
 	FILE* fID_kviews = fopen("kviews.txt","w");
 	char buff[200];
 	int framen, shotn, echon, n;
-	float rx, ry, rz, dz;
-	float Rx[9], Ry[9], Rz[9], Tz[9];
+	float rz1, rx, ry, rz2, dz;
+	float Rz1[9], Rx[9], Ry[9], Rz2[9], Tz[9];
 	float T_0[9], T[9];
 
 	/* Initialize z translation to identity matrix */
@@ -2806,40 +2806,28 @@ int genviews(FILE* fID_rxryrzdz) {
 		for (shotn = 0; shotn < nshots; shotn++) {
 			for (echon = 0; echon < nechoes; echon++) {
 
-				if (fID_rxryrzdz == 0) {
-					fprintf(stderr, "genviews(): schedule file not found, generating rotation angles and kz fraction for frame %d, shot %d, echo %d\n", framen, shotn, echon);
+				if (fID_partitions == 0) { /* generate partitions */
 
 					/* Initialize rotation angles/kz shift */
+					rz1 = 2.0*M_PI * shotn / PHI;
 					rx = 0.0;
 					ry = 0.0;
-					rz = 0.0;
+					rz2 = 0.0;
 					dz = 0.0;
 
 					/* Determine type of transformation */
 					switch (sptype3d) {
 						case 0 : /* 2D - shot by shot rotations only */
-							rx = 0;
-							ry = 0;
-							rz = 2.0*M_PI * shotn / PHI;
-							dz = 0;
 							break;
 						case 1 : /* Kz shifts */
-							rx = 0;
-							ry = 0;
-							rz = 2.0*M_PI * shotn / PHI;
-							dz = 2.0/(float)(nshots*nechoes) * (pow(-1.0,echon)*nshots*floor((float)(echon + 1)/2.0) + (float)shotn);
+							dz = 2.0/(float)(nechoes) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
 							break;
 						case 2 : /* Single axis rotation */
-							rx = 2.0*M_PI * (shotn*nechoes + echon) / PHI;
-							ry = 0;
-							rz = 0;
-							dz = 0;
+							rx = 2.0*M_PI * echon / PHI;
 							break;
 						case 3 : /* Double axis rotations */
-							rx = acos(fmod((shotn*nechoes + echon)*phi1, 1.0)); /* polar angle */
-							ry = 0;
-							rz = 2.0*M_PI * fmod((shotn*nechoes + echon)*phi2, 1.0); /* azimuthal angle */
-							dz = 0;		
+							rx = acos(fmod(echon*phi1, 1.0)); /* polar angle */
+							rz2 = 2.0*M_PI * fmod(echon*phi2, 1.0); /* azimuthal angle */
 							break;		
 						case 4: /* Debugging case */
 							rx = M_PI/2.0*echon;
@@ -2854,24 +2842,26 @@ int genviews(FILE* fID_rxryrzdz) {
 					fprintf(stderr, "genviews(): reading in rotation angles and kz fraction from file for frame %d, shot %d, echo %d\n", framen, shotn, echon);
 
 					/* Loop through points in theta file */
-					fgets(buff, 200, fID_rxryrzdz);
-					sscanf(buff, "%f %f %f %f", &rx, &ry, &rz, &dz);
+					fgets(buff, 200, fID_partitions);
+					sscanf(buff, "%f %f %f %f %f", &rz1, &rx, &ry, &rz2, &dz);
 				}			
 
 				/* Calculate the transformation matrices */
 				Tz[8] = dz;
+				genrotmat('z', rz1, Rz1);
 				genrotmat('x', rx, Rx);
 				genrotmat('y', ry, Ry);
-				genrotmat('z', rz, Rz);
+				genrotmat('z', rz2, Rz2);
 
 				/* Multiply the transformation matrices */
 				multmat(3,3,3,T_0,Tz,T);
+				multmat(3,3,3,Rz1,T,T);
 				multmat(3,3,3,Rx,T,T);
 				multmat(3,3,3,Ry,T,T);
-				multmat(3,3,3,Rz,T,T);
+				multmat(3,3,3,Rz2,T,T);
 
 				/* Save the matrix to the table of matrices */
-				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t%f \t%f \t", framen, shotn, echon, rx, ry, rz, dz);
+				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t%f \t%f \t%f \t", framen, shotn, echon, rz1, rx, ry, rz2, dz);
 				for (n = 0; n < 9; n++) {
 					fprintf(fID_kviews, "%f \t", T[n]);
 					tmtxtbl[framen*nshots*nechoes + shotn*nechoes + echon][n] = (long)round(MAX_PG_IAMP*T[n]);
