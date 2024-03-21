@@ -178,7 +178,8 @@ int nechoes = 16 with {1, MAXNECHOES, 16, VIS, "Number of echoes per shot",};
 int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
-int ro_offset = 0 with { , , 0, VIS, "Readout offset time from center of echo (us)",};
+int ro_justify = 0 with {-1, 1, 0, VIS, "Readout ADC justify (-1 = left, 0 = center, 1 = right; default is -1 for GRE and 0 for FSE)",};
+int ro_offset = 0 with { , , 0, VIS, "Readout offset time -- essentially TE for GRE (us)",};
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 float phs_tip = 0.0 with { , , 0.0, VIS, "Initial transmitter phase for tipdown pulse",};
 float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion pulse",};
@@ -1094,9 +1095,26 @@ STATUS predownload( void )
 	deadtime_tipcore -= pgbuffertime; /* buffer */
 	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */
 
-	/* Calculate seqcore deadtime */
-	deadtime1_seqcore = (opte - avminte)/2 + ro_offset;
-	deadtime2_seqcore = (opte - avminte)/2 - ro_offset;
+	/* Set default ADC justification*/
+	if (ro_mode == 1) /* FSE - center the echo */
+		ro_justify = 0;
+	else /* GRE - left justify the echo */
+		ro_justify = -1;
+
+	/* Calculate seqcore deadtimes */
+	switch (ro_justify) {
+		case -1: /* left-justified ADC */
+			deadtime1_seqcore = pgbuffertime;
+			break;
+		case 0: /* center-justified ADC */
+			deadtime1_seqcore = (opte - avminte)/2;
+			break;
+		case 1: /* right-justified ADC */
+			deadtime1_seqcore = opte - avminte + pgbuffertime;
+	};
+	deadtime2_seqcore = opte - deadtime1_seqcore - avminte;
+	cvmin(ro_offset, -deadtime1_seqcore + pgbuffertime);
+	cvmax(ro_offset, deadtime2_seqcore - pgbuffertime); 
 
 	/* Round deadtimes to nearest sampling interval */
 	deadtime1_seqcore = deadtime1_seqcore + GRAD_UPDATE_TIME - deadtime1_seqcore % GRAD_UPDATE_TIME;
