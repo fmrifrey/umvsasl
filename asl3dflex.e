@@ -2830,7 +2830,7 @@ int genviews(FILE* fID_partitions) {
 				if (fID_partitions == 0) { /* generate partitions */
 
 					/* Initialize rotation angles/kz shift */
-					rz1 = 2.0*M_PI * shotn / PHI;
+					rz1 = 2.0*M_PI * (float)shotn / (float)nshots;
 					rx = 0.0;
 					ry = 0.0;
 					rz2 = 0.0;
