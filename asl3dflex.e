@@ -2647,7 +2647,7 @@ int genspiral(FILE* fID_partitions) {
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
 	float kzmax = kxymax;
 	if (fID_partitions == 0 && sptype3d == 1)
-		kzmax = nshots*nechoes / D / 2.0;
+		kzmax = nechoes / D / 2.0;
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
