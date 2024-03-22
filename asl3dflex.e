@@ -404,8 +404,8 @@ STATUS cvinit( void )
 	pite1val2 = 100ms;
 
 	/* frequency (xres) */
-	cvmin(opxres, 32);
-	cvmax(opxres, 128);
+	cvmin(opxres, 16);
+	cvmax(opxres, 512);
 	cvdef(opxres, 64);
 	opxres = 64;
 	pixresnub = 0; /* hide option */
