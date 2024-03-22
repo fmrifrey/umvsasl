@@ -175,7 +175,8 @@ float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 int nframes = 2 with {1, , 2, VIS, "Number of frames",};
 int nshots = 1 with {1, , 1, VIS, "Number of shots per frame",};
 int nechoes = 16 with {1, MAXNECHOES, 16, VIS, "Number of echoes per shot",};
-int ndisdaqs = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
+int ndisdaqtrains = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
+int ndisdaqechoes = 0 with {0, , 0, VIS, "Number of disdaq echos at beginning of echo train",};
 int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
 int ro_justify = 0 with {-1, 1, 0, VIS, "Readout ADC justify (-1 = left, 0 = center, 1 = right; default is -1 for GRE and 0 for FSE)",};
@@ -528,63 +529,71 @@ STATUS cveval( void )
 	opuser4 = 2;
 	cvmin(opuser4, 0);
 	cvmax(opuser4, 100);
-	ndisdaqs = opuser4;
-
+	ndisdaqtrains = opuser4;
+	
 	piuset += use5;
-	cvdesc(opuser5, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser5, 4);
-	opuser5 = 4;
-	cvmin(opuser5, 1);
-	cvmax(opuser5, 4);
-	sptype2d = opuser5;
+	cvdesc(opuser5, "Number of disdaq echoes");
+	cvdef(opuser5, 1);
+	opuser5 = 1;
+	cvmin(opuser5, 0);
+	cvmax(opuser5, 100);
+	ndisdaqechoes = opuser5;
 
 	piuset += use6;
-	cvdesc(opuser6, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
-	cvdef(opuser6, 3);
-	opuser6 = 3;
-	cvmin(opuser6, 0);
+	cvdesc(opuser6, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
+	cvdef(opuser6, 4);
+	opuser6 = 4;
+	cvmin(opuser6, 1);
 	cvmax(opuser6, 4);
-	sptype3d = opuser6;
+	sptype2d = opuser6;
 
 	piuset += use7;
-	cvdesc(opuser7, "VD-spiral center oversampling factor");
-	cvdef(opuser7, 1.0);
-	opuser7 = 1.0;
-	cvmin(opuser7, 0.001);
-	cvmax(opuser7, 50.0);
-	spvd0 = opuser7;
+	cvdesc(opuser7, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
+	cvdef(opuser7, 3);
+	opuser7 = 3;
+	cvmin(opuser7, 0);
+	cvmax(opuser7, 4);
+	sptype3d = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "VD-spiral edge oversampling factor");
+	cvdesc(opuser8, "VD-spiral center oversampling factor");
 	cvdef(opuser8, 1.0);
 	opuser8 = 1.0;
 	cvmin(opuser8, 0.001);
 	cvmax(opuser8, 50.0);
-	spvd1 = opuser8;
+	spvd0 = opuser8;
 
 	piuset += use9;
-	cvdesc(opuser9, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser9, 0.6);
-	cvmin(opuser9, 0.1);
-	cvmax(opuser9, 1.0);
-	opuser9 = 0.6;
-	varflipfac = opuser9;
+	cvdesc(opuser9, "VD-spiral edge oversampling factor");
+	cvdef(opuser9, 1.0);
+	opuser9 = 1.0;
+	cvmin(opuser9, 0.001);
+	cvmax(opuser9, 50.0);
+	spvd1 = opuser9;
 
 	piuset += use10;
-	cvdesc(opuser10, "Recon script ID #");
-	cvdef(opuser10, 2327);
-	cvmin(opuser10, 0);
-	cvmax(opuser10, 9999);
-	opuser10 = 2327;
-	rhrecon = opuser10;
-	
+	cvdesc(opuser10, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser10, 0.6);
+	cvmin(opuser10, 0.1);
+	cvmax(opuser10, 1.0);
+	opuser10 = 0.6;
+	varflipfac = opuser10;
+
 	piuset += use11;
-	cvdesc(opuser11, "ASL prep schedule ID #");
-	cvdef(opuser11, 0);
+	cvdesc(opuser11, "Recon script ID #");
+	cvdef(opuser11, 2327);
 	cvmin(opuser11, 0);
 	cvmax(opuser11, 9999);
-	opuser11 = 0;
-	schedule_id = opuser11;
+	opuser11 = 2327;
+	rhrecon = opuser11;
+	
+	piuset += use12;
+	cvdesc(opuser12, "ASL prep schedule ID #");
+	cvdef(opuser12, 0);
+	cvmin(opuser12, 0);
+	cvmax(opuser12, 9999);
+	opuser12 = 0;
+	schedule_id = opuser12;
 	
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -1365,7 +1374,7 @@ STATUS predownload( void )
 	dur_readout = 0;
 	if (ro_mode == 1) /* FSE */
 		dur_readout += dur_tipcore + TIMESSI;
-	dur_readout += nechoes * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
+	dur_readout += (nechoes + ndisdaqechoes) * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
 
 	/* Read in tadjusttbl schedule */
 	sprintf(tmpstr, "tadjusttbl");
@@ -1415,7 +1424,7 @@ STATUS predownload( void )
 	pitscan = 0; /* pitscan controls the clock time on the interface */	
 	fseq = fopen("scansequence.txt","w");
 	fprintf(fseq, "%-50s%22s%22s\n\n", "event label", "start time", "duration");
-	for (ddan = 0; ddan < ndisdaqs; ddan++) {
+	for (ddan = 0; ddan < ndisdaqtrains; ddan++) {
 		pitscan += optr - dur_readout;
 		fprintf(fseq, "%-50s%20dus%20dus\n", "disdaq readout", (int)pitscan, dur_readout);
 		pitscan += dur_readout;
@@ -1567,7 +1576,8 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "nframes:", nframes);
 	fprintf(finfo, "\t%-50s%20d\n", "nshots:", nshots);
 	fprintf(finfo, "\t%-50s%20d\n", "nechoes:", nechoes);	
-	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqs", ndisdaqs);
+	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqtrains", ndisdaqtrains);
+	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqechoes", ndisdaqechoes);
 	fprintf(finfo, "\t%-50s%20d\n", "dofatsat:", dofatsat);
 	fprintf(finfo, "\t%-50s%20d\n", "ro_mode:", ro_mode);
 	fprintf(finfo, "\t%-50s%20d\n", "ro_offset:", ro_offset);
@@ -2480,19 +2490,19 @@ STATUS scan( void )
 	}
 
 	/* Play disdaqs */
-	for (disdaqn = 0; disdaqn < ndisdaqs; disdaqn++) {
+	for (disdaqn = 0; disdaqn < ndisdaqtrains; disdaqn++) {
 		/* Calculate and play deadtime */
-		fprintf(stderr, "scan(): Playing TR deadtime for disdaq %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
+		fprintf(stderr, "scan(): Playing TR deadtime for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
 		ttotal += play_deadtime(optr - dur_readout);
 		
 		if (ro_mode == 1) {
-			fprintf(stderr, "scan(): Playing FSE tip pulse for disdaq %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
+			fprintf(stderr, "scan(): Playing FSE tip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
 			ttotal += play_tip();	
 		}
 
 		/* Loop through echoes */
 		for (echon = 0; echon < nechoes; echon++) {
-			fprintf(stderr, "scan(): Playing flip pulse for disdaq %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
+			fprintf(stderr, "scan(): Playing flip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
 			ttotal += play_flip(0);
 
 			/* Load the DAB */		
@@ -2505,7 +2515,7 @@ STATUS scan( void )
 					DABOFF,
 					PSD_LOAD_DAB_ALL);		
 
-			fprintf(stderr, "scan(): playing readout for disdaq %d (%d us)...\n", disdaqn, dur_seqcore);
+			fprintf(stderr, "scan(): playing readout for disdaq train %d (%d us)...\n", disdaqn, dur_seqcore);
 			ttotal += play_readout(1); /* 1 = kill the gradients */
 		}
 	}
@@ -2514,8 +2524,6 @@ STATUS scan( void )
 	/* Loop through frames and shots */
 	for (framen = 0; framen < nframes; framen++) {
 		for (shotn = 0; shotn < nshots; shotn++) {
-
-			fprintf(stderr, "\n--------- doVelocitySpectrum = %d -----------\n", doVelocitySpectrum);
 
 			/* Play the Bulk saturation pulse for background suppression */
 			if (doblksat) {
@@ -2551,6 +2559,15 @@ STATUS scan( void )
 				fprintf(stderr, "scan(): Playing FSE tip pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_tip();	
 			}
+
+			/* play disdaq echoes */
+			for (echon = 0; echon < ndisdaqechoes; echon++) {
+				fprintf(stderr, "scan(): Playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
+				ttotal += play_flip(echon);
+				
+				fprintf(stderr, "scan(): playing deadtime in place of readout for frame %d, shot %d, disdaq echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
+				ttotal += play_deadtime(dur_seqcore);
+			};
 
 			/* readout echo train ... either GRE or FSE */
 			for (echon = 0; echon < nechoes; echon++) {
@@ -2647,7 +2664,7 @@ int genspiral(FILE* fID_partitions) {
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
 	float kzmax = kxymax;
 	if (fID_partitions == 0 && sptype3d == 1)
-		kzmax = nshots*nechoes / D / 2.0;
+		kzmax = nechoes / D / 2.0;
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
