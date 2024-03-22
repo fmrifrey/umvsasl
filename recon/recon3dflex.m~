@@ -142,6 +142,9 @@ raw = reshape(raw(:,1:nshots*nframes,:,:,:), ...
     ndat, nshots, nframes, nechoes, ncoils); % raw = [ndat x nshots x nframes x nechoes x ncoils]
 raw = permute(raw, [1,4,2,3,5]); % raw = [ndat x nechoes x nshots x nframes x ncoils]
 
+for 
+raw = raw.*exp(-1i*median(angle(raw(1:100,:,:,:,:))));
+
 % Loop through views and get transformed kspace locations
 klocs = zeros(ndat,3,nechoes,nshots,nframes); % klocs = [ndat x 3 x nechoes x nshots x nframes]
 for framen = 1:nframes
