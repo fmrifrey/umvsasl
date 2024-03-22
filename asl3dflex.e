@@ -186,7 +186,7 @@ float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion 
 float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
 int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
 float spgr_phsinc = 117 with {0, , 117, VIS, "Phase increment (deg) for RF spoiling in GRE mode",};
-float crushfac = 1.0 with {0, 10, 0, VIS, "Crusher amplitude factor (dk_crush = crushfac*kmax)",};
+float crushfac = 3.0 with {0, 10, 0, VIS, "Crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
 float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
@@ -466,6 +466,7 @@ STATUS cvinit( void )
 	gettarget(&RHO_max, RHO, &loggrd);
 	gettarget(&THETA_max, THETA, &loggrd);
 	getramptime(&ZGRAD_risetime, &ZGRAD_falltime, ZGRAD, &loggrd);	
+	ZGRAD_risetime *= 2; /* extra fluffy */
 
 @inline Prescan.e PScvinit
 
@@ -1004,7 +1005,7 @@ STATUS predownload( void )
 	a_gzrf1r = tmp_a;
 
 	/* Set the parameters for the crusher gradients */
-	tmp_area = crushfac * 2*M_PI/GAMMA * opxres/(opfov/10.0)/2.0 * 1e6; /* Area under crusher s.t. dk = crushfac*kmax (G/cm*us) */
+	tmp_area = crushfac * 2*M_PI/GAMMA * opxres/(opfov/10.0) * 1e6; /* Area under crusher s.t. dk = crushfac*kmax (G/cm*us) */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
 	pw_gzblksatcrush = tmp_pw;
 	pw_gzblksatcrusha = tmp_pwa;
@@ -1127,9 +1128,9 @@ STATUS predownload( void )
 	a_gxw = XGRAD_max;
 	a_gyw = YGRAD_max;
 	a_gzw = ZGRAD_max;
-	ia_gxw = MAX_PG_IAMP;
-	ia_gyw = MAX_PG_IAMP;
-	ia_gzw = MAX_PG_IAMP;
+	ia_gxw = MAX_PG_WAMP;
+	ia_gyw = MAX_PG_WAMP;
+	ia_gzw = MAX_PG_WAMP;
 	res_gxw = grad_len;
 	res_gyw = grad_len;
 	res_gzw = grad_len;
@@ -1139,13 +1140,13 @@ STATUS predownload( void )
 
 	/* Update the asl prep pulse parameters */
 	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
-	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)max_pg_iamp);
+	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
 	a_prep1gradctl = (prep1_id > 0) ? (prep1_gmax) : (0); 
-	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)max_pg_iamp);
+	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)MAX_PG_WAMP);
 	a_prep2gradlbl = (prep2_id > 0) ? (prep2_gmax) : (0);
-	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)max_pg_iamp);
+	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
 	a_prep2gradctl = (prep2_id > 0) ? (prep2_gmax) : (0); 
-	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)max_pg_iamp);
+	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)MAX_PG_WAMP);
 
 	/* First, find the peak B1 for all entry points (other than L_SCAN) */
 	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
@@ -1209,31 +1210,31 @@ STATUS predownload( void )
 
 	/* Update all the rf amplitudes */
 	a_rf1 = rf1_b1 / maxB1Seq;
-	ia_rf1 = a_rf1 * max_pg_iamp;
+	ia_rf1 = a_rf1 * MAX_PG_WAMP;
 
 	a_rf2 = rf2_b1 / maxB1Seq;
-	ia_rf2 = a_rf2 * max_pg_iamp;
+	ia_rf2 = a_rf2 * MAX_PG_WAMP;
 	
 	a_blksatrho = blksat_b1 / maxB1Seq;
-	ia_blksatrho = a_blksatrho * max_pg_iamp;
+	ia_blksatrho = a_blksatrho * MAX_PG_WAMP;
 	
 	a_bkgsuprho = bkgsup_b1 / maxB1Seq;
-	ia_bkgsuprho = a_bkgsuprho * max_pg_iamp;
+	ia_bkgsuprho = a_bkgsuprho * MAX_PG_WAMP;
 	
 	a_fatsatrho = fatsat_b1 / maxB1Seq;
-	ia_fatsatrho = a_fatsatrho * max_pg_iamp;
+	ia_fatsatrho = a_fatsatrho * MAX_PG_WAMP;
 	
 	a_prep1rholbl = prep1_b1 / maxB1Seq;
-	ia_prep1rholbl = a_prep1rholbl * max_pg_iamp;
+	ia_prep1rholbl = a_prep1rholbl * MAX_PG_WAMP;
 	
 	a_prep1rhoctl = prep1_b1 / maxB1Seq;
-	ia_prep1rhoctl = a_prep1rhoctl * max_pg_iamp;
+	ia_prep1rhoctl = a_prep1rhoctl * MAX_PG_WAMP;
 	
 	a_prep2rholbl = prep2_b1 / maxB1Seq;
-	ia_prep2rholbl = a_prep2rholbl * max_pg_iamp;
+	ia_prep2rholbl = a_prep2rholbl * MAX_PG_WAMP;
 	
 	a_prep2rhoctl = prep2_b1 / maxB1Seq;
-	ia_prep2rhoctl = a_prep2rhoctl * max_pg_iamp;
+	ia_prep2rhoctl = a_prep2rhoctl * MAX_PG_WAMP;
 
 	/*----------------- PCASL  specific calculations  ----------- */
 
@@ -1292,7 +1293,7 @@ STATUS predownload( void )
 
 	/* scale the  PCASL amplitude of RF pulses for the RHO channel... also in DAC units*/
 	a_rfpcasl = pcasl_RFamp * 1e-3 / maxB1Seq;
-	pcasl_RFamp_dac = (int)(a_rfpcasl* max_pg_iamp);
+	pcasl_RFamp_dac = (int)(a_rfpcasl* MAX_PG_WAMP);
 	ia_rfpcasl = pcasl_RFamp_dac;
 
 	fprintf(stderr, "\n PCASL RF ampliture : %f, a_rfpcasl: %f ",pcasl_RFamp, a_rfpcasl  );
@@ -2867,7 +2868,7 @@ int genviews(FILE* fID_partitions) {
 				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t%f \t%f \t%f \t", framen, shotn, echon, rz1, rx, ry, rz2, dz);
 				for (n = 0; n < 9; n++) {
 					fprintf(fID_kviews, "%f \t", T[n]);
-					tmtxtbl[framen*nshots*nechoes + shotn*nechoes + echon][n] = (long)round(MAX_PG_IAMP*T[n]);
+					tmtxtbl[framen*nshots*nechoes + shotn*nechoes + echon][n] = (long)round(MAX_PG_WAMP*T[n]);
 				}
 				fprintf(fID_kviews, "\n");
 			}
