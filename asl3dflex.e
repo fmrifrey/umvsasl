@@ -179,8 +179,6 @@ int ndisdaqtrains = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginn
 int ndisdaqechoes = 0 with {0, , 0, VIS, "Number of disdaq echos at beginning of echo train",};
 int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
 int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
-int ro_justify = 0 with {-1, 1, 0, VIS, "Readout ADC justify (-1 = left, 0 = center, 1 = right; default is -1 for GRE and 0 for FSE)",};
-int ro_offset = 0 with { , , 0, VIS, "Readout offset time -- essentially TE for GRE (us)",};
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 float phs_tip = 0.0 with { , , 0.0, VIS, "Initial transmitter phase for tipdown pulse",};
 float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion pulse",};
@@ -399,7 +397,6 @@ STATUS cvinit( void )
 
 	/* te */
 	cvdef(opte, 50);
-	cvmin(opte, avminte);
 	opte = 50ms;
 	pite1nub = 2;
 	pite1val2 = 100ms;
@@ -654,12 +651,6 @@ int getAPxAlgorithm(optparam *optflag, int *algorithm)
 /************************************************************************/
 STATUS cvcheck( void )
 {
-	/* Check if TE is valid */
-	if (opte < avminte) {
-		epic_error(use_ermes, "opte must be >= %dus", EM_PSD_SUPPORT_FAILURE, EE_ARGS(1), INT_ARG, avminte);
-		return FAILURE;
-	};
-
 	return SUCCESS;
 }   /* end cvcheck() */
 
@@ -678,7 +669,8 @@ STATUS predownload( void )
 	FILE* finfo;
 	FILE* fsid;
 	FILE* fseq;
-	FILE* fID_partitions;	
+	FILE* fID_partitions;
+	int minesp, minte, maxte;	
 	int framen, ddan, shotn, echon, slice;
 	float rf1_b1, rf2_b1;
 	float fatsat_b1, blksat_b1, bkgsup_b1;
@@ -1069,70 +1061,7 @@ STATUS predownload( void )
 
 	/* Scale the rotation matrices */
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, nechoes*nshots*nframes, 0);
-
-	/* Calculate minimum te */
-	avminte = 0;
-	avminte += pw_gzrf2/2 + pw_gzrf2d/2; /* 2nd half of the rf2 pulse */
-	avminte += pgbuffertime; /* buffer */
-	avminte += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d; /* crush2 pulse */
-	avminte += pgbuffertime; /* buffer */
-	avminte += TIMESSI; /* inter-core time */
-	avminte += pgbuffertime; /* buffer */
-	avminte += grad_len*GRAD_UPDATE_TIME; /* readout window length */
-	avminte += pgbuffertime; /* buffer */
-	avminte += TIMESSI; /* inter-core time */
-	avminte += pgbuffertime; /* buffer */
-	avminte += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d; /* crush1 pulse */
-	avminte += pgbuffertime; /* buffer */
-	avminte += pw_gzrf2a + pw_gzrf2/2; /* 1st half of rf2 pulse */
-	avminte = GRAD_UPDATE_TIME*ceil((float)avminte/(float)GRAD_UPDATE_TIME); /* round up to gradient sampling interval */
-	cvmin(opte, avminte);
-
-	/* Make sure opte fits */
-	if (opte < avminte || opte == PSD_MINFULLTE) {
-		opte = avminte;
-	}
-
-	/* Calculate tipcore deadtime */
-	deadtime_tipcore = opte/2;
-	deadtime_tipcore -= (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* rf1 rewinder pulse */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= TIMESSI; /* inter-core time */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= (pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d); /* crush1 pulse */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */
-
-	/* Set default ADC justification*/
-	if (ro_mode == 1) /* FSE - center the echo */
-		ro_justify = 0;
-	else /* GRE - left justify the echo */
-		ro_justify = -1;
-
-	/* Calculate seqcore deadtimes */
-	switch (ro_justify) {
-		case -1: /* left-justified ADC */
-			deadtime1_seqcore = pgbuffertime;
-			break;
-		case 0: /* center-justified ADC */
-			deadtime1_seqcore = (opte - avminte)/2;
-			break;
-		case 1: /* right-justified ADC */
-			deadtime1_seqcore = opte - avminte + pgbuffertime;
-	};
-	deadtime2_seqcore = opte - deadtime1_seqcore - avminte;
-	cvmin(ro_offset, -deadtime1_seqcore + pgbuffertime);
-	cvmax(ro_offset, deadtime2_seqcore - pgbuffertime); 
-
-	deadtime1_seqcore += ro_offset;
-	deadtime2_seqcore -= ro_offset;
-
-	/* Round deadtimes to nearest sampling interval */
-	deadtime1_seqcore += GRAD_UPDATE_TIME - (deadtime1_seqcore % GRAD_UPDATE_TIME);
-	deadtime2_seqcore -= (deadtime2_seqcore % GRAD_UPDATE_TIME);
-
+	
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
 	a_gyw = YGRAD_max;
@@ -1146,6 +1075,73 @@ STATUS predownload( void )
 	pw_gxw = GRAD_UPDATE_TIME*grad_len;
 	pw_gyw = GRAD_UPDATE_TIME*grad_len;
 	pw_gzw = GRAD_UPDATE_TIME*grad_len;
+
+	/* Calculate minimum ESP */
+	minesp = 0;
+	minesp += pw_gzrf2/2 + pw_gzrf2d/2; /* 2nd half of the rf2 pulse */
+	minesp += pgbuffertime; /* buffer */
+	minesp += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d; /* crush2 pulse */
+	minesp += pgbuffertime; /* buffer */
+	minesp += TIMESSI; /* inter-core time */
+	minesp += pgbuffertime; /* buffer */
+	minesp += pw_gxw; /* readout window length */
+	minesp += pgbuffertime; /* buffer */
+	minesp += TIMESSI; /* inter-core time */
+	minesp += pgbuffertime; /* buffer */
+	minesp += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d; /* crush1 pulse */
+	minesp += pgbuffertime; /* buffer */
+	minesp += pw_gzrf2a + pw_gzrf2/2; /* 1st half of rf2 pulse */
+	minesp = GRAD_UPDATE_TIME*ceil((float)minesp/(float)GRAD_UPDATE_TIME); /* round up to gradient sampling interval */
+	
+	/* Calculate tipcore deadtime */
+	deadtime_tipcore = esp/2;
+	deadtime_tipcore -= (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
+	deadtime_tipcore -= pgbuffertime; /* buffer */
+	deadtime_tipcore -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* rf1 rewinder pulse */
+	deadtime_tipcore -= pgbuffertime; /* buffer */
+	deadtime_tipcore -= TIMESSI; /* inter-core time */
+	deadtime_tipcore -= pgbuffertime; /* buffer */
+	deadtime_tipcore -= (pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d); /* crush1 pulse */
+	deadtime_tipcore -= pgbuffertime; /* buffer */
+	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */	
+
+	/* Set echo time constraints */
+	if (ro_mode == 1) { /* FSE */
+		cvdef(opte,esp);
+		minte = esp;
+		maxte = esp;
+		
+		deadtime1_seqcore = (esp - minesp) / 2 + pgbuffertime;
+		deadtime2_seqcore = (esp - minesp) / 2 + pgbuffertime;
+	}
+	else { /* GRE */
+		minte = (pw_gzrf2/2 + pw_gzrf2d); /* 2nd half of rf2 pulse */
+		minte += pgbuffertime; /* buffer */
+		minte += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d; /* rewinder */
+		minte += pgbuffertime; /* buffer */
+		minte += TIMESSI; /* inter-core time */
+		minte += pgbuffertime; /* buffer */
+		
+		maxte = esp; /* echo spacing */
+		maxte -= (pw_gzrf2/2 + pw_gzrf2a); /* 1st half of crusher at end of readout */
+		maxte -= pgbuffertime; /* buffer */
+		maxte -= (pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d); /* crusher */
+		maxte -= pgbuffertime; /* buffer */
+		maxte -= TIMESSI; /* inter-core time */
+		maxte -= pgbuffertime; /* buffer */
+		maxte -= pw_gxw; /* readout */
+		
+		deadtime1_seqcore = opte - minte + pgbuffertime;
+		minesp += deadtime1_seqcore;
+		deadtime2_seqcore = esp - minesp + pgbuffertime; 
+	}
+	cvmin(esp, minesp);
+	cvmin(opte, minte);
+	cvmax(opte, maxte);
+
+	/* Round deadtimes to nearest sampling interval */
+	deadtime1_seqcore += GRAD_UPDATE_TIME - (deadtime1_seqcore % GRAD_UPDATE_TIME);
+	deadtime2_seqcore -= (deadtime2_seqcore % GRAD_UPDATE_TIME);
 
 	/* Update the asl prep pulse parameters */
 	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
@@ -1581,7 +1577,6 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqechoes", ndisdaqechoes);
 	fprintf(finfo, "\t%-50s%20d\n", "dofatsat:", dofatsat);
 	fprintf(finfo, "\t%-50s%20d\n", "ro_mode:", ro_mode);
-	fprintf(finfo, "\t%-50s%20d\n", "ro_offset:", ro_offset);
 	fprintf(finfo, "\t%-50s%20d\n", "pgbuffertime:", pgbuffertime);
 	fprintf(finfo, "\t%-50s%20f\n", "phs_tip:", phs_tip);
 	fprintf(finfo, "\t%-50s%20f\n", "phs_inv:", phs_inv);
