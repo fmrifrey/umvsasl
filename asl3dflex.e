@@ -390,6 +390,7 @@ STATUS cvinit( void )
 	opautotr = PSD_MINIMUMTR;
 	pitrnub = 2;
 	pitrval2 = PSD_MINIMUMTR;
+	cvmax(optr,50s);
 
 	/* te */
 	opautote = PSD_MINTE;	
@@ -398,6 +399,9 @@ STATUS cvinit( void )
 
 	/* esp */
 	esp = 100ms;
+
+	/* rhrecon */
+	rhrecon = 2327;
 
 	/* frequency (xres) */
 	opxres = 64;
@@ -656,12 +660,11 @@ STATUS calc_seqparms( int sid )
 		deadtime2_seqcore = esp - minesp + pgbuffertime; 
 	}
 	cvmin(esp, minesp);
-	cvmin(opuser1, minesp*1e-3);
-	cvmin(opte, minte);
-	cvmax(opte, maxte);
-	
+	cvmin(opuser1, minesp*1e-3);	
 	if ((exist(opautote) == PSD_MINTE)||(exist(opautote) == PSD_MINTEFULL))
 		opte = minte;
+	cvmin(opte, minte);
+	cvmax(opte, maxte);
 
 	/* Round deadtimes to nearest sampling interval */
 	deadtime1_seqcore += GRAD_UPDATE_TIME - (deadtime1_seqcore % GRAD_UPDATE_TIME);
@@ -912,126 +915,10 @@ STATUS calc_seqparms( int sid )
 	absmintr += (prep2_id > 0)*(dur_prep2core + TIMESSI + prep2_pld + TIMESSI);
 	absmintr += (dofatsat)*(dur_fatsatcore + TIMESSI);
 	absmintr += dur_readout;
-	cvmin(optr, absmintr);
 	if (exist(opautotr) == PSD_MINIMUMTR)
 		optr = absmintr;	
-
-	return SUCCESS;
-}
-
-/************************************************************************/
-/*       			CVEVAL    				*/
-/* Called w/ every OPIO button push which has a corresponding CV. 	*/
-/* CVEVAL should only contain code which impacts the advisory panel--	*/
-/* put other code in cvinit or predownload				*/
-/************************************************************************/
-STATUS cveval( void )
-{
-	configSystem();
-	InitAdvPnlCVs();
-
-	pititle = 1;
-	cvdesc(pititle, "Advanced pulse sequence parameters");
+	cvmin(optr, absmintr);
 	
-	piuset = use0;
-	cvdesc(opuser0, "Readout mode (0 = GRE, 1 = FSE)");
-	cvdef(opuser0, 1);
-	opuser0 = 1;
-	cvmin(opuser0, 0);
-	cvmax(opuser0, 1);
-	ro_mode = opuser0;
-
-	piuset += use1;
-	cvdesc(opuser1, "Echo spacing (ms)");
-	cvdef(opuser1, 100);
-	cvmin(opuser1, 0);
-	cvmax(opuser1, 1000);	
-	opuser1 = 100;
-	esp = opuser1*1e3;
-
-	piuset += use2;
-	cvdesc(opuser2, "Number of frames to acquire");
-	cvdef(opuser2, 2);
-	opuser2 = 2;
-	cvmin(opuser2, 1);
-	cvmax(opuser2, MAXNFRAMES);
-	nframes = opuser2;
-	
-	piuset += use5;
-	cvdesc(opuser5, "Number of disdaq trains");
-	cvdef(opuser5, 2);
-	opuser5 = 2;
-	cvmin(opuser5, 0);
-	cvmax(opuser5, 100);
-	ndisdaqtrains = opuser5;
-	
-	piuset += use6;
-	cvdesc(opuser6, "Number of disdaq echoes");
-	cvdef(opuser6, 1);
-	opuser6 = 1;
-	cvmin(opuser6, 0);
-	cvmax(opuser6, 100);
-	ndisdaqechoes = opuser6;
-
-	piuset += use7;
-	cvdesc(opuser7, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser7, 4);
-	opuser7 = 4;
-	cvmin(opuser7, 1);
-	cvmax(opuser7, 4);
-	sptype2d = opuser7;
-
-	piuset += use8;
-	cvdesc(opuser8, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
-	cvdef(opuser8, 3);
-	opuser8 = 3;
-	cvmin(opuser8, 0);
-	cvmax(opuser8, 4);
-	sptype3d = opuser8;
-
-	piuset += use9;
-	cvdesc(opuser9, "VD-spiral center oversampling factor");
-	cvdef(opuser9, 1.0);
-	opuser9 = 1.0;
-	cvmin(opuser9, 0.001);
-	cvmax(opuser9, 50.0);
-	spvd0 = opuser9;
-
-	piuset += use10;
-	cvdesc(opuser10, "VD-spiral edge oversampling factor");
-	cvdef(opuser10, 1.0);
-	opuser10 = 1.0;
-	cvmin(opuser10, 0.001);
-	cvmax(opuser10, 50.0);
-	spvd1 = opuser10;
-
-	piuset += use11;
-	cvdesc(opuser11, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser11, 0.6);
-	cvmin(opuser11, 0.1);
-	cvmax(opuser11, 1.0);
-	opuser11 = 0.6;
-	varflipfac = opuser11;
-
-	piuset += use12;
-	cvdesc(opuser12, "Recon script ID #");
-	cvdef(opuser12, 2327);
-	cvmin(opuser12, 0);
-	cvmax(opuser12, 9999);
-	opuser12 = 2327;
-	rhrecon = opuser12;
-	
-	piuset += use13;
-	cvdesc(opuser13, "ASL prep schedule ID #");
-	cvdef(opuser13, 0);
-	cvmin(opuser13, 0);
-	cvmax(opuser13, 9999);
-	opuser13 = 0;
-	schedule_id = opuser13;
-
-
-	if (calc_seqparms(0) == FAILURE) return FAILURE;
-		
 	/* 
 	 * Calculate RF filter and update RBW:
 	 *   &echo1_rtfilt: I: all the filter parameters.
@@ -1062,6 +949,119 @@ STATUS cveval( void )
 
 	/* For use on the RSP side */
 	echo1bw = echo1_filt->bw;
+
+	return SUCCESS;
+}
+
+/************************************************************************/
+/*       			CVEVAL    				*/
+/* Called w/ every OPIO button push which has a corresponding CV. 	*/
+/* CVEVAL should only contain code which impacts the advisory panel--	*/
+/* put other code in cvinit or predownload				*/
+/************************************************************************/
+STATUS cveval( void )
+{
+	configSystem();
+	InitAdvPnlCVs();
+
+	pititle = 1;
+	cvdesc(pititle, "Advanced pulse sequence parameters");
+	
+	piuset = use0;
+	cvdesc(opuser0, "Readout mode (0 = GRE, 1 = FSE)");
+	cvdef(opuser0, ro_mode);
+	opuser0 = 1;
+	cvmin(opuser0, 0);
+	cvmax(opuser0, 1);
+	ro_mode = opuser0;
+
+	piuset += use1;
+	cvdesc(opuser1, "Echo spacing (ms)");
+	cvdef(opuser1, esp);
+	cvmin(opuser1, 0);
+	cvmax(opuser1, 1000);	
+	opuser1 = 100;
+	esp = opuser1*1e3;
+
+	piuset += use2;
+	cvdesc(opuser2, "Number of frames to acquire");
+	cvdef(opuser2, nframes);
+	opuser2 = 2;
+	cvmin(opuser2, 1);
+	cvmax(opuser2, MAXNFRAMES);
+	nframes = opuser2;
+	
+	piuset += use5;
+	cvdesc(opuser5, "Number of disdaq trains");
+	cvdef(opuser5, ndisdaqtrains);
+	opuser5 = 2;
+	cvmin(opuser5, 0);
+	cvmax(opuser5, 100);
+	ndisdaqtrains = opuser5;
+	
+	piuset += use6;
+	cvdesc(opuser6, "Number of disdaq echoes");
+	cvdef(opuser6, ndisdaqechoes);
+	opuser6 = 1;
+	cvmin(opuser6, 0);
+	cvmax(opuser6, 100);
+	ndisdaqechoes = opuser6;
+
+	piuset += use7;
+	cvdesc(opuser7, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
+	cvdef(opuser7, sptype2d);
+	opuser7 = 4;
+	cvmin(opuser7, 1);
+	cvmax(opuser7, 4);
+	sptype2d = opuser7;
+
+	piuset += use8;
+	cvdesc(opuser8, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
+	cvdef(opuser8, sptype3d);
+	opuser8 = 3;
+	cvmin(opuser8, 0);
+	cvmax(opuser8, 4);
+	sptype3d = opuser8;
+
+	piuset += use9;
+	cvdesc(opuser9, "VD-spiral center oversampling factor");
+	cvdef(opuser9, spvd0);
+	opuser9 = 1.0;
+	cvmin(opuser9, 0.001);
+	cvmax(opuser9, 50.0);
+	spvd0 = opuser9;
+
+	piuset += use10;
+	cvdesc(opuser10, "VD-spiral edge oversampling factor");
+	cvdef(opuser10, spvd1);
+	opuser10 = 1.0;
+	cvmin(opuser10, 0.001);
+	cvmax(opuser10, 50.0);
+	spvd1 = opuser10;
+
+	piuset += use11;
+	cvdesc(opuser11, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser11, varflipfac);
+	cvmin(opuser11, 0.1);
+	cvmax(opuser11, 1.0);
+	opuser11 = 0.6;
+	varflipfac = opuser11;
+
+	piuset += use12;
+	cvdesc(opuser12, "Recon script ID #");
+	cvdef(opuser12, rhrecon);
+	cvmin(opuser12, 0);
+	cvmax(opuser12, 9999);
+	opuser12 = 2327;
+	rhrecon = opuser12;
+	
+	piuset += use13;
+	cvdesc(opuser13, "ASL prep schedule ID #");
+	cvdef(opuser13, schedule_id);
+	cvmin(opuser13, 0);
+	cvmax(opuser13, 9999);
+	opuser13 = 0;
+	schedule_id = opuser13;
 
 @inline Prescan.e PScveval
 
