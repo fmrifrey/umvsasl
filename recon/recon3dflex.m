@@ -20,7 +20,7 @@ function x = recon3dflex(varargin)
     args = vararg_pair(defaults,varargin);
 
     % get data from pfile
-    [kdata,klocs,N,fov] = aslrec.get_pdata(args.pfile);
+    [kdata,klocs,N,fov] = aslrec.read_data(args.pfile);
     if args.coilwise % rearrange for coil-wise reconstruction of frame 1 (for making SENSE maps)
         kdata = permute(kdata(:,:,1,:),[1,2,4,3]);
         klocs = repmat(klocs(:,:,:,1),[1,1,1,size(kdata,3)]);
