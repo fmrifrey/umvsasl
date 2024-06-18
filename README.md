@@ -8,9 +8,9 @@ Welcome to our asl3dflex project repository. In this project, we create a end-en
 1. [Introduction](#introduction)
     - [Directory Structure](#directory-structure)
 4. [Usage](#usage)
+    - [Pulse Sequence Source Code](#pulse-sequence-source-code)
     - [Scanner Operation](#scanner-operation)
     - [MATLAB Reconstruction](#matlab-reconstruction)
-    - [Pulse Sequence Source Code](#pulse-sequence-source-code)
 6. [License](#license)
 7. [Contact](#contact)
 
