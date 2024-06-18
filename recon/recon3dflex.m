@@ -6,15 +6,24 @@ function x = recon3dflex(varargin)
 %
 % Required: MIRT (git@github.com:JeffFessler/mirt.git)
 %
+% Arguments:
+%   - pfile: pfile name search string, leave empty to use first P*.7 file
+%       in current working directory
+%   - smap: sensitivity map (must be [image size x ncoils]), leave empty
+%       to compress coils
+%   - recycle: option to recycle NUFFT system operators from frame to frame
+%   - coilwise: option to rearrange data for coil-wise recon of 1st frame,
+%       this is useful for creating SENSE maps from fully-sampled data
+%
 
     % check that mirt is set up
     aslrec.check4mirt();
 
     % set defaults
-    defaults.pfile = []; % pfile search string
-    defaults.smap = []; % sensitvity map ([im size x ncoils])
-    defaults.recycle = 1; % option to recycle system operators from frame to frame
-    defaults.coilwise = 0; % option to perform coil-wise reconstruction of first frame
+    defaults.pfile = [];
+    defaults.smap = [];
+    defaults.recycle = 1;
+    defaults.coilwise = 0;
     
     % parse input parameters
     args = vararg_pair(defaults,varargin);
@@ -58,6 +67,9 @@ function x = recon3dflex(varargin)
                 A = Asense(A,args.smap);
             end
             
+        elseif any(abs(klocs(:,:,:,framen) - klocs(:,:,:,1)) > 0)
+            % warn if kspace is not same on this frame
+            warning('klocs{framen} != klocs{1}, recycling the system operator may be incorrect!\n');
         end
         
         % get data for current frame
