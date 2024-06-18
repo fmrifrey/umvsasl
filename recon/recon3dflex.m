@@ -20,8 +20,8 @@ function x = recon3dflex(varargin)
     args = vararg_pair(defaults,varargin);
 
     % get data from pfile
-    [kdata,klocs,N,fov] = get_pdata(args.pfile);
-    if args.coilwise % coil-wise reconstruction of frame 1 (for making SENSE maps)
+    [kdata,klocs,N,fov] = aslrec.get_pdata(args.pfile);
+    if args.coilwise % rearrange for coil-wise reconstruction of frame 1 (for making SENSE maps)
         kdata = permute(kdata(:,:,1,:),[1,2,4,3]);
         klocs = repmat(klocs(:,:,:,1),[1,1,1,size(kdata,3)]);
     end
@@ -67,53 +67,5 @@ function x = recon3dflex(varargin)
         x(:,:,:,framen) = reshape(A' * (w.*y), N);
         
     end
-    
-end
-
-function [kdata,klocs,N,fov] = get_pdata(pfile)
-% Function to read in the pfile and .txt file data and format it for recon
-
-    if isempty(pfile)
-        pfile = './P*.7'; % default: use first Pfile on current path
-    end
-    
-    % find and read the pfile
-    tmp = dir(pfile);
-    if isempty(tmp)
-        error('no pfiles found from search string: %s', pfile);
-    end
-    pfile = tmp(1).name;
-    pdir = tmp(1).folder;
-    [raw,hdr] = aslrec.read_pfile([pdir,'/',pfile]);
-    raw(:,all(raw == 0, [1,3:5]),:,:,:) = []; % remove empty views
-    raw(:,:,all(raw == 0, [1:2,4:5]),:,:) = []; % remove empty frames
-    nviews = size(raw,2);
-    nframes = size(raw,3);
-    ncoils = size(raw,5);
-    kdata = reshape(raw,[],nviews,nframes,ncoils);
-    
-    % find and read the ktraj file
-    tmp = dir([pdir,'/ktraj*.txt']);
-    ktrajfile = tmp(1).name;
-    klocs0 = load(ktrajfile);
-    
-    % find and read the kviews file
-    tmp = dir([pdir,'/kviews*.txt']);
-    kviewsfile = tmp(1).name;
-    kviews = load(kviewsfile);
-    
-    % transform kspace locations using rotation matrices
-    klocs = zeros(size(klocs0,1),3,nviews,nframes); % klocs = [N x 3 x nviews x nframes]
-    for framen = 1:nframes
-        for viewn = 1:nviews
-            R = reshape(kviews((framen-1)*nviews + viewn,end-8:end)',3,3)';
-            klocs(:,:,viewn,framen) = klocs0*R';
-        end
-    end
-    klocs = permute(klocs,[1,3,2,4]); % klocs = [N x nviews x 3 x nframes]
-    
-    % save N and fov
-    N = hdr.image.dim_X * ones(1,3);
-    fov = hdr.image.dfov/10 * ones(1,3);
     
 end
