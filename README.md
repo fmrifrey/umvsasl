@@ -17,7 +17,6 @@ Welcome to our asl3dflex project repository. This project contains an end-end pi
         - [Running ASL Sequences](#asl-sequences)
         - [List of Variables](#scanner-variables)
     - [MATLAB Reconstruction](#matlab-reconstruction)
-        - [
 6. [License](#license)
 7. [Contact](#contact)
 
