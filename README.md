@@ -1,7 +1,7 @@
 # asl3dflex
 written by David Frey for fMRI lab at University of Michigan, PI: Luis Hernandez-Garcia
 
-Welcome to our asl3dflex project repository. In this project, we create a end-end pipeline for pulse sequence development and image reconstruction for velocity-selective ASL using a flexible spiral projection readout
+Welcome to our asl3dflex project repository. In this project, we create a end-end pipeline for pulse sequence development and image reconstruction for velocity-selective ASL using a flexible spiral projection readout.
 
 ## Table of Contents
 
