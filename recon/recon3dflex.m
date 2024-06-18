@@ -14,6 +14,7 @@ function x = recon3dflex(varargin)
 %   - recycle: option to recycle NUFFT system operators from frame to frame
 %   - coilwise: option to rearrange data for coil-wise recon of 1st frame,
 %       this is useful for creating SENSE maps from fully-sampled data
+%   - denscomp: option to use pipe-menon density compensation
 %
 
     % check that mirt is set up
@@ -24,6 +25,7 @@ function x = recon3dflex(varargin)
     defaults.smap = [];
     defaults.recycle = 1;
     defaults.coilwise = 0;
+    defaults.denscomp = 1;
     
     % parse input parameters
     args = vararg_pair(defaults,varargin);
@@ -61,7 +63,11 @@ function x = recon3dflex(varargin)
             omega = 2*pi*fov(:)'./N(:)' .* reshape(klocs(:,:,:,framen), [], 3);
             A = Gnufft(true(N),cat(2,{omega},nufft_args)); % NUFFT
             
-            w = aslrec.pipedcf(A); % calculate density weighting
+            if args.denscomp
+                w = aslrec.pipedcf(A); % calculate density weighting
+            else
+                w = ones(A.odim(1),1);
+            end
             
             if ncoils > 1 % sensitivity encoding
                 A = Asense(A,args.smap);
