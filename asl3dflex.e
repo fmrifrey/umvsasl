@@ -54,7 +54,7 @@
 #define MAXNFRAMES 1000 /* Maximum number of temporal frames */
 #define MAXITR 50 /* Maximum number of iterations for iterative processes */
 #define GAMMA 26754 /* Gyromagnetic ratio (rad/s/G) */
-#define TIMESSI 120 /* SSP instruction time - changed it from 400 - LHG */
+#define TIMESSI 120 /* SSP instruction time */
 #define SPOIL_SEED 21001 /* rf spoiler seed */
 
 @inline Prescan.e PSglobal
@@ -69,7 +69,7 @@ int debugstate = 1;
  * structures, arrays, files, etc.                                   *
  *                                                                   *
  * NOTE FOR Lx:                                                      *
- * Since the architectures between the Host and the IPG sides are    *
+ * Since the architectures between the Host and the IPG schedule_ides are    *
  * different, the memory alignment for certain types varies. Hence,  *
  * the following types are "forbidden": short, char, and double.     *
  *********************************************************************/
@@ -114,11 +114,6 @@ int prep1_rho_ctl[MAXWAVELEN];
 int prep1_theta_ctl[MAXWAVELEN];
 int prep1_grad_ctl[MAXWAVELEN];
 
-int pcasl_lbltbl[MAXNFRAMES];
-int pcasl_pldtbl[MAXNFRAMES];
-int pcasl_tbgs1tbl[MAXNFRAMES];
-int pcasl_tbgs2tbl[MAXNFRAMES];
-
 /* Declare ASL prep 2 pulse variables */
 int prep2_len = 5000;
 int prep2_lbltbl[MAXNFRAMES];
@@ -132,6 +127,7 @@ int prep2_rho_ctl[MAXWAVELEN];
 int prep2_theta_ctl[MAXWAVELEN];
 int prep2_grad_ctl[MAXWAVELEN];
 
+/* other schedule arrays */
 int tadjusttbl[MAXNFRAMES];
 int doblksattbl[MAXNFRAMES];
 
@@ -150,7 +146,7 @@ float xmitfreq2;
  * and ID description, etc.                                          *
  *                                                                   *
  * NOTE FOR Lx:                                                      *
- * Since the architectures between the Host and the IPG sides are    *
+ * Since the architectures between the Host and the IPG schedule_ides are    *
  * different, the memory alignment for certain types varies. Hence,  *
  * the following types are "forbidden": short, char, and double.     *
  *********************************************************************/
@@ -167,7 +163,7 @@ int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based o
 int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
 float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
-float SLEWMAX = 17000.0 with {1000, 25000.0, 17000.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
+float SLEWMAX = 12500.0 with {1000, 25000.0, 12500.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
 float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 
@@ -189,6 +185,7 @@ int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
 
 /* Trajectory cvs */
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",};
+float kz_acc = 1.0 with {1, 100.0, 1.0, VIS, "kz acceleration (SENSE) factor (for SOS only)",};
 float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
 float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
@@ -202,11 +199,7 @@ int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are pl
 int schedule_id = 0 with {0, , 0, VIS, "ASL labeling schedule (0 = no external schedule)",};
 int doblksat = 1 with {0, 1, 1, VIS, "Option to do bulk spin saturation at end of each readout",};
 
-int pcasl_pld = 0 with {0, , 0, VIS, "PCASL prep  : post-labeling delay (us; includes background suppression)",};
-int pcasl_mod = 1 with {1, 4, 1, VIS, "PCASL prep  : labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
-int pcasl_tbgs1 = 0 with {0, , 0, VIS, "PCASL prep  : 1st background suppression delay (0 = no pulse)",};
-int pcasl_tbgs2 = 0 with {0, , 0, VIS, "PCASL prep  : 2nd background suppression delay (0 = no pulse)",};
-
+int zero_CTL_grads = 0 with {0, 1, 0, VIS, "option to zero out control gradients",};
 int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)",};
 int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
 int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
@@ -229,41 +222,15 @@ int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppres
 int dur_blksatcore = 0 with {0, , 0, INVIS, "Duration of the bulk saturation core (us)",};
 int dur_prep1core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 1 cores (us)",};
 int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
-int dur_pcaslcore = 1500 with {0, , 0, INVIS, "Duration of the PCASL core",};
 int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
 int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
 int dur_tipcore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
 int dur_flipcore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)",};
 int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
 int dur_readout = 0 with {0, , 0, INVIS, "Duration of the whole readout section (us, including TIMESSI's)",};
-
-int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime inside seqcore (us)",};
-int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime inside seqcore (us)",};
-int deadtime_tipcore = 0 with {0, , 0, INVIS, "Deadtime inside tipcore for FSE readout (us)",};
-
-/* Declare PCASL variables */
-int	pcasl_flag=0; /* when this is turned to 1, prep1 pulse gets replaced with a PCASL pulse*/
-int 	pcasl_Duration = 1800ms; /* this is the bolus duration, not the duration of a single cycle */
-int	pcasl_period = 1000; /* (us) duration of one of the PCASL 'units' - I really want it to be 1000*/ 
-int 	pcasl_Npulses = 1800;
-int 	pcasl_RFamp_dac = 0;
-float 	pcasl_RFamp = 20;/*mGauss- ~8 deg flip for a 0.5ms hanning*/
-float 	pcasl_delta_phs = 0;
-float 	pcasl_delta_phs_correction = -0.628;  /* this is about typical */
-int 	pcasl_RFdur = 500us;
-float 	pcasl_Gamp =  0.35; /* slice select lobe for PCASL RF pulse G/cm*/
-float	pcasl_Gave = 0.05;  /* average gradient for each pulse in the train.  (using the numbers from LiZhao 2017) */
-float	pcasl_Gref_amp;     /* refocuser gradient */
-int	pcasl_ramp =  80us; 
-float	pcasl_distance = 15; /*cm - distance from the iso-center */
-float	pcasl_RFfreq;
-
-/* adding velocity selectivity shift to the VSI pulses (optional)*/
-int	doVelocitySpectrum = 0;
-int	vctr = 0;
-float	vel_step = 2.0;
-float	vel_target = 0.0;
-int	zero_CTL_grads = 0; /* option to use zero gradients for the control pulses */
+int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime inschedule_ide seqcore (us)",};
+int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime inschedule_ide seqcore (us)",};
+int deadtime_tipcore = 0 with {0, , 0, INVIS, "Deadtime inschedule_ide tipcore for FSE readout (us)",};
 
 @host
 /*********************************************************************
@@ -324,38 +291,7 @@ int readschedule(int id, int* var, char* varname, int lines);
 int readschedulef(int id, float* var, char* varname, int lines);
 int gentadjusttbl();
 int genlbltbl(int mod, int* lbltbl); 
-
-/* Function for modifying target velocity */
-int calc_prep_phs_from_velocity (int* vsi_pulse_mag, int* vsi_pulse_phs, int* vsi_pulse_grad, float vel_target, int vsi_train_len, double vsi_Gmax);
-
-/* Define function for calculating max B1 of a sinc pulse */
-float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
-
-	int M = 1001;
-	int n;
-	float w[M], x[M];
-	float area = 0.0;
-
-	/* Create an M-point symmetrical Hamming window */
-	for (n = 0; n < M; n++)
-		w[n] = 0.54 - 0.46*cos( 2*M_PI*n / (M-1) );
-	
-	/* Create a sinc pulse */
-	for (n = -(M-1)/2; n < (M-1)/2; n++) {
-		if (n == 0)
-			x[n + (M-1)/2] = 1.0;
-		else
-			x[n + (M-1)/2] = sin( 4 * M_PI * cyc_rf * n / (M-1) ) / ( 4 * M_PI * cyc_rf * n / (M-1) );
-	}
-	
-	/* Calculate the area (abswidth) */
-	for (n = 0; n < M; n++) {
-		area += x[n] * w[n] / M;
-	}
-
-	/* Return the B1 (derived from eq. 1 on page 2-31 in EPIC manual) */
-	return (SAR_ASINC1/area * 3200/pw_rf * flip_rf/90.0 * MAX_B1_SINC1_90);
-}
+float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf);
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -396,9 +332,13 @@ STATUS cvinit( void )
 	opautote = PSD_MINTE;	
 	pite1nub = 3;
 	pite1val2 = PSD_MINTE;
+	cvmin(opte, 0);
+	cvmax(opte, 500ms);
 
 	/* esp */
 	esp = 100ms;
+	cvmin(esp, 0);
+	cvmax(esp, 500ms);
 
 	/* rhrecon */
 	rhrecon = 2327;
@@ -490,8 +430,178 @@ STATUS cvinit( void )
 
 @inline InitAdvisories.e InitAdvPnlCVs
 
-STATUS calc_seqparms( int sid )
+/************************************************************************/
+/*       			CVEVAL    				*/
+/* Called w/ every OPIO button push which has a corresponding CV. 	*/
+/* CVEVAL should only contain code which impacts the advisory panel--	*/
+/* put other code in cvinit or predownload				*/
+/************************************************************************/
+STATUS cveval( void )
 {
+	configSystem();
+	InitAdvPnlCVs();
+
+	pititle = 1;
+	cvdesc(pititle, "Advanced pulse sequence parameters");
+
+	/* Add opuser fields to the Adv. pulse sequence parameters interface */	
+	piuset = use0;
+	cvdesc(opuser0, "Readout mode (0 = GRE, 1 = FSE)");
+	cvdef(opuser0, ro_mode);
+	opuser0 = 1;
+	cvmin(opuser0, 0);
+	cvmax(opuser0, 1);
+	ro_mode = opuser0;
+
+	piuset += use1;
+	cvdesc(opuser1, "Echo spacing (ms)");
+	cvdef(opuser1, esp);
+	if (ro_mode) {/* FSE */
+		cvmin(opuser1, opte*1e-3);
+		cvmax(opuser1, opte*1e-3);
+	}
+	else { /* GRE */
+		cvmin(opuser1, 0);
+		cvmax(opuser1, 1000);	
+	}
+	opuser1 = esp;
+	esp = opuser1*1e3;
+
+	piuset += use2;
+	cvdesc(opuser2, "Number of frames to acquire");
+	cvdef(opuser2, nframes);
+	opuser2 = nframes;
+	cvmin(opuser2, 1);
+	cvmax(opuser2, MAXNFRAMES);
+	nframes = opuser2;
+	
+	piuset += use5;
+	cvdesc(opuser5, "Number of disdaq trains");
+	cvdef(opuser5, ndisdaqtrains);
+	opuser5 = ndisdaqtrains;
+	cvmin(opuser5, 0);
+	cvmax(opuser5, 100);
+	ndisdaqtrains = opuser5;
+	
+	piuset += use6;
+	cvdesc(opuser6, "Number of disdaq echoes");
+	cvdef(opuser6, ndisdaqechoes);
+	opuser6 = ndisdaqechoes;
+	cvmin(opuser6, 0);
+	cvmax(opuser6, 100);
+	ndisdaqechoes = opuser6;
+
+	piuset += use7;
+	cvdesc(opuser7, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
+	cvdef(opuser7, sptype2d);
+	opuser7 = sptype2d;
+	cvmin(opuser7, 1);
+	cvmax(opuser7, 4);
+	sptype2d = opuser7;
+
+	piuset += use8;
+	cvdesc(opuser8, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
+	cvdef(opuser8, sptype3d);
+	opuser8 = sptype3d;
+	cvmin(opuser8, 0);
+	cvmax(opuser8, 4);
+	sptype3d = opuser8;
+
+	piuset += use9;
+	cvdesc(opuser9, "kz acceleration factor (SOS only)");
+	cvdef(opuser9, kz_acc);
+	opuser9 = kz_acc;
+	cvmin(opuser9, 1.0);
+	cvmax(opuser9, 100.0);
+	kz_acc = opuser9;
+
+	piuset += use10;
+	cvdesc(opuser10, "VD-spiral center oversampling factor");
+	cvdef(opuser10, spvd0);
+	opuser10 = spvd0;
+	cvmin(opuser10, 0.001);
+	cvmax(opuser10, 50.0);
+	spvd0 = opuser10;
+
+	piuset += use11;
+	cvdesc(opuser11, "VD-spiral edge oversampling factor");
+	cvdef(opuser11, spvd1);
+	opuser11 = spvd1;
+	cvmin(opuser11, 0.001);
+	cvmax(opuser11, 50.0);
+	spvd1 = opuser11;
+
+	piuset += use12;
+	cvdesc(opuser12, "Variable refocuser flip angle attenuation factor");
+	cvdef(opuser12, varflipfac);
+	opuser11 = varflipfac;
+	cvmin(opuser12, 0.1);
+	cvmax(opuser12, 1.0);
+	varflipfac = opuser12;
+
+	piuset += use13;
+	cvdesc(opuser13, "Recon script ID #");
+	cvdef(opuser13, rhrecon);
+	opuser13 = rhrecon;
+	cvmin(opuser13, 0);
+	cvmax(opuser13, 9999);
+	rhrecon = opuser13;
+	
+	piuset += use14;
+	cvdesc(opuser14, "ASL prep schedule ID #");
+	cvdef(opuser14, schedule_id);
+	opuser14 = schedule_id;
+	cvmin(opuser14, 0);
+	cvmax(opuser14, 9999);
+	schedule_id = opuser14;
+
+@inline Prescan.e PScveval
+
+	return SUCCESS;
+}   /* end cveval() */
+
+void getAPxParam(optval   *min,
+		optval   *max,
+		optdelta *delta,
+		optfix   *fix,
+		float    coverage,
+		int      algorithm)
+{
+	/* Need to be filled when APx is supported in this PSD */
+}
+
+int getAPxAlgorithm(optparam *optflag, int *algorithm)
+{
+	return APX_CORE_NONE;
+}
+
+/************************************************************************/
+/*       			CVCHECK    				*/
+/* Executed on each 'next page' to ensure prescription can proceed 	*/
+/* to the next page. 							*/
+/************************************************************************/
+STATUS cvcheck( void )
+{
+	return SUCCESS;
+}   /* end cvcheck() */
+
+
+/************************************************************************/
+/*             		    PRE-DOWNLOAD           		        */
+/* Executed prior to a download--all operations not needed for the 	*/
+/* advisory panel results.  Execute the	pulsegen macro expansions for	*/
+/* the predownload section here.  All internal amps, slice ordering,  	*/
+/* prescan slice calc., and SAT placement calculations are performed 	*/
+/* in this section.  Time anchor settings for pulsegen are done in this */
+/* section too.  				 			*/
+/************************************************************************/
+STATUS predownload( void )
+{
+	FILE* finfo;
+	FILE* fseq;
+	FILE* fschedule_id;
+	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
+	int slice, ddan, framen, shotn, echon;
 	FILE* fID_partitions;
 	int minesp, minte, maxte, absmintr;	
 	float rf1_b1, rf2_b1;
@@ -499,7 +609,204 @@ STATUS calc_seqparms( int sid )
 	float prep1_b1, prep2_b1;
 	int tmp_pwa, tmp_pw, tmp_pwd;
 	float tmp_a, tmp_area;
-	float mom1;
+
+	/*********************************************************************/
+#include "predownload.in"	/* include 'canned' predownload code */
+	/*********************************************************************/
+	
+	/* Create a file containing the schedule id number */
+	if (schedule_id > 0) {
+		fschedule_id = fopen("asl3dflex_scheduleidnum.txt", "w");
+		fprintf(fschedule_id, "%05d", schedule_id);
+		fclose(fschedule_id);
+	}
+
+	/* Read in flip angle schedule */
+	sprintf(tmpstr, "flipfactbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
+	switch (readschedulef(schedule_id, flipfactbl, tmpstr, opetl)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
+			for (echon = 0; echon < opetl; echon++) {
+				if (echon == 0)
+					flipfactbl[echon] = 1.0;
+				else
+					flipfactbl[echon] = varflipfac + (float)(echon - 1) / (float)(opetl - 1) * (1.0 - varflipfac);
+			}
+			
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in rf phase schedule */
+	sprintf(tmpstr, "flipphstbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
+	switch (readschedulef(schedule_id, flipphstbl, tmpstr, opetl)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
+			for (echon = 0; echon < opetl; echon++) {
+				if (ro_mode == 0) /* GRE mode */
+					flipphstbl[echon] = phs_tip + M_PI * spgr_phsinc/180 * pow(echon,2.0);
+				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
+					flipphstbl[echon] = phs_inv;
+				else /* phase cycled FSE */
+					flipphstbl[echon] = phs_inv * pow(-1.0, (float)echon);
+			}
+			break;
+		case -1:
+			return FAILURE;
+	}
+
+	/* Read in prep1_id (scalar) */
+	sprintf(tmpstr, "prep1_id");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	readschedule(schedule_id, &prep1_id, tmpstr, 1);
+
+
+	/* Read in prep1_pldtbl schedule */
+	sprintf(tmpstr, "prep1_pldtbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep1_pldtbl[framen] = (framen >= nm0frames) * prep1_pld;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep1_lbltbl schedule */
+	sprintf(tmpstr, "prep1_lbltbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_lbltbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			genlbltbl(prep1_mod, prep1_lbltbl);
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep1_tbgs1tbl schedule */
+	sprintf(tmpstr, "prep1_tbgs1tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_tbgs1tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep1_tbgs1tbl[framen] = (framen >= nm0frames) * prep1_tbgs1;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep1_tbgs2tbl schedule */
+	sprintf(tmpstr, "prep1_tbgs2tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep1_tbgs2tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep1_tbgs2tbl[framen] = (framen >= nm0frames) * prep1_tbgs2;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_id (scalar) */
+	sprintf(tmpstr, "prep2_id");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	readschedule(schedule_id, &prep2_id, tmpstr, 1);
+	
+	/* Read in prep2_pldtbl schedule */
+	sprintf(tmpstr, "prep2_pldtbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_pldtbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep2_pldtbl[framen] = (framen >= nm0frames) * prep2_pld;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_lbltbl schedule */
+	sprintf(tmpstr, "prep2_lbltbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_lbltbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			genlbltbl(prep2_mod, prep2_lbltbl);
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_tbgs1tbl schedule */
+	sprintf(tmpstr, "prep2_tbgs1tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_tbgs1tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep2_tbgs1tbl[framen] = (framen >= nm0frames) * prep2_tbgs1;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in prep2_tbgs2tbl schedule */
+	sprintf(tmpstr, "prep2_tbgs2tbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, prep2_tbgs2tbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				prep2_tbgs2tbl[framen] = (framen >= nm0frames) * prep2_tbgs2;
+			break;
+		case -1:
+			return FAILURE;
+	}
+	
+	/* Read in doblksat */
+	sprintf(tmpstr, "doblksat");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	readschedule(schedule_id, &doblksat, tmpstr, 1);
+	
+	/* Read in doblksattbl schedule */
+	sprintf(tmpstr, "doblksattbl");
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	switch (readschedule(schedule_id, doblksattbl, tmpstr, nframes)) {
+		case 0:
+			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
+			for (framen = 0; framen < nframes; framen++)
+				doblksattbl[framen] = (framen >= nm0frames) * doblksat;
+			break;
+		case -1:
+			return FAILURE;
+	}
+
+	/* Read in asl prep pulses */
+	fprintf(stderr, "predownload(): calling readprep() to read in ASL prep 1 pulse\n");
+	if (readprep(prep1_id, &prep1_len,
+		prep1_rho_lbl, prep1_theta_lbl, prep1_grad_lbl,
+		prep1_rho_ctl, prep1_theta_ctl, prep1_grad_ctl) == 0)
+	{
+		epic_error(use_ermes,"failure to read in ASL prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+	
+	fprintf(stderr, "predownload(): calling readprep() to read in ASL prep 2 pulse\n");
+	if (readprep(prep2_id, &prep2_len,
+		prep2_rho_lbl, prep2_theta_lbl, prep2_grad_lbl,
+		prep2_rho_ctl, prep2_theta_ctl, prep2_grad_ctl) == 0)
+	{
+		epic_error(use_ermes,"failure to read in ASL prep 2 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
 	
 	/* Update the background suppression pulse parameters */
 	res_bkgsuprho = 500;
@@ -516,7 +823,7 @@ STATUS calc_seqparms( int sid )
 	pw_blksattheta = pw_blksatrho;
 
 	/* Set the parameters for the fat sat pulse */
-	a_fatsatrho = 0.5 * 440 / 1250;			/* (LHG) where did this calculation come from? */
+	a_fatsatrho = 0.5 * 440 / 1250;	
 	pw_fatsatrho = 4 * round(cyc_fatsatrho*1e6 / 440);
 	res_fatsatrho = pw_fatsatrho / 2;	
 	
@@ -558,14 +865,14 @@ STATUS calc_seqparms( int sid )
 	a_gzrf2crush2 = tmp_a;
 		
 	/* Open the transformations schedule file */
-	sprintf(tmpstr, "./aslprep/schedules/%05d/partitions.txt", sid);
-	fprintf(stderr, "calc_seqparms(): opening %s...\n", tmpstr);
+	sprintf(tmpstr, "./aslprep/schedules/%05d/partitions.txt", schedule_id);
+	fprintf(stderr, "predownload(): opening %s...\n", tmpstr);
 	fID_partitions = fopen(tmpstr, "r");	
 
 	/* Generate initial spiral trajectory */
-	fprintf(stderr, "calc_seqparms(): calling genspiral()\n");
-	F0 = spvd0 * (float)opfov / 10.0;
-	F1 = 2*pow((float)opfov/10.0,2)/opxres *(spvd1 - spvd0);
+	fprintf(stderr, "predownload(): calling genspiral()\n");
+	F0 = spvd0/(float)opnshots * (float)opfov / 10.0;
+	F1 = 2*pow((float)opfov/10.0,2)/opxres *(spvd1 - spvd0)/(float)opnshots;
 	F2 = 0;
 	if (genspiral(fID_partitions) == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
@@ -573,7 +880,7 @@ STATUS calc_seqparms( int sid )
 	}
 	
 	/* Generate view transformations */
-	fprintf(stderr, "calc_seqparms(): calling genviews()\n");
+	fprintf(stderr, "predownload(): calling genviews()\n");
 	if (genviews(fID_partitions) == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
@@ -670,13 +977,6 @@ STATUS calc_seqparms( int sid )
 	deadtime1_seqcore += GRAD_UPDATE_TIME - (deadtime1_seqcore % GRAD_UPDATE_TIME);
 	deadtime2_seqcore -= (deadtime2_seqcore % GRAD_UPDATE_TIME);
 	
-	/* Adjust the  phase prep1 VS pulse so that we can do velocity targetting*/
-	if (vel_target > 0.0 )
-	{
-		fprintf(stderr, "calc_seqparms(): calling calc_prep_phs_from_velocity() to adjust the phase on prep 1 \n");
-		calc_prep_phs_from_velocity(prep1_rho_lbl, prep1_theta_lbl, prep1_grad_lbl, vel_target, prep1_len, prep1_gmax);
-	}
-	
 	/* Update the asl prep pulse parameters */
 	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
 	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
@@ -700,33 +1000,32 @@ STATUS calc_seqparms( int sid )
 
 	/* Determine max B1 for the rest of the pulses in L_SCAN */
 	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, 90.0);
-	fprintf(stderr, "calc_seqparms(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
+	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
 
 	rf2_b1 = calc_sinc_B1(cyc_rf2, pw_rf2, opflip);
-	fprintf(stderr, "calc_seqparms(): maximum B1 for rf2 pulse: %f\n", rf2_b1);
+	fprintf(stderr, "predownload(): maximum B1 for rf2 pulse: %f\n", rf2_b1);
 	if (rf2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf2_b1;
 
 	blksat_b1 = 0.03867; /* nominal max b1 of sech_7360 pulse */
-	blksat_b1 = 0.200;   /* LHG: Not sure about that number .... I think this is more appropriate for a sech */
-	fprintf(stderr, "calc_seqparms(): maximum B1 for blksat pulse: %f Gauss \n", blksat_b1);
+	fprintf(stderr, "predownload(): maximum B1 for blksat pulse: %f Gauss \n", blksat_b1);
 	if (blksat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = blksat_b1;
 	
 	bkgsup_b1 = blksat_b1; /* nominal max b1 of sech_7360 pulse */
 	/*bkgsup_b1 = 0.03867;*/ /* nominal max b1 of sech_7360 pulse */
-	fprintf(stderr, "calc_seqparms(): maximum B1 for bkgsup pulse: %f Gauss \n", bkgsup_b1);
+	fprintf(stderr, "predownload(): maximum B1 for bkgsup pulse: %f Gauss \n", bkgsup_b1);
 	if (bkgsup_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = bkgsup_b1;
 	
 	fatsat_b1 = calc_sinc_B1(cyc_fatsatrho, pw_fatsatrho, 90.0);
-	fprintf(stderr, "calc_seqparms(): maximum B1 for fatsat pulse: %f Gauss\n", fatsat_b1);
+	fprintf(stderr, "predownload(): maximum B1 for fatsat pulse: %f Gauss\n", fatsat_b1);
 	if (fatsat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = fatsat_b1;
 	
 	prep1_b1 = (prep1_id > 0) ? (prep1_rfmax*1e-3) : (0);
-	fprintf(stderr, "calc_seqparms(): maximum B1 for prep1 pulse: %f Gauss\n", prep1_b1);
+	fprintf(stderr, "predownload(): maximum B1 for prep1 pulse: %f Gauss\n", prep1_b1);
 	if (prep1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep1_b1;
 
 	prep2_b1 = (prep2_id > 0) ? (prep2_rfmax*1e-3) : (0);
-	fprintf(stderr, "calc_seqparms(): maximum B1 for prep2 pulse: %f Gauss\n", prep2_b1);
+	fprintf(stderr, "predownload(): maximum B1 for prep2 pulse: %f Gauss\n", prep2_b1);
 	if (prep2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep2_b1;
 
 	/* Determine peak B1 across all entry points */
@@ -775,73 +1074,6 @@ STATUS calc_seqparms( int sid )
 	a_prep2rhoctl = prep2_b1 / maxB1Seq;
 	ia_prep2rhoctl = a_prep2rhoctl * MAX_PG_WAMP;
 
-	/*----------------- PCASL  specific calculations  ----------- */
-
-	/* Trapezoid durations */
-	pw_gzpcasl = pcasl_RFdur;
-	pw_gzpcasla = pcasl_ramp;
-	pw_gzpcasld = pcasl_ramp;
-
-/*
-	pw_gzpcaslref =  80;
-	pw_gzpcaslrefa = pcasl_ramp * 2 ;
-	pw_gzpcaslrefd = pcasl_ramp * 2;
-*/
-	pw_gzpcaslref =  40;
-	pw_gzpcaslrefa = pcasl_ramp  ;
-	pw_gzpcaslrefd = pcasl_ramp ;
-
-	fprintf(stderr, "\ncalc_seqparms(): calculations for PCASL pulses ");
-	fprintf(stderr, "\nPCASL SS gradient: %f ", pcasl_Gamp);
-
-	pcasl_RFfreq = -pcasl_distance * GAMMA/2/M_PI * pcasl_Gamp ;
-	fprintf(stderr, "\nPCASL RF frequency offset: %f", pcasl_RFfreq);
-
-	/* The gradient moment from the first trapezoid */
-	mom1 = pcasl_Gamp*(pcasl_RFdur+2*pcasl_ramp) ;
-	/* Gradient moment of refocuser is calculated to maintain a specific gradient moment
-	for the pcasl module.  This moment is expressed as an average gradient : pcasl_Gave 
-	mom1 and mom2 are the gradient moments due to each of the lobes in the pcasl module
-	most papers specify G_ss and G_ave, so we have to calculate the amplitude of the G_ref
-  
-		pcasl_Gave =  (mom1 + mom2)/pcasl_period );
-		mom2 = pcasl_Gref_amp * (pw_gzpcaslref + pw_gzpcaslrefa) 
-
-	now solve for pcasl_Gref_amp ...
-
-	units of mom1 and mom2:  G/cm * us
-	*/
-	pcasl_Gref_amp = (pcasl_Gave*pcasl_period - mom1) / (pw_gzpcaslref + pw_gzpcaslrefa);
-	/* mom2 = pcasl_Gref_amp * (pw_gzpcaslref + pw_gzpcaslrefa); */
-
-	/* Change the values of the gradient amplitudes */
-	a_gzpcasl = pcasl_Gamp;
-	a_gzpcaslref = pcasl_Gref_amp;
-
-	fprintf(stderr, "\nPCASL refocuser gradient : %f ", pcasl_Gref_amp);
-
-	/* calculate linear phase increment for PCASL train:
-	units: GAMMA (rad/s/G) , mom (G/cm*us) , pcasl_distance (cm) */
-	pcasl_delta_phs = -GAMMA* pcasl_Gave * pcasl_period * pcasl_distance * 1e-6;
-	pcasl_delta_phs = atan2( sin(pcasl_delta_phs), cos(pcasl_delta_phs));
-	fprintf(stderr, "\nPCASL linear phase increment: %f radians", pcasl_delta_phs);
-
-	/* add a correction for off-resonance here (or whatever)*/
-	pcasl_delta_phs += pcasl_delta_phs_correction;
-	fprintf(stderr, "\nCORRECTED PCASL linear phase increment: %f (rads)", pcasl_delta_phs);
-
-	/* scale the  PCASL amplitude of RF pulses for the RHO channel... also in DAC units*/
-	a_rfpcasl = pcasl_RFamp * 1e-3 / maxB1Seq;
-	pcasl_RFamp_dac = (int)(a_rfpcasl* MAX_PG_WAMP);
-	ia_rfpcasl = pcasl_RFamp_dac;
-
-	fprintf(stderr, "\n PCASL RF ampliture : %f, a_rfpcasl: %f ",pcasl_RFamp, a_rfpcasl  );
-	fprintf(stderr, "\n PCASL RF ampliture in DAC untis: %d ", pcasl_RFamp_dac);
-	
-	/* adjust the pcasl_core to accomodate TIMESSI*/
-	pcasl_Npulses = (int)floor(pcasl_Duration/(pcasl_period ));
-	dur_pcaslcore = pcasl_period - TIMESSI;
-
 	/* Calculate the duration of blksatcore */
 	dur_blksatcore = 0;
 	dur_blksatcore += pgbuffertime;
@@ -861,7 +1093,6 @@ STATUS calc_seqparms( int sid )
 	dur_prep2core += pgbuffertime;
 	dur_prep2core += GRAD_UPDATE_TIME*prep2_len;
 	dur_prep2core += pgbuffertime;
-
 
 	/* Calculate the duration of bkgsupcore */
 	dur_bkgsupcore = 0;
@@ -910,7 +1141,6 @@ STATUS calc_seqparms( int sid )
 
 	/* Calculate minimum TR */
 	absmintr = doblksat*dur_blksatcore + TIMESSI;
-	absmintr += (pcasl_flag)*(dur_pcaslcore + TIMESSI + pcasl_pld + TIMESSI);
 	absmintr += (prep1_id > 0)*(dur_prep1core + TIMESSI + prep1_pld + TIMESSI);
 	absmintr += (prep2_id > 0)*(dur_prep2core + TIMESSI + prep2_pld + TIMESSI);
 	absmintr += (dofatsat)*(dur_fatsatcore + TIMESSI);
@@ -947,426 +1177,13 @@ STATUS calc_seqparms( int sid )
 		return FAILURE;
 	}
 
-	/* For use on the RSP side */
+	/* For use on the RSP schedule_ide */
 	echo1bw = echo1_filt->bw;
 
-	return SUCCESS;
-}
-
-/************************************************************************/
-/*       			CVEVAL    				*/
-/* Called w/ every OPIO button push which has a corresponding CV. 	*/
-/* CVEVAL should only contain code which impacts the advisory panel--	*/
-/* put other code in cvinit or predownload				*/
-/************************************************************************/
-STATUS cveval( void )
-{
-	configSystem();
-	InitAdvPnlCVs();
-
-	pititle = 1;
-	cvdesc(pititle, "Advanced pulse sequence parameters");
-	
-	piuset = use0;
-	cvdesc(opuser0, "Readout mode (0 = GRE, 1 = FSE)");
-	cvdef(opuser0, ro_mode);
-	opuser0 = 1;
-	cvmin(opuser0, 0);
-	cvmax(opuser0, 1);
-	ro_mode = opuser0;
-
-	piuset += use1;
-	cvdesc(opuser1, "Echo spacing (ms)");
-	cvdef(opuser1, esp);
-	cvmin(opuser1, 0);
-	cvmax(opuser1, 1000);	
-	opuser1 = 100;
-	esp = opuser1*1e3;
-
-	piuset += use2;
-	cvdesc(opuser2, "Number of frames to acquire");
-	cvdef(opuser2, nframes);
-	opuser2 = 2;
-	cvmin(opuser2, 1);
-	cvmax(opuser2, MAXNFRAMES);
-	nframes = opuser2;
-	
-	piuset += use5;
-	cvdesc(opuser5, "Number of disdaq trains");
-	cvdef(opuser5, ndisdaqtrains);
-	opuser5 = 2;
-	cvmin(opuser5, 0);
-	cvmax(opuser5, 100);
-	ndisdaqtrains = opuser5;
-	
-	piuset += use6;
-	cvdesc(opuser6, "Number of disdaq echoes");
-	cvdef(opuser6, ndisdaqechoes);
-	opuser6 = 1;
-	cvmin(opuser6, 0);
-	cvmax(opuser6, 100);
-	ndisdaqechoes = opuser6;
-
-	piuset += use7;
-	cvdesc(opuser7, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser7, sptype2d);
-	opuser7 = 4;
-	cvmin(opuser7, 1);
-	cvmax(opuser7, 4);
-	sptype2d = opuser7;
-
-	piuset += use8;
-	cvdesc(opuser8, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
-	cvdef(opuser8, sptype3d);
-	opuser8 = 3;
-	cvmin(opuser8, 0);
-	cvmax(opuser8, 4);
-	sptype3d = opuser8;
-
-	piuset += use9;
-	cvdesc(opuser9, "VD-spiral center oversampling factor");
-	cvdef(opuser9, spvd0);
-	opuser9 = 1.0;
-	cvmin(opuser9, 0.001);
-	cvmax(opuser9, 50.0);
-	spvd0 = opuser9;
-
-	piuset += use10;
-	cvdesc(opuser10, "VD-spiral edge oversampling factor");
-	cvdef(opuser10, spvd1);
-	opuser10 = 1.0;
-	cvmin(opuser10, 0.001);
-	cvmax(opuser10, 50.0);
-	spvd1 = opuser10;
-
-	piuset += use11;
-	cvdesc(opuser11, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser11, varflipfac);
-	cvmin(opuser11, 0.1);
-	cvmax(opuser11, 1.0);
-	opuser11 = 0.6;
-	varflipfac = opuser11;
-
-	piuset += use12;
-	cvdesc(opuser12, "Recon script ID #");
-	cvdef(opuser12, rhrecon);
-	cvmin(opuser12, 0);
-	cvmax(opuser12, 9999);
-	opuser12 = 2327;
-	rhrecon = opuser12;
-	
-	piuset += use13;
-	cvdesc(opuser13, "ASL prep schedule ID #");
-	cvdef(opuser13, schedule_id);
-	cvmin(opuser13, 0);
-	cvmax(opuser13, 9999);
-	opuser13 = 0;
-	schedule_id = opuser13;
-
-@inline Prescan.e PScveval
-
-	return SUCCESS;
-}   /* end cveval() */
-
-void getAPxParam(optval   *min,
-		optval   *max,
-		optdelta *delta,
-		optfix   *fix,
-		float    coverage,
-		int      algorithm)
-{
-	/* Need to be filled when APx is supported in this PSD */
-}
-
-int getAPxAlgorithm(optparam *optflag, int *algorithm)
-{
-	return APX_CORE_NONE;
-}
-
-/************************************************************************/
-/*       			CVCHECK    				*/
-/* Executed on each 'next page' to ensure prescription can proceed 	*/
-/* to the next page. 							*/
-/************************************************************************/
-STATUS cvcheck( void )
-{
-	return SUCCESS;
-}   /* end cvcheck() */
-
-
-/************************************************************************/
-/*             		    PRE-DOWNLOAD           		        */
-/* Executed prior to a download--all operations not needed for the 	*/
-/* advisory panel results.  Execute the	pulsegen macro expansions for	*/
-/* the predownload section here.  All internal amps, slice ordering,  	*/
-/* prescan slice calc., and SAT placement calculations are performed 	*/
-/* in this section.  Time anchor settings for pulsegen are done in this */
-/* section too.  				 			*/
-/************************************************************************/
-STATUS predownload( void )
-{
-	FILE* finfo;
-	FILE* fseq;
-	FILE* fsid;
-	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
-	int slice, ddan, framen, shotn, echon;
-
-	/*********************************************************************/
-#include "predownload.in"	/* include 'canned' predownload code */
-	/*********************************************************************/
-	
-	/* Create a file containing the schedule id number */
-	if (schedule_id > 0) {
-		fsid = fopen("asl3dflex_scheduleidnum.txt", "w");
-		fprintf(fsid, "%05d", schedule_id);
-		fclose(fsid);
-	}
-
-	/* Read in flip angle schedule */
-	sprintf(tmpstr, "flipfactbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
-	switch (readschedulef(schedule_id, flipfactbl, tmpstr, opetl)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);
-			for (echon = 0; echon < opetl; echon++) {
-				if (echon == 0)
-					flipfactbl[echon] = 1.0;
-				else
-					flipfactbl[echon] = varflipfac + (float)(echon - 1) / (float)(opetl - 1) * (1.0 - varflipfac);
-			}
-			
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in rf phase schedule */
-	sprintf(tmpstr, "flipphstbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
-	switch (readschedulef(schedule_id, flipphstbl, tmpstr, opetl)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);
-			for (echon = 0; echon < opetl; echon++) {
-				if (ro_mode == 0) /* GRE mode */
-					flipphstbl[echon] = phs_tip + M_PI * spgr_phsinc/180 * pow(echon,2.0);
-				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
-					flipphstbl[echon] = phs_inv;
-				else /* phase cycled FSE */
-					flipphstbl[echon] = phs_inv * pow(-1.0, (float)echon);
-			}
-			break;
-		case -1:
-			return FAILURE;
-	}
-
-	/* NOTE: the PCASL table files don't exist yet, so it will always generate them from scratch (case 0)*/
-	/* Read in pcasl_pldtbl schedule */
-	sprintf(tmpstr, "pcasl_pldtbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				pcasl_pldtbl[framen] = (framen >= nm0frames) * pcasl_pld;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in pcasl_lbltbl schedule */
-	sprintf(tmpstr, "pcasl_lbltbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, pcasl_lbltbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			genlbltbl(pcasl_mod, pcasl_lbltbl);
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in pcasl_tbgs1tbl schedule */
-	sprintf(tmpstr, "pcasl_tbgs1tbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, pcasl_tbgs1tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				pcasl_tbgs1tbl[framen] = (framen >= nm0frames) * pcasl_tbgs1;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in pcasl_tbgs2tbl schedule */
-	sprintf(tmpstr, "pcasl_tbgs2tbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, pcasl_tbgs1tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				pcasl_tbgs2tbl[framen] = (framen >= nm0frames) * pcasl_tbgs2;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-
-	/* Read in prep1_id (scalar) */
-	sprintf(tmpstr, "prep1_id");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	readschedule(schedule_id, &prep1_id, tmpstr, 1);
-
-
-	/* Read in prep1_pldtbl schedule */
-	sprintf(tmpstr, "prep1_pldtbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep1_pldtbl[framen] = (framen >= nm0frames) * prep1_pld;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep1_lbltbl schedule */
-	sprintf(tmpstr, "prep1_lbltbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_lbltbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			genlbltbl(prep1_mod, prep1_lbltbl);
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep1_tbgs1tbl schedule */
-	sprintf(tmpstr, "prep1_tbgs1tbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_tbgs1tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs1tbl[framen] = (framen >= nm0frames) * prep1_tbgs1;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep1_tbgs2tbl schedule */
-	sprintf(tmpstr, "prep1_tbgs2tbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_tbgs2tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs2tbl[framen] = (framen >= nm0frames) * prep1_tbgs2;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_id (scalar) */
-	sprintf(tmpstr, "prep2_id");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	readschedule(schedule_id, &prep2_id, tmpstr, 1);
-	
-	/* Read in prep2_pldtbl schedule */
-	sprintf(tmpstr, "prep2_pldtbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_pldtbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep2_pldtbl[framen] = (framen >= nm0frames) * prep2_pld;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_lbltbl schedule */
-	sprintf(tmpstr, "prep2_lbltbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_lbltbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			genlbltbl(prep2_mod, prep2_lbltbl);
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_tbgs1tbl schedule */
-	sprintf(tmpstr, "prep2_tbgs1tbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_tbgs1tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs1tbl[framen] = (framen >= nm0frames) * prep2_tbgs1;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_tbgs2tbl schedule */
-	sprintf(tmpstr, "prep2_tbgs2tbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_tbgs2tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs2tbl[framen] = (framen >= nm0frames) * prep2_tbgs2;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in doblksat */
-	sprintf(tmpstr, "doblksat");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	readschedule(schedule_id, &doblksat, tmpstr, 1);
-	
-	/* Read in doblksattbl schedule */
-	sprintf(tmpstr, "doblksattbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, doblksattbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "calc_seqparms(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				doblksattbl[framen] = (framen >= nm0frames) * doblksat;
-			break;
-		case -1:
-			return FAILURE;
-	}
-
-	/* Read in asl prep pulses */
-	fprintf(stderr, "calc_seqparms(): calling readprep() to read in ASL prep 1 pulse\n");
-	if (readprep(prep1_id, &prep1_len,
-		prep1_rho_lbl, prep1_theta_lbl, prep1_grad_lbl,
-		prep1_rho_ctl, prep1_theta_ctl, prep1_grad_ctl) == 0)
-	{
-		epic_error(use_ermes,"failure to read in ASL prep 1 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-		return FAILURE;
-	}
-	
-	fprintf(stderr, "calc_seqparms(): calling readprep() to read in ASL prep 2 pulse\n");
-	if (readprep(prep2_id, &prep2_len,
-		prep2_rho_lbl, prep2_theta_lbl, prep2_grad_lbl,
-		prep2_rho_ctl, prep2_theta_ctl, prep2_grad_ctl) == 0)
-	{
-		epic_error(use_ermes,"failure to read in ASL prep 2 pulse", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-		return FAILURE;
-	}
-
-	if (calc_seqparms(schedule_id) == FAILURE) return FAILURE;
 
 	/* Read in tadjusttbl schedule */
 	sprintf(tmpstr, "tadjusttbl");
-	fprintf(stderr, "calc_seqparms(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
+	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
 	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
 		case 0:   /* what to do if the schedule is not there  (readschedule returns 0)  */
 			for (framen = 0; framen < nframes; framen++) {
@@ -1376,14 +1193,6 @@ STATUS predownload( void )
 
 				if (doblksat)
 					tadjusttbl[framen] -= (dur_blksatcore + TIMESSI); /* bulk sat core */
-
-				if (pcasl_flag)	{
-					if(framen >= nm0frames){
-						/* currently the labeling duration and PLD are constant - no MRF yet */
-						tadjusttbl[framen] -= (pcasl_Npulses * pcasl_period) ;
-						tadjusttbl[framen] -= (pcasl_pldtbl[framen] > 0) * (pcasl_pldtbl[framen] + TIMESSI);
-					}
-				}
 
 				if (prep1_id > 0) { /* prep1 pulse/pld core */
 					tadjusttbl[framen] -= (dur_prep1core + TIMESSI);
@@ -1454,16 +1263,6 @@ STATUS predownload( void )
 			/* add tadjust */
 			pitscan += tadjusttbl[framen];
 
-			if (pcasl_flag)	{
-				/* currently the labeling duration and PLD are constant - no MRF yet */
-				if (pcasl_lbltbl[framen] == 0)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "PCASL ctl pulse", (int)pitscan, pcasl_Npulses*pcasl_period);
-				else if (pcasl_lbltbl[framen] == 1)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "PCASL lbl pulse", (int)pitscan, pcasl_Npulses*pcasl_period);
-				pitscan += pcasl_Npulses * pcasl_period ;
-				pitscan += (pcasl_pldtbl[framen] > 0) * (pcasl_pldtbl[framen] + TIMESSI);
-			}
-
 			if (prep1_id > 0) { /* add prep1 pulse/pld core */
 				if (prep1_lbltbl[framen] == 0)
 					fprintf(fseq, "%-50s%20dus%20dus\n", "prep1 ctl pulse", (int)pitscan, dur_prep1core);
@@ -1521,7 +1320,7 @@ STATUS predownload( void )
 		recfreq += (float)receive_freq[slice] / (float)opslquant;
 	}
 
-	if( orderslice( TYPNCAT, opetl, opetl, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNORMORDER, opslquant, opslquant, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
@@ -1541,8 +1340,7 @@ STATUS predownload( void )
 		nex = opnex;
 		exnex = opnex;
 	}
-	acqs = opetl;	/* Fixes the # of rhnpasses to the # of passes */
-	acq_type = TYPGRAD;
+
 @inline loadrheader.e rheaderinit   /* Recon variables */
 	
 	/* Set recon header variables:
@@ -1557,18 +1355,13 @@ STATUS predownload( void )
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = nframes*opnshots + 2 - (nframes*opnshots % 2);
+	rhnframes = 2*ceil((float)(opetl * opnshots + 1) / 2.0);
 	rhnecho = 1;
-	rhnslices = opetl;
+	rhnslices = nframes + 1;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
-
-	rhuser1 = nframes;
-	rhuser2 = opnshots;
-	rhuser3 = opetl;
-	rhuser4 = sptype3d;
 	
 	/* Print scan info to a file */
 	finfo = fopen("scaninfo.txt", "w");
@@ -1641,7 +1434,6 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "dur_tipcore:", dur_tipcore);
 	fprintf(finfo, "\t%-50s%20d\n", "dur_flipcore:", dur_flipcore);
 	fprintf(finfo, "\t%-50s%20d\n", "dur_seqcore:", dur_seqcore);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_pcaslcore:", dur_pcaslcore);
 	
 	fclose(finfo);
 
@@ -1671,34 +1463,6 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 	int tmploc;	
-
-	/*********************************/
-	/* Generate PCASL core */
-	/*********************************/	
-	fprintf(stderr, "\npulsegen(): beginning pulse generation of PCASL core\n");
-	tmploc = 0;	
-
-	fprintf(stderr, "\npulsegen(): generating PCASL slice select gradient and RF...\n");
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	TRAPEZOID(ZGRAD, gzpcasl,  tmploc + pw_gzpcasla, GRAD_UPDATE_TIME*1000, 0, loggrd);
-	tmploc += pw_gzpcasla ;
-	fprintf(stderr, "\tRF start: %dus, ", tmploc);
-	EXTWAVE(RHO, rfpcasl, tmploc  , 500, 1.0, 250, myhanning.rho, , loggrd);
-	tmploc += pw_gzpcasl + pw_gzpcasld;
-	fprintf(stderr, "\tend: %dus, ", tmploc);
-
-	fprintf(stderr, "\npulsegen(): generating PCASL refocus gradient...\n");
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	TRAPEZOID(ZGRAD, gzpcaslref,  tmploc + pw_gzpcaslrefa, GRAD_UPDATE_TIME*1000, 0, loggrd);
-	tmploc += pw_gzpcaslref + pw_gzpcaslrefa + pw_gzpcaslrefd;
-	fprintf(stderr, "\tend: %dus, ", tmploc);
-
-	fprintf(stderr, "\npulsegen(): finalizing pcaslcore...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %d us)\n", dur_pcaslcore, tmploc);
-	SEQLENGTH(pcaslcore, dur_pcaslcore, pcaslcore);
-	fprintf(stderr, "\tDone.\n");
-
-
 
 	/*********************************/
 	/* Generate bulk saturation core */
@@ -2000,10 +1764,11 @@ int disdaqn;
 int n;
 int rspfct;
 int rspsct;
-
-/* Inherited from grass.e: */
 int view;
 int slice;
+int echo;
+
+/* Inherited from grass.e: */
 int dabop;
 int excitation;
 int rspent;
@@ -2028,7 +1793,7 @@ int seqCount;
  *                   ASL3DFLEX.E RSP SECTION                         *
  *                                                                   *
  * Write here the functional code for the real time processing (IPG  *
- * side). You may declare standard C variables, but of limited types *
+ * schedule_ide). You may declare standard C variables, but of limited types *
  * short, int, long, float, double, and 1D arrays of those types.    *
  *********************************************************************/
 #include <math.h>
@@ -2115,112 +1880,6 @@ int play_blksat(int doblksatf) {
 	return dur_blksatcore + TIMESSI;
 }
 
-/* play the PCASL train and the post label delay including background suppression pulses*/
-int play_pcasl(int type,  int tbgs1, int tbgs2, int pld) {
-
-	int ttmp;
-	int ttotal = 0;
-	int i;
-	float CLvar = 1.0; /* variable to switch from control to label... (+1 or -1)*/
-	float tmpPHI = 0.0;
-
-	pcasl_Npulses = (int)(floor(pcasl_Duration/pcasl_period));
-
-	/* set the RF frequency for labeling pulses */
-	setfrequency((int)(pcasl_RFfreq/TARDIS_FREQ_RES), &rfpcasl, 0);
-
-	switch (type) {
-		case 0: /* control PCASL: loop alternating the sign of the RF pulse. update the phase*/
-			fprintf(stderr, "\tplay_aslprep(): playing PCASL control pulse (%d us)...\n", pcasl_period);
-			CLvar = -1.0;
-			break;
-		case -1: /* no PCASL - keep the gradients but don't play rf */
-			fprintf(stderr, "\tplay_aslprep(): playing PCASL label pulse (%d us)...\n", pcasl_period );
-			CLvar = 0.0;
-			break;
-		case 1: /* label PCASL : loop the PCASL core updating the phse of the RF pulses*/
-			fprintf(stderr, "\tplay_aslprep(): playing PCASL label pulse (%d us)...\n", pcasl_period );
-			CLvar = 1.0;
-			break;
-
-		default: /* invalid */
-			fprintf(stderr, "\tplay_aslprep(): ERROR - invalid type (%d)\n", type);
-			rspexit();
-			return -1;
-	}
-	/* Execute the PCASL train loop here */
-	for (i=0; i<pcasl_Npulses; i++){
-		setiamp((int)(pow(CLvar,i) * pcasl_RFamp_dac), &rfpcasl, 0);
-		/* may need to use setiphase() and 
-		   precompute integer phases into a table ? */
-		setphase(tmpPHI, &rfpcasl, 0  );
-		tmpPHI += pcasl_delta_phs;
-		boffset(off_pcaslcore);
-		startseq(0, MAY_PAUSE);
-		settrigger(TRIG_INTERN, 0);
-	}
-	ttotal += pcasl_Npulses*(pcasl_period);
-
-	/* Play pld and background suppression - same code as in the play_aslprep() */
-	if (pld > 0) {
-
-		/* Initialize pld before subtracting out tbgs timing */
-		ttmp = pld;
-
-		if (tbgs1 > 0) {
-			/* Play first background suppression delay/pulse */
-			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 delay (%d us)...\n", tbgs1 + TIMESSI);		
-			setperiod(tbgs1, &emptycore, 0);
-			ttmp -= (tbgs1 + TIMESSI);
-			boffset(off_emptycore);
-			startseq(0, MAY_PAUSE);
-			settrigger(TRIG_INTERN, 0);
-			ttotal += tbgs1 + TIMESSI;
-
-			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 (%d us)...\n", dur_bkgsupcore + TIMESSI);
-			ttmp -= (dur_bkgsupcore + TIMESSI);
-			boffset(off_bkgsupcore);
-			startseq(0, MAY_PAUSE);
-			settrigger(TRIG_INTERN, 0);
-			ttotal += dur_bkgsupcore + TIMESSI;
-		}
-
-		if (tbgs2 > 0) {
-			/* Play second background suppression delay/pulse */
-			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 delay (%d us)...\n", tbgs2 + TIMESSI);		
-			setperiod(tbgs2, &emptycore, 0);
-			ttmp -= (tbgs2 + TIMESSI);
-			boffset(off_emptycore);
-			startseq(0, MAY_PAUSE);
-			settrigger(TRIG_INTERN, 0);
-			ttotal += tbgs2 + TIMESSI;
-
-			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 (%d us)...\n", dur_bkgsupcore + TIMESSI);
-			ttmp -= (dur_bkgsupcore + TIMESSI);
-			boffset(off_bkgsupcore);
-			startseq(0, MAY_PAUSE);
-			settrigger(TRIG_INTERN, 0);
-			ttotal += dur_bkgsupcore + TIMESSI;
-		}
-
-		/* Check that ttmp is non-negative */
-		if (ttmp < 0) {
-			fprintf(stderr, "\tplay_aslprep(): ERROR: invalid pld and background suppression time combination\n");
-			rspexit();
-		}
-
-		/* Play remaining PLD deadtime */
-		fprintf(stderr, "\tplay_aslprep(): playing post-label delay (%d us), total end delay = %d us...\n", pld, ttmp);
-		setperiod(ttmp - TIMESSI, &emptycore, 0);
-		boffset(off_emptycore);
-		startseq(0, MAY_PAUSE);
-		settrigger(TRIG_INTERN, 0);
-		ttotal += ttmp;
-	}	
-	return ttotal;
-
-}
-
 /* PLAY_ASLPREP() Function for playing asl prep pulses & delays */
 int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs1, int tbgs2, int pld) {
 	int ttotal = 0;
@@ -2236,7 +1895,7 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			fprintf(stderr, "\tplay_aslprep(): playing label pulse (%d us)...\n", dur + TIMESSI);
 			boffset(off_lblcore);
 			break;
-		case -1:
+		case -1: /* off */
 			ttotal = dur + TIMESSI + pld + TIMESSI;
 			fprintf(stderr, "\tplay_aslprep(): playing deadtime in place of asl prep pulse (%d us)...\n", ttotal);
 			play_deadtime(ttotal);
@@ -2521,7 +2180,7 @@ STATUS scan( void )
 			/* Load the DAB */		
 			fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon+1);
 			loaddab(&echo1,
-					echon,
+					0,
 					0,
 					DABSTORE,
 					0,
@@ -2547,10 +2206,6 @@ STATUS scan( void )
 			fprintf(stderr, "scan(): Playing TR deadtime for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 			ttotal += play_deadtime(tadjusttbl[framen]);		
 
-			if (pcasl_flag >0  &&  framen >= nm0frames){
-				fprintf(stderr, "scan(): Playing PCASL pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_pcasl(pcasl_lbltbl[framen], pcasl_tbgs1tbl[framen], pcasl_tbgs2tbl[framen], pcasl_pldtbl[framen]);
-			}
 			if (prep1_id > 0 ) {
 				fprintf(stderr, "scan(): Playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_aslprep(prep1_lbltbl[framen], off_prep1ctlcore, off_prep1lblcore, dur_prep1core, prep1_tbgs1tbl[framen], prep1_tbgs2tbl[framen], prep1_pldtbl[framen]);
@@ -2582,18 +2237,20 @@ STATUS scan( void )
 				ttotal += play_deadtime(dur_seqcore);
 			};
 
-			/* readout echo train ... either GRE or FSE */
 			for (echon = 0; echon < opetl; echon++) {
 				fprintf(stderr, "scan(): Playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
 				ttotal += play_flip(echon);
 		
-				/* Load the DAB */		
-				fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, %d, DABON, PSD_LOAD_DAB_ALL)...\n", echon, framen*opnshots + shotn);
+				/* Load the DAB */
+				slice = framen+1;
+				view = 	shotn*opetl + echon + 1;
+				echo = 0;
+				fprintf(stderr, "scan(): loaddab(&echo1, %d, %d, DABSTORE, %d, DABON, PSD_LOAD_DAB_ALL)...\n", slice, echo, view);
 				loaddab(&echo1,
-						echon,
-						0,
+						slice,
+						echo,
 						DABSTORE,
-						framen*opnshots + shotn + 1,
+						view,
 						DABON,
 						PSD_LOAD_DAB_ALL);		
 
@@ -2675,7 +2332,7 @@ int genspiral(FILE* fID_partitions) {
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
-	float kzmax = kxymax;
+	float kzmax = (sptype3d == 1) ? (kz_acc * opetl / D / 2.0) : (kxymax);
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
@@ -3161,25 +2818,20 @@ int genlbltbl(int mod, int* lbltbl)
 		/* Set labeling scheme */
 		if (framen < nm0frames){
 			lbltbl[framen] = -1;
-			pcasl_lbltbl[framen] = -1;
 		}
 		else {
 			switch (mod) {
 				case 1: /* Label, control... */
 					lbltbl[framen] = (framen - nm0frames + 1) % 2; /* 1, 0, 1, 0 */
-					pcasl_lbltbl[framen] = (framen - nm0frames + 1) % 2; /* 1, 0, 1, 0 */
 					break;
 				case 2: /* Control, label... */
 					lbltbl[framen] = (framen - nm0frames) % 2; /* 0, 1, 0, 1 */
-					pcasl_lbltbl[framen] = (framen - nm0frames) % 2; /* 0, 1, 0, 1 */
 					break;
 				case 3: /* Label */
 					lbltbl[framen] = 1;
-					pcasl_lbltbl[framen] = 1;
 					break;
 				case 4: /* Control */
 					lbltbl[framen] = 0;
-					pcasl_lbltbl[framen] = 0;
 					break;
 			}
 		}
@@ -3187,6 +2839,35 @@ int genlbltbl(int mod, int* lbltbl)
 
 	return 1;
 }
+
+float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
+
+	int M = 1001;
+	int n;
+	float w[M], x[M];
+	float area = 0.0;
+
+	/* Create an M-point symmetrical Hamming window */
+	for (n = 0; n < M; n++)
+		w[n] = 0.54 - 0.46*cos( 2*M_PI*n / (M-1) );
+	
+	/* Create a sinc pulse */
+	for (n = -(M-1)/2; n < (M-1)/2; n++) {
+		if (n == 0)
+			x[n + (M-1)/2] = 1.0;
+		else
+			x[n + (M-1)/2] = sin( 4 * M_PI * cyc_rf * n / (M-1) ) / ( 4 * M_PI * cyc_rf * n / (M-1) );
+	}
+	
+	/* Calculate the area (abswidth) */
+	for (n = 0; n < M; n++) {
+		area += x[n] * w[n] / M;
+	}
+
+	/* Return the B1 (derived from eq. 1 on page 2-31 in EPIC manual) */
+	return (SAR_ASINC1/area * 3200/pw_rf * flip_rf/90.0 * MAX_B1_SINC1_90);
+}
+
 
 /************************ END OF ASL3DFLEX.E ******************************/
 
