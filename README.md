@@ -15,7 +15,7 @@ Welcome to our asl3dflex project repository. This project contains an end-end pi
         - [Scanner Setup](#scanner-setup)
         - [Running Basic Sequences](#basic-sequences)
         - [Running ASL Sequences](#asl-sequences)
-        - [List of Variables](#scanner-variables)
+        - [List of User Control Variables](#scanner-variables)
     - [MATLAB Reconstruction](#matlab-reconstruction)
         - [Requirements](#recon-requirements)
         - [Basic NUFFT Reconstruction Example](#recon-example)
