@@ -6,7 +6,7 @@ Welcome to our asl3dflex project repository. In this project, we create a end-en
 ## Table of Contents
 
 1. [Introduction](#introduction)
-    - [Directory Structure]
+    - [Directory Structure](#directory-structure)
 4. [Usage](#usage)
     - [Scanner Operation](#scanner-operation)
     - [MATLAB Reconstruction](#matlab-reconstruction)
