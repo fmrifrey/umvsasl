@@ -6,23 +6,23 @@ Welcome to our asl3dflex project repository. In this project, we create a end-en
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Directory Structure](#directory-structure)
-3. [Installation](#installation)
+    - [Directory Structure]
 4. [Usage](#usage)
     - [Scanner Operation](#scanner-operation)
     - [MATLAB Reconstruction](#matlab-reconstruction)
     - [Pulse Sequence Source Code](#pulse-sequence-source-code)
-5. [Contributing](#contributing)
 6. [License](#license)
 7. [Contact](#contact)
 
 ## Introduction
 
+### Directory Structure
 This repository contains several subpackages aimed at different aspects of MRI sequence development and data reconstruction. 
 
 - `/psdsrc`: Contains GE pulse sequence source code.
 - `/recon`: Contains MATLAB scripts for reconstructing MRI data.
 - `/scanner`: Contains a library of bash scripts and pulse .txt files used for scanning.
 
-## Directory Structure
+
+
 
