@@ -1,4 +1,4 @@
-# asl3dflex
+# umvsasl
 written by David Frey for fMRI lab at University of Michigan, PI: Luis Hernandez-Garcia
 
 Welcome to our asl3dflex project repository. This project implements an end-to-end pipeline for pulse sequence development and image reconstruction for velocity-selective ASL.
@@ -40,7 +40,7 @@ The repository is broken up into several subdirectories:
 ##### Prerequisites
 1. GE MRI system compatible with EPIC MR30.1
 2. All executables and libraries on path (usually /usr/g/bin):
-    - Compiled sequences: asl3dflex (host executable file) and asl3dflex.psd.ice (tgt executable file)
+    - Compiled sequences: umvsasl (host executable file) and umvsasl.psd.ice (tgt executable file)
     - Pulse/scripts/schedules library: /scanner
   
 ##### Selecting the pulse sequence:
