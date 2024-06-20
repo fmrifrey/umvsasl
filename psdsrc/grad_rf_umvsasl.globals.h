@@ -20,8 +20,8 @@
 /*@End*********************************************************/
 
 /* only do this once in any given compilation.*/
-#ifndef  grad_rf_asl3dflex_globals_INCL
-#define  grad_rf_asl3dflex_globals_INCL
+#ifndef  grad_rf_umvsasl_globals_INCL
+#define  grad_rf_umvsasl_globals_INCL
 
 #define RF_FREE1 0
 

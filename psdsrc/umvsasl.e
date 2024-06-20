@@ -1,17 +1,17 @@
 /*
- * David Frey & Luis Hernandez-Garcia
- * University of Michigan Department of Radiology
- * Functional MRI Laboratory
+ * David Frey
+ * University of Michigan Medicine Department of Radiology
+ * Functional MRI Laboratory, PI: Luis Hernandez-Garcia
  *
  * GE Medical Systems
  * Copyright (C) 1996-2003 The General Electric Company
  *
- * File Name : asl3dflex.e
+ * File Name : umvsasl.e
  * Language  : EPIC/ANSI C
  * Date      : 10-May-2023
  *
- * An ASL-prepped flexible spiral fse readout sequence (ASL3DFLEX),
- * built up from grass.e
+ * a velocity selective ASL-prepped turboFLASH sequence (umvsasl),
+ * built on grass.e
  */
 
 @inline epic.h
@@ -19,7 +19,7 @@
 
 @global
 /*********************************************************************
- *                  ASL3DFLEX.E GLOBAL SECTION                       *
+ *                   UMVSASL.E GLOBAL SECTION                        *
  *                                                                   *
  * Common code shared between the Host and IPG PSD processes.  This  *
  * section contains all the #define's, global variables and function *
@@ -29,7 +29,7 @@
 #include <string.h>
 
 #include "em_psd_ermes.in"
-#include "grad_rf_asl3dflex.globals.h"
+#include "grad_rf_umvsasl.globals.h"
 
 #include "stddef_ep.h"
 #include "epicconf.h"
@@ -45,7 +45,7 @@
 #include "epic_iopt_util.h"
 #include "filter.h"
 
-#include "asl3dflex.h"
+#include "umvsasl.h"
 
 /* Define important values */
 #define MAXWAVELEN 50000 /* Maximum wave length for gradients */
@@ -62,7 +62,7 @@ int debugstate = 1;
 
 @ipgexport
 /*********************************************************************
- *                ASL3DFLEX.E IPGEXPORT SECTION                      *
+ *                 UMVSASL.E IPGEXPORT SECTION                       *
  *                                                                   *
  * Standard C variables of _any_ type common for both the Host and   *
  * IPG PSD processes. Declare here all the complex type, e.g.,       *
@@ -97,16 +97,8 @@ int grad_len = 5000;
 /* Declare table of readout gradient transformation matrices */
 long tmtxtbl[MAXNSHOTS*MAXNECHOES][9];
 
-/* Declare table of refocuser flip angles */
-float flipfactbl[MAXNECHOES];
-float flipphstbl[MAXNECHOES];
-
-/* Declare ASL prep 1 pulse variables */
+/* Declare ASL prep pulse variables */
 int prep1_len = 5000;
-int prep1_lbltbl[MAXNFRAMES];
-int prep1_pldtbl[MAXNFRAMES];
-int prep1_tbgs1tbl[MAXNFRAMES];
-int prep1_tbgs2tbl[MAXNFRAMES];
 int prep1_rho_lbl[MAXWAVELEN];
 int prep1_theta_lbl[MAXWAVELEN];
 int prep1_grad_lbl[MAXWAVELEN];
@@ -114,12 +106,7 @@ int prep1_rho_ctl[MAXWAVELEN];
 int prep1_theta_ctl[MAXWAVELEN];
 int prep1_grad_ctl[MAXWAVELEN];
 
-/* Declare ASL prep 2 pulse variables */
 int prep2_len = 5000;
-int prep2_lbltbl[MAXNFRAMES];
-int prep2_pldtbl[MAXNFRAMES];
-int prep2_tbgs1tbl[MAXNFRAMES];
-int prep2_tbgs2tbl[MAXNFRAMES];
 int prep2_rho_lbl[MAXWAVELEN];
 int prep2_theta_lbl[MAXWAVELEN];
 int prep2_grad_lbl[MAXWAVELEN];
@@ -127,18 +114,13 @@ int prep2_rho_ctl[MAXWAVELEN];
 int prep2_theta_ctl[MAXWAVELEN];
 int prep2_grad_ctl[MAXWAVELEN];
 
-/* other schedule arrays */
-int tadjusttbl[MAXNFRAMES];
-int doblksattbl[MAXNFRAMES];
-
 /* Declare receiver and Tx frequencies */
 float recfreq;
-float xmitfreq1;
-float xmitfreq2;
+float xmitfreq;
 
 @cv
 /*********************************************************************
- *                     ASL3DFLEX.E CV SECTION                        *
+ *                      UMVSASL.E CV SECTION                         *
  *                                                                   *
  * Standard C variables of _limited_ types common for both the Host  *
  * and IPG PSD processes. Declare here all the simple types, e.g,    *
@@ -171,17 +153,15 @@ float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 int nframes = 2 with {1, , 2, VIS, "Number of frames",};
 int ndisdaqtrains = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 int ndisdaqechoes = 0 with {0, , 0, VIS, "Number of disdaq echos at beginning of echo train",};
-int dofatsat = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
-int ro_mode = 0 with {0, 1, 0, VIS, "Readout mode (0 = GRE, 1 = FSE)",};
+
+int fatsat_flag = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
+int irprep_flag = 1 with {0, 1, 0, VIS, "Option to do play an inversion recovery prep pulse before the readout",};
+
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
-float phs_tip = 0.0 with { , , 0.0, VIS, "Initial transmitter phase for tipdown pulse",};
-float phs_inv = M_PI/2 with { , , M_PI/2, VIS, "Transmitter phase for inversion pulse",};
-float phs_rx = 0.0 with { , , 0.0, VIS, "Receiever phase",};
-int phscyc_fse = 0 with {0, 1, 0, VIS, "Option to do rf phase cycling for FSE sequence",};
-float spgr_phsinc = 117 with {0, , 117, VIS, "Phase increment (deg) for RF spoiling in GRE mode",};
 float crushfac = 3.0 with {0, 10, 0, VIS, "Crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
-float varflipfac = 1 with {0, 1, 0, VIS, "Scaling factor for variable flip angle schedule (1 = constant fa)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
+
+int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* Trajectory cvs */
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",};
@@ -195,11 +175,11 @@ float F1 = 0 with { , , 0, INVIS, "vds fov coefficient 1",};
 float F2 = 0 with { , , 0, INVIS, "vds fov coefficient 2",};
 
 /* ASL prep pulse cvs */
-int nm0frames = 2 with {0, , 2, VIS, "Number of M0 frames (no prep pulses are played)",};
-int schedule_id = 0 with {0, , 0, VIS, "ASL labeling schedule (0 = no external schedule)",};
-int doblksat = 1 with {0, 1, 1, VIS, "Option to do bulk spin saturation at end of each readout",};
+int presat_flag = 1 with {0, 1, 1, VIS, "Option to play asl pre-saturation pulse at beginning of each tr",};
+int presat_delay = 1000000 with {0, , 1000000, VIS, "ASL pre-saturation delay (us)",};
 
-int zero_CTL_grads = 0 with {0, 1, 0, VIS, "option to zero out control gradients",};
+int zero_ctl_grads = 0 with {0, 1, 0, VIS, "option to zero out control gradients for asl prep pulses",};
+
 int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)",};
 int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
 int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
@@ -208,6 +188,7 @@ float prep1_gmax = 1.5 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient am
 int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep1_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 1st background suppression delay (0 = no pulse)",};
 int prep1_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 2nd background suppression delay (0 = no pulse)",};
+int prep1_tbgs3 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 3rd background suppression delay (0 = no pulse)",};
 
 int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)",};
 int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
@@ -217,24 +198,23 @@ float prep2_gmax = 1.5 with {0, , 1.5, VIS, "ASL prep pulse 2: maximum gradient 
 int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
 int prep2_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 1st background suppression delay (0 = no pulse)",};
 int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppression delay (0 = no pulse)",};
+int prep2_tbgs3 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 3rd background suppression delay (0 = no pulse)",};
 
 /* Declare core duration variables */
-int dur_blksatcore = 0 with {0, , 0, INVIS, "Duration of the bulk saturation core (us)",};
+int dur_presatcore = 0 with {0, , 0, INVIS, "Duration of the ASL pre-saturation core (us)",};
 int dur_prep1core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 1 cores (us)",};
 int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
 int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
 int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
-int dur_tipcore = 0 with {0, , 0, INVIS, "Duration of the tipdown core (us)",};
-int dur_flipcore = 0 with {0, , 0, INVIS, "Duration of the refocus core (us)",};
+int dur_irprepcore = 0 with {0, , 0, INVIS, "Duration of the inversion recovery prep core (us)",};
+int dur_tipdowncore = 0 with {0, , 0, INVIS, "Duration of the slice selective tipdown core (us)",};
 int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
-int dur_readout = 0 with {0, , 0, INVIS, "Duration of the whole readout section (us, including TIMESSI's)",};
-int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime inschedule_ide seqcore (us)",};
-int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime inschedule_ide seqcore (us)",};
-int deadtime_tipcore = 0 with {0, , 0, INVIS, "Deadtime inschedule_ide tipcore for FSE readout (us)",};
+int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime within core (us)",};
+int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime within core (us)",};
 
 @host
 /*********************************************************************
- *                    ASL3DFLEX.E HOST SECTION                       *
+ *                     UMVSASL.E HOST SECTION                        *
  *                                                                   *
  * Write here the code unique to the Host PSD process. The following *
  * functions must be declared here: cvinit(), cveval(), cvcheck(),   *
@@ -243,7 +223,7 @@ int deadtime_tipcore = 0 with {0, , 0, INVIS, "Deadtime inschedule_ide tipcore f
  *********************************************************************/
 #include <math.h>
 #include <stdlib.h>
-#include "grad_rf_asl3dflex.h"
+#include "grad_rf_umvsasl.h"
 #include "psdopt.h"
 #include "sar_pm.h"
 #include "support_func.host.h"
@@ -257,8 +237,8 @@ int deadtime_tipcore = 0 with {0, , 0, INVIS, "Deadtime inschedule_ide tipcore f
 @inline loadrheader.e rheaderhost
 
 /** Load PSD Header **/
-abstract("asl3dflex sequence");
-psdname("asl3dflex");
+abstract("umvsasl sequence");
+psdname("umvsasl");
 
 int num_conc_grad = 3;          /* always three for grass 	*/
 int entry;
@@ -280,17 +260,13 @@ float phi1 = 0.4656; /* 2d golden ratio 1 */
 float phi2 = 0.6823; /* 2d golden ratio 2 */
 
 /* Declare trajectory generation function prototypes */
-int genspiral(FILE* fID_partitions);
-int genviews(FILE* fID_partitions);
+int genspiral();
+int genviews();
 
 /* Declare function prototypes from aslprep.h */
 int readprep(int id, int *len,
 		int *rho_lbl, int *theta_lbl, int *grad_lbl,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
-int readschedule(int id, int* var, char* varname, int lines);
-int readschedulef(int id, float* var, char* varname, int lines);
-int gentadjusttbl();
-int genlbltbl(int mod, int* lbltbl); 
 float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf);
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
@@ -443,27 +419,14 @@ STATUS cveval( void )
 
 	pititle = 1;
 	cvdesc(pititle, "Advanced pulse sequence parameters");
+	piuset = 0;
 
 	/* Add opuser fields to the Adv. pulse sequence parameters interface */	
-	piuset = use0;
-	cvdesc(opuser0, "Readout mode (0 = GRE, 1 = FSE)");
-	cvdef(opuser0, ro_mode);
-	opuser0 = 1;
-	cvmin(opuser0, 0);
-	cvmax(opuser0, 1);
-	ro_mode = opuser0;
-
 	piuset += use1;
 	cvdesc(opuser1, "Echo spacing (ms)");
 	cvdef(opuser1, esp);
-	if (ro_mode) {/* FSE */
-		cvmin(opuser1, opte*1e-3);
-		cvmax(opuser1, opte*1e-3);
-	}
-	else { /* GRE */
-		cvmin(opuser1, 0);
-		cvmax(opuser1, 1000);	
-	}
+	cvmin(opuser1, 0);
+	cvmax(opuser1, 1000);	
 	opuser1 = esp;
 	esp = opuser1*1e3;
 
@@ -475,85 +438,69 @@ STATUS cveval( void )
 	cvmax(opuser2, MAXNFRAMES);
 	nframes = opuser2;
 	
-	piuset += use5;
-	cvdesc(opuser5, "Number of disdaq trains");
-	cvdef(opuser5, ndisdaqtrains);
-	opuser5 = ndisdaqtrains;
-	cvmin(opuser5, 0);
-	cvmax(opuser5, 100);
-	ndisdaqtrains = opuser5;
+	piuset += use3;
+	cvdesc(opuser3, "Number of disdaq trains");
+	cvdef(opuser3, ndisdaqtrains);
+	opuser3 = ndisdaqtrains;
+	cvmin(opuser3, 0);
+	cvmax(opuser3, 100);
+	ndisdaqtrains = opuser3;
 	
+	piuset += use4;
+	cvdesc(opuser4, "Number of disdaq echoes");
+	cvdef(opuser4, ndisdaqechoes);
+	opuser4 = ndisdaqechoes;
+	cvmin(opuser4, 0);
+	cvmax(opuser4, 100);
+	ndisdaqechoes = opuser4;
+
+	piuset += use5;
+	cvdesc(opuser5, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
+	cvdef(opuser5, sptype2d);
+	opuser5 = sptype2d;
+	cvmin(opuser5, 1);
+	cvmax(opuser5, 4);
+	sptype2d = opuser5;
+
 	piuset += use6;
-	cvdesc(opuser6, "Number of disdaq echoes");
-	cvdef(opuser6, ndisdaqechoes);
-	opuser6 = ndisdaqechoes;
+	cvdesc(opuser6, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
+	cvdef(opuser6, sptype3d);
+	opuser6 = sptype3d;
 	cvmin(opuser6, 0);
-	cvmax(opuser6, 100);
-	ndisdaqechoes = opuser6;
+	cvmax(opuser6, 4);
+	sptype3d = opuser6;
 
 	piuset += use7;
-	cvdesc(opuser7, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser7, sptype2d);
-	opuser7 = sptype2d;
-	cvmin(opuser7, 1);
-	cvmax(opuser7, 4);
-	sptype2d = opuser7;
+	cvdesc(opuser7, "kz acceleration factor (SOS only)");
+	cvdef(opuser7, kz_acc);
+	opuser7 = kz_acc;
+	cvmin(opuser7, 1.0);
+	cvmax(opuser7, 100.0);
+	kz_acc = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
-	cvdef(opuser8, sptype3d);
-	opuser8 = sptype3d;
-	cvmin(opuser8, 0);
-	cvmax(opuser8, 4);
-	sptype3d = opuser8;
+	cvdesc(opuser8, "VD-spiral center oversampling factor");
+	cvdef(opuser8, spvd0);
+	opuser8 = spvd0;
+	cvmin(opuser8, 0.001);
+	cvmax(opuser8, 50.0);
+	spvd0 = opuser8;
 
 	piuset += use9;
-	cvdesc(opuser9, "kz acceleration factor (SOS only)");
-	cvdef(opuser9, kz_acc);
-	opuser9 = kz_acc;
-	cvmin(opuser9, 1.0);
-	cvmax(opuser9, 100.0);
-	kz_acc = opuser9;
+	cvdesc(opuser9, "VD-spiral edge oversampling factor");
+	cvdef(opuser9, spvd1);
+	opuser9 = spvd1;
+	cvmin(opuser9, 0.001);
+	cvmax(opuser9, 50.0);
+	spvd1 = opuser9;
 
 	piuset += use10;
-	cvdesc(opuser10, "VD-spiral center oversampling factor");
-	cvdef(opuser10, spvd0);
-	opuser10 = spvd0;
-	cvmin(opuser10, 0.001);
-	cvmax(opuser10, 50.0);
-	spvd0 = opuser10;
-
-	piuset += use11;
-	cvdesc(opuser11, "VD-spiral edge oversampling factor");
-	cvdef(opuser11, spvd1);
-	opuser11 = spvd1;
-	cvmin(opuser11, 0.001);
-	cvmax(opuser11, 50.0);
-	spvd1 = opuser11;
-
-	piuset += use12;
-	cvdesc(opuser12, "Variable refocuser flip angle attenuation factor");
-	cvdef(opuser12, varflipfac);
-	opuser11 = varflipfac;
-	cvmin(opuser12, 0.1);
-	cvmax(opuser12, 1.0);
-	varflipfac = opuser12;
-
-	piuset += use13;
-	cvdesc(opuser13, "Recon script ID #");
-	cvdef(opuser13, rhrecon);
-	opuser13 = rhrecon;
-	cvmin(opuser13, 0);
-	cvmax(opuser13, 9999);
-	rhrecon = opuser13;
-	
-	piuset += use14;
-	cvdesc(opuser14, "ASL prep schedule ID #");
-	cvdef(opuser14, schedule_id);
-	opuser14 = schedule_id;
-	cvmin(opuser14, 0);
-	cvmax(opuser14, 9999);
-	schedule_id = opuser14;
+	cvdesc(opuser10, "Recon script ID #");
+	cvdef(opuser10, rhrecon);
+	opuser10 = rhrecon;
+	cvmin(opuser10, 0);
+	cvmax(opuser10, 9999);
+	rhrecon = opuser10;
 
 @inline Prescan.e PScveval
 
@@ -598,14 +545,12 @@ STATUS cvcheck( void )
 STATUS predownload( void )
 {
 	FILE* finfo;
-	FILE* fseq;
-	FILE* fschedule_id;
-	int receive_freq[opslquant], rf1_freq[opslquant], rf2_freq[opslquant];
-	int slice, ddan, framen, shotn, echon;
-	FILE* fID_partitions;
+	int echo1_freq[opslquant], rf1_freq[opslquant];
+	int slice;
 	int minesp, minte, maxte, absmintr;	
-	float rf1_b1, rf2_b1;
-	float fatsat_b1, blksat_b1, bkgsup_b1;
+	float rf0_b1, rf1_b1;
+	float rfps1_b1, rfps2_b1, rfps3_b1, rfps4_b1;
+	float rffs_b1, rfbs_b1;
 	float prep1_b1, prep2_b1;
 	int tmp_pwa, tmp_pw, tmp_pwd;
 	float tmp_a, tmp_area;
@@ -614,181 +559,6 @@ STATUS predownload( void )
 #include "predownload.in"	/* include 'canned' predownload code */
 	/*********************************************************************/
 	
-	/* Create a file containing the schedule id number */
-	if (schedule_id > 0) {
-		fschedule_id = fopen("asl3dflex_scheduleidnum.txt", "w");
-		fprintf(fschedule_id, "%05d", schedule_id);
-		fclose(fschedule_id);
-	}
-
-	/* Read in flip angle schedule */
-	sprintf(tmpstr, "flipfactbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
-	switch (readschedulef(schedule_id, flipfactbl, tmpstr, opetl)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
-			for (echon = 0; echon < opetl; echon++) {
-				if (echon == 0)
-					flipfactbl[echon] = 1.0;
-				else
-					flipfactbl[echon] = varflipfac + (float)(echon - 1) / (float)(opetl - 1) * (1.0 - varflipfac);
-			}
-			
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in rf phase schedule */
-	sprintf(tmpstr, "flipphstbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);
-	switch (readschedulef(schedule_id, flipphstbl, tmpstr, opetl)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);
-			for (echon = 0; echon < opetl; echon++) {
-				if (ro_mode == 0) /* GRE mode */
-					flipphstbl[echon] = phs_tip + M_PI * spgr_phsinc/180 * pow(echon,2.0);
-				else if (ro_mode == 1 && phscyc_fse == 0) /* phase cycled FSE */
-					flipphstbl[echon] = phs_inv;
-				else /* phase cycled FSE */
-					flipphstbl[echon] = phs_inv * pow(-1.0, (float)echon);
-			}
-			break;
-		case -1:
-			return FAILURE;
-	}
-
-	/* Read in prep1_id (scalar) */
-	sprintf(tmpstr, "prep1_id");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	readschedule(schedule_id, &prep1_id, tmpstr, 1);
-
-
-	/* Read in prep1_pldtbl schedule */
-	sprintf(tmpstr, "prep1_pldtbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_pldtbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep1_pldtbl[framen] = (framen >= nm0frames) * prep1_pld;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep1_lbltbl schedule */
-	sprintf(tmpstr, "prep1_lbltbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_lbltbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			genlbltbl(prep1_mod, prep1_lbltbl);
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep1_tbgs1tbl schedule */
-	sprintf(tmpstr, "prep1_tbgs1tbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_tbgs1tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs1tbl[framen] = (framen >= nm0frames) * prep1_tbgs1;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep1_tbgs2tbl schedule */
-	sprintf(tmpstr, "prep1_tbgs2tbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep1_tbgs2tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep1_tbgs2tbl[framen] = (framen >= nm0frames) * prep1_tbgs2;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_id (scalar) */
-	sprintf(tmpstr, "prep2_id");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	readschedule(schedule_id, &prep2_id, tmpstr, 1);
-	
-	/* Read in prep2_pldtbl schedule */
-	sprintf(tmpstr, "prep2_pldtbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_pldtbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep2_pldtbl[framen] = (framen >= nm0frames) * prep2_pld;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_lbltbl schedule */
-	sprintf(tmpstr, "prep2_lbltbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_lbltbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			genlbltbl(prep2_mod, prep2_lbltbl);
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_tbgs1tbl schedule */
-	sprintf(tmpstr, "prep2_tbgs1tbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_tbgs1tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs1tbl[framen] = (framen >= nm0frames) * prep2_tbgs1;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in prep2_tbgs2tbl schedule */
-	sprintf(tmpstr, "prep2_tbgs2tbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, prep2_tbgs2tbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				prep2_tbgs2tbl[framen] = (framen >= nm0frames) * prep2_tbgs2;
-			break;
-		case -1:
-			return FAILURE;
-	}
-	
-	/* Read in doblksat */
-	sprintf(tmpstr, "doblksat");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	readschedule(schedule_id, &doblksat, tmpstr, 1);
-	
-	/* Read in doblksattbl schedule */
-	sprintf(tmpstr, "doblksattbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, doblksattbl, tmpstr, nframes)) {
-		case 0:
-			fprintf(stderr, "predownload(): generating schedule for %s...\n", tmpstr);	
-			for (framen = 0; framen < nframes; framen++)
-				doblksattbl[framen] = (framen >= nm0frames) * doblksat;
-			break;
-		case -1:
-			return FAILURE;
-	}
-
 	/* Read in asl prep pulses */
 	fprintf(stderr, "predownload(): calling readprep() to read in ASL prep 1 pulse\n");
 	if (readprep(prep1_id, &prep1_len,
@@ -809,25 +579,18 @@ STATUS predownload( void )
 	}
 	
 	/* Update the background suppression pulse parameters */
-	res_bkgsuprho = 500;
-	pw_bkgsuprho = 5000;
-	a_bkgsuptheta = 1.0;
-	res_bkgsuptheta = res_bkgsuprho;
-	pw_bkgsuptheta = pw_bkgsuprho;
-	
-	/* Update the bulk saturation pulse parameters */
-	res_blksatrho = 250;
-	pw_blksatrho = 2500;
-	a_blksattheta = 1.0;
-	res_blksattheta = res_blksatrho;
-	pw_blksattheta = pw_blksatrho;
+	res_rfbs_rho = 500;
+	pw_rfbs_rho = 5000;
+	a_rfbs_theta = 1.0;
+	res_rfbs_theta = res_rfbs_rho;
+	pw_rfbs_theta = pw_rfbs_rho;
 
 	/* Set the parameters for the fat sat pulse */
-	a_fatsatrho = 0.5 * 440 / 1250;	
-	pw_fatsatrho = 4 * round(cyc_fatsatrho*1e6 / 440);
-	res_fatsatrho = pw_fatsatrho / 2;	
+	a_rffs = 0.5 * 440 / 1250;	
+	pw_rffs = 4 * round(cyc_rffs*1e6 / 440);
+	res_rffs = pw_rffs / 2;	
 	
-	/* Set the parameters for the spin echo tipdown refocuser gradients */
+	/* Set the parameters for the spin echo tipdown kspace rewinder */
 	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
 	tmp_a *= -0.5;
@@ -839,56 +602,60 @@ STATUS predownload( void )
 	/* Set the parameters for the crusher gradients */
 	tmp_area = crushfac * 2*M_PI/GAMMA * opxres/(opfov/10.0) * 1e6; /* Area under crusher s.t. dk = crushfac*kmax (G/cm*us) */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
-	pw_gzblksatcrush = tmp_pw;
-	pw_gzblksatcrusha = tmp_pwa;
-	pw_gzblksatcrushd = tmp_pwd;
-	a_gzblksatcrush = tmp_a;
+	
+	/* set presat pulse parameters */
+	pw_rfps1c = tmp_pw;
+	pw_rfps1ca = tmp_pwa;
+	pw_rfps1cd = tmp_pwd;
+	a_rfps1c = tmp_a;
+	pw_rfps2c = tmp_pw;
+	pw_rfps2ca = tmp_pwa;
+	pw_rfps2cd = tmp_pwd;
+	a_rfps2c = tmp_a;
+	pw_rfps3c = tmp_pw;
+	pw_rfps3ca = tmp_pwa;
+	pw_rfps3cd = tmp_pwd;
+	a_rfps3c = tmp_a;
+	pw_rfps4c = tmp_pw;
+	pw_rfps4ca = tmp_pwa;
+	pw_rfps4cd = tmp_pwd;
+	a_rfps4c = tmp_a;
 
-	pw_gzfatsatcrush = tmp_pw;
-	pw_gzfatsatcrusha = tmp_pwa;
-	pw_gzfatsatcrushd = tmp_pwd;
-	a_gzfatsatcrush = tmp_a;
+	pw_gzrffsspoil = tmp_pw;
+	pw_gzrffsspoila = tmp_pwa;
+	pw_gzrffsspoild = tmp_pwd;
+	a_gzrffsspoil = tmp_a;
 
-	pw_gzrf2crush1 = tmp_pw;
-	pw_gzrf2crush1a = tmp_pwa;
-	pw_gzrf2crush1d = tmp_pwd;
-	a_gzrf2crush1 = tmp_a;
+	pw_gzrf1spoil = tmp_pw;
+	pw_gzrf1spoila = tmp_pwa;
+	pw_gzrf1spoild = tmp_pwd;
+	a_gzrf1spoil = tmp_a;
 
-	if (ro_mode == 0) { /* GRE - crusher acts as a refocuser for rf2 slice select gradients */
-		tmp_area = a_gzrf2 * (pw_gzrf2 + (pw_gzrf2a + pw_gzrf2d)/2.0);
-		amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
-		tmp_a *= -0.5;
-	} /* otherwise, FSE - crusher is just a crusher */
-	pw_gzrf2crush2 = tmp_pw;
-	pw_gzrf2crush2a = tmp_pwa;
-	pw_gzrf2crush2d = tmp_pwd;
-	a_gzrf2crush2 = tmp_a;
+	/* set parameters for tipdown kspace rewinder */
+	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+	tmp_a *= -0.5;
+	pw_gzrf1r = tmp_pw;
+	pw_gzrf1ra = tmp_pwa;
+	pw_gzrf1rd = tmp_pwd;
+	a_gzrf1r = tmp_a;
 		
-	/* Open the transformations schedule file */
-	sprintf(tmpstr, "./aslprep/schedules/%05d/partitions.txt", schedule_id);
-	fprintf(stderr, "predownload(): opening %s...\n", tmpstr);
-	fID_partitions = fopen(tmpstr, "r");	
-
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
 	F0 = spvd0/(float)opnshots * (float)opfov / 10.0;
 	F1 = 2*pow((float)opfov/10.0,2)/opxres *(spvd1 - spvd0)/(float)opnshots;
 	F2 = 0;
-	if (genspiral(fID_partitions) == 0) {
+	if (genspiral() == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
 	
 	/* Generate view transformations */
 	fprintf(stderr, "predownload(): calling genviews()\n");
-	if (genviews(fID_partitions) == 0) {
+	if (genviews() == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-
-	/* Close the transformations file */
-	if (fID_partitions != 0)
-		fclose(fID_partitions);
 
 	/* Scale the rotation matrices */
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*nframes, 0);
@@ -909,9 +676,9 @@ STATUS predownload( void )
 
 	/* Calculate minimum ESP */
 	minesp = 1ms; /* fudge factor */
-	minesp += pw_gzrf2/2 + pw_gzrf2d/2; /* 2nd half of the rf2 pulse */
+	minesp += pw_gzrf1/2 + pw_gzrf1d/2; /* 2nd half of the rf1 pulse */
 	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d; /* crush2 pulse */
+	minesp += pw_gzrf1spoila + pw_gzrf1spoil + pw_gzrf1spoild; /* crush1 pulse */
 	minesp += pgbuffertime; /* buffer */
 	minesp += TIMESSI; /* inter-core time */
 	minesp += pgbuffertime; /* buffer */
@@ -919,53 +686,31 @@ STATUS predownload( void )
 	minesp += pgbuffertime; /* buffer */
 	minesp += TIMESSI; /* inter-core time */
 	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d; /* crush1 pulse */
+	minesp += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* crush1 pulse */
 	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf2a + pw_gzrf2/2; /* 1st half of rf2 pulse */
+	minesp += pw_gzrf1a + pw_gzrf1/2; /* 1st half of rf1 pulse */
 	minesp = GRAD_UPDATE_TIME*ceil((float)minesp/(float)GRAD_UPDATE_TIME); /* round up to gradient sampling interval */
 	
-	/* Calculate tipcore deadtime */
-	deadtime_tipcore = esp/2;
-	deadtime_tipcore -= (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* rf1 rewinder pulse */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= TIMESSI; /* inter-core time */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= (pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d); /* crush1 pulse */
-	deadtime_tipcore -= pgbuffertime; /* buffer */
-	deadtime_tipcore -= (pw_gzrf2a + pw_gzrf2/2); /* 1st half of rf2 pulse */	
+	minte = (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
+	minte += pgbuffertime; /* buffer */
+	minte += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* rewinder */
+	minte += pgbuffertime; /* buffer */
+	minte += TIMESSI; /* inter-core time */
+	minte += pgbuffertime; /* buffer */
 
-	/* Set echo time constraints */
-	if (ro_mode == 1) { /* FSE */
-		cvdef(opte,esp);
-		minte = esp;
-		maxte = esp;
-		
-		deadtime1_seqcore = (esp - minesp) / 2 + pgbuffertime;
-		deadtime2_seqcore = (esp - minesp) / 2 + pgbuffertime;
-	}
-	else { /* GRE */
-		minte = (pw_gzrf2/2 + pw_gzrf2d); /* 2nd half of rf2 pulse */
-		minte += pgbuffertime; /* buffer */
-		minte += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d; /* rewinder */
-		minte += pgbuffertime; /* buffer */
-		minte += TIMESSI; /* inter-core time */
-		minte += pgbuffertime; /* buffer */
-		
-		maxte = esp; /* echo spacing */
-		maxte -= (pw_gzrf2/2 + pw_gzrf2a); /* 1st half of crusher at end of readout */
-		maxte -= pgbuffertime; /* buffer */
-		maxte -= (pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d); /* crusher */
-		maxte -= pgbuffertime; /* buffer */
-		maxte -= TIMESSI; /* inter-core time */
-		maxte -= pgbuffertime; /* buffer */
-		maxte -= pw_gxw; /* readout */
-		
-		deadtime1_seqcore = opte - minte + pgbuffertime;
-		minesp += deadtime1_seqcore;
-		deadtime2_seqcore = esp - minesp + pgbuffertime; 
-	}
+	maxte = esp; /* echo spacing */
+	maxte -= (pw_gzrf1/2 + pw_gzrf1a); /* 1st half of crusher at end of readout */
+	maxte -= pgbuffertime; /* buffer */
+	maxte -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* crusher */
+	maxte -= pgbuffertime; /* buffer */
+	maxte -= TIMESSI; /* inter-core time */
+	maxte -= pgbuffertime; /* buffer */
+	maxte -= pw_gxw; /* readout */
+
+	deadtime1_seqcore = opte - minte + pgbuffertime;
+	minesp += deadtime1_seqcore;
+	deadtime2_seqcore = esp - minesp + pgbuffertime; 
+	
 	cvmin(esp, minesp);
 	cvmin(opuser1, minesp*1e-3);	
 	if ((exist(opautote) == PSD_MINTE)||(exist(opautote) == PSD_MINTEFULL))
@@ -999,26 +744,37 @@ STATUS predownload( void )
 	}
 
 	/* Determine max B1 for the rest of the pulses in L_SCAN */
-	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, 90.0);
+	rf0_b1 = calc_sinc_B1(cyc_rf0, pw_rf0, 180.0);
+	fprintf(stderr, "predownload(): maximum B1 for rf0 pulse: %f\n", rf0_b1);
+	if (rf0_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf0_b1;
+
+	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, opflip);
 	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
-
-	rf2_b1 = calc_sinc_B1(cyc_rf2, pw_rf2, opflip);
-	fprintf(stderr, "predownload(): maximum B1 for rf2 pulse: %f\n", rf2_b1);
-	if (rf2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf2_b1;
-
-	blksat_b1 = 0.03867; /* nominal max b1 of sech_7360 pulse */
-	fprintf(stderr, "predownload(): maximum B1 for blksat pulse: %f Gauss \n", blksat_b1);
-	if (blksat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = blksat_b1;
 	
-	bkgsup_b1 = blksat_b1; /* nominal max b1 of sech_7360 pulse */
-	/*bkgsup_b1 = 0.03867;*/ /* nominal max b1 of sech_7360 pulse */
-	fprintf(stderr, "predownload(): maximum B1 for bkgsup pulse: %f Gauss \n", bkgsup_b1);
-	if (bkgsup_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = bkgsup_b1;
+	rfps1_b1 = 0.1;
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse: %f Gauss \n", rfps1_b1);
+	if (rfps1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps1_b1;
 	
-	fatsat_b1 = calc_sinc_B1(cyc_fatsatrho, pw_fatsatrho, 90.0);
-	fprintf(stderr, "predownload(): maximum B1 for fatsat pulse: %f Gauss\n", fatsat_b1);
-	if (fatsat_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = fatsat_b1;
+	rfps2_b1 = 0.1;
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse 2: %f Gauss \n", rfps2_b1);
+	if (rfps2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps2_b1;
+	
+	rfps3_b1 = 0.1;
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse: %f Gauss \n", rfps3_b1);
+	if (rfps3_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps3_b1;
+	
+	rfps4_b1 = 0.1;
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse 2: %f Gauss \n", rfps4_b1);
+	if (rfps4_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps4_b1;
+
+	rfbs_b1 = 0.234;
+	fprintf(stderr, "predownload(): maximum B1 for background suppression prep pulse: %f Gauss \n", rfbs_b1);
+	if (rfbs_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfbs_b1;
+	
+	rffs_b1 = calc_sinc_B1(cyc_rffs, pw_rffs, 90.0);
+	fprintf(stderr, "predownload(): maximum B1 for fatsat pulse: %f Gauss\n", rffs_b1);
+	if (rffs_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rffs_b1;
 	
 	prep1_b1 = (prep1_id > 0) ? (prep1_rfmax*1e-3) : (0);
 	fprintf(stderr, "predownload(): maximum B1 for prep1 pulse: %f Gauss\n", prep1_b1);
@@ -1047,20 +803,26 @@ STATUS predownload( void )
 	}
 
 	/* Update all the rf amplitudes */
+	a_rf0 = rf0_b1 / maxB1Seq;
+	ia_rf0 = a_rf0 * MAX_PG_WAMP;
+	
 	a_rf1 = rf1_b1 / maxB1Seq;
 	ia_rf1 = a_rf1 * MAX_PG_WAMP;
 
-	a_rf2 = rf2_b1 / maxB1Seq;
-	ia_rf2 = a_rf2 * MAX_PG_WAMP;
+	a_rfps1 = rfps1_b1 / maxB1Seq;
+	ia_rfps1 = a_rfps1 * MAX_PG_WAMP;
+	a_rfps2 = rfps2_b1 / maxB1Seq;
+	ia_rfps2 = a_rfps2 * MAX_PG_WAMP;
+	a_rfps3 = rfps3_b1 / maxB1Seq;
+	ia_rfps3 = a_rfps3 * MAX_PG_WAMP;
+	a_rfps4 = rfps4_b1 / maxB1Seq;
+	ia_rfps4 = a_rfps4 * MAX_PG_WAMP;
+
+	a_rfbs_rho = rfbs_b1 / maxB1Seq;
+	ia_rfbs_rho = a_rfbs_rho * MAX_PG_WAMP;
 	
-	a_blksatrho = blksat_b1 / maxB1Seq;
-	ia_blksatrho = a_blksatrho * MAX_PG_WAMP;
-	
-	a_bkgsuprho = bkgsup_b1 / maxB1Seq;
-	ia_bkgsuprho = a_bkgsuprho * MAX_PG_WAMP;
-	
-	a_fatsatrho = fatsat_b1 / maxB1Seq;
-	ia_fatsatrho = a_fatsatrho * MAX_PG_WAMP;
+	a_rffs = rffs_b1 / maxB1Seq;
+	ia_rffs = a_rffs * MAX_PG_WAMP;
 	
 	a_prep1rholbl = prep1_b1 / maxB1Seq;
 	ia_prep1rholbl = a_prep1rholbl * MAX_PG_WAMP;
@@ -1074,13 +836,8 @@ STATUS predownload( void )
 	a_prep2rhoctl = prep2_b1 / maxB1Seq;
 	ia_prep2rhoctl = a_prep2rhoctl * MAX_PG_WAMP;
 
-	/* Calculate the duration of blksatcore */
-	dur_blksatcore = 0;
-	dur_blksatcore += pgbuffertime;
-	dur_blksatcore += pw_blksatrho;
-	dur_blksatcore += pgbuffertime;
-	dur_blksatcore += pw_gzblksatcrusha + pw_gzblksatcrush + pw_gzblksatcrushd;
-	dur_blksatcore += pgbuffertime;
+	/* Calculate the duration of presatcore */
+	dur_presatcore = 16000 + pgbuffertime;
 
 	/* Calcualte the duration of prep1core */
 	dur_prep1core = 0;
@@ -1088,7 +845,7 @@ STATUS predownload( void )
 	dur_prep1core += GRAD_UPDATE_TIME*prep1_len;
 	dur_prep1core += pgbuffertime;
 
-	/* Calcualte the duration of prep2core */
+	/* Calculate the duration of prep2core */
 	dur_prep2core = 0;
 	dur_prep2core += pgbuffertime;
 	dur_prep2core += GRAD_UPDATE_TIME*prep2_len;
@@ -1097,57 +854,51 @@ STATUS predownload( void )
 	/* Calculate the duration of bkgsupcore */
 	dur_bkgsupcore = 0;
 	dur_bkgsupcore += pgbuffertime;
-	dur_bkgsupcore += pw_bkgsuprho;
+	dur_bkgsupcore += pw_rfbs_rho;
 	dur_bkgsupcore += pgbuffertime;	
 
 	/* Calculate the duration of fatsatcore */
 	dur_fatsatcore = 0;
 	dur_fatsatcore += pgbuffertime;
-	dur_fatsatcore += pw_fatsatrho;
+	dur_fatsatcore += pw_rffs;
 	dur_fatsatcore += pgbuffertime;
-	dur_fatsatcore += pw_gzfatsatcrusha + pw_gzfatsatcrush + pw_gzfatsatcrushd;
+	dur_fatsatcore += pw_gzrffsspoila + pw_gzrffsspoil + pw_gzrffsspoild;
 	dur_fatsatcore += pgbuffertime;
 	
-	/* Calcualte the duration of tipcore */
-	dur_tipcore = 0;
-	dur_tipcore += pgbuffertime;
-	dur_tipcore += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d;
-	dur_tipcore += pgbuffertime;
-	dur_tipcore += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd;
-	dur_tipcore += pgbuffertime;
-	dur_tipcore += deadtime_tipcore;
+	/* calculate duration of irprepcore */
+	dur_irprepcore = 0;
+	dur_irprepcore += pgbuffertime;
+	dur_irprepcore += pw_rf0;
+	dur_irprepcore += pgbuffertime;
 
-	/* Calculate the duration of flipcore (GRE) this is also the refocuser is FSE */
-	dur_flipcore = 0;
-	dur_flipcore += pgbuffertime;
-	dur_flipcore += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d;
-	dur_flipcore += pgbuffertime;
-	dur_flipcore += pw_gzrf2a + pw_gzrf2 + pw_gzrf2d;
-	dur_flipcore += pgbuffertime;
-	dur_flipcore += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d;
-	dur_flipcore += pgbuffertime; 
+	/* calculate duration of tipdowncore */
+	dur_tipdowncore = 0;
+	dur_tipdowncore += pgbuffertime;
+	dur_tipdowncore += pw_gzrf1spoila + pw_gzrf1spoil + pw_gzrf1spoild;
+	dur_tipdowncore += pgbuffertime;
+	dur_tipdowncore += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d;
+	dur_tipdowncore += pgbuffertime;
+	dur_tipdowncore += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd;
+	dur_tipdowncore += pgbuffertime; 
 
-	/* Calculate the duration of seqcore */
+	/* calculate duration of seqcore */
 	dur_seqcore = 0;
 	dur_seqcore += deadtime1_seqcore + pgbuffertime;	
 	dur_seqcore += GRAD_UPDATE_TIME*grad_len;
 	dur_seqcore += pgbuffertime + deadtime2_seqcore;
-	
-	/* Calculate the duration of the whole readout section (with TIMESSI's)*/
-	dur_readout = 0;
-	if (ro_mode == 1) /* FSE */
-		dur_readout += dur_tipcore + TIMESSI;
-	dur_readout += (opetl + ndisdaqechoes) * (dur_flipcore + TIMESSI + dur_seqcore + TIMESSI);
 
-	/* Calculate minimum TR */
-	absmintr = doblksat*dur_blksatcore + TIMESSI;
+	/* calculate minimum TR */
+	absmintr = presat_flag*(dur_presatcore + TIMESSI + presat_delay);
 	absmintr += (prep1_id > 0)*(dur_prep1core + TIMESSI + prep1_pld + TIMESSI);
 	absmintr += (prep2_id > 0)*(dur_prep2core + TIMESSI + prep2_pld + TIMESSI);
-	absmintr += (dofatsat)*(dur_fatsatcore + TIMESSI);
-	absmintr += dur_readout;
+	absmintr += fatsat_flag*(dur_fatsatcore + TIMESSI);
+	absmintr += (opetl + ndisdaqechoes) * (dur_tipdowncore + TIMESSI + dur_seqcore + TIMESSI);
 	if (exist(opautotr) == PSD_MINIMUMTR)
 		optr = absmintr;	
 	cvmin(optr, absmintr);
+
+	/* calculate TR deadtime */
+	tr_deadtime = optr - absmintr;
 	
 	/* 
 	 * Calculate RF filter and update RBW:
@@ -1180,40 +931,6 @@ STATUS predownload( void )
 	/* For use on the RSP schedule_ide */
 	echo1bw = echo1_filt->bw;
 
-
-	/* Read in tadjusttbl schedule */
-	sprintf(tmpstr, "tadjusttbl");
-	fprintf(stderr, "predownload(): reading in %s using readschedule(), schedule_id = %d\n", tmpstr, schedule_id);	
-	switch (readschedule(schedule_id, tadjusttbl, tmpstr, nframes)) {
-		case 0:   /* what to do if the schedule is not there  (readschedule returns 0)  */
-			for (framen = 0; framen < nframes; framen++) {
-
-				/* start with tadjust set to TR and then subtract all the other time blocks */
-				tadjusttbl[framen] = optr;
-
-				if (doblksat)
-					tadjusttbl[framen] -= (dur_blksatcore + TIMESSI); /* bulk sat core */
-
-				if (prep1_id > 0) { /* prep1 pulse/pld core */
-					tadjusttbl[framen] -= (dur_prep1core + TIMESSI);
-					tadjusttbl[framen] -= (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
-				}
-
-				if (prep2_id > 0) { /* prep2 pulse/pld core */
-					tadjusttbl[framen] -= (dur_prep2core + TIMESSI);
-					tadjusttbl[framen] -= (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
-				}
-
-				if (dofatsat) /* if fat sat is enabled */
-					tadjusttbl[framen] -= (dur_fatsatcore + TIMESSI); /* add fat sat core */
-
-				tadjusttbl[framen] -= dur_readout; /* add the readout cores */
-			}
-			break;
-		case -1:
-			return FAILURE;
-	}
-
 @inline Prescan.e PSfilter
 
 	/* For Prescan: Inform 'Auto' Prescan about prescan parameters 	*/
@@ -1241,55 +958,10 @@ STATUS predownload( void )
 	entry_point_table[L_MPS2].epfilter = (unsigned char)echo1_filt->fslot;
 	entry_point_table[L_MPS2].epprexres = grad_len;
 
-	/* Loop through sequence and write out timing */
+	/* set sequence clock */
 	pidmode = PSD_CLOCK_NORM;
 	pitslice = optr;
-	pitscan = 0; /* pitscan controls the clock time on the interface */	
-	fseq = fopen("scansequence.txt","w");
-	fprintf(fseq, "%-50s%22s%22s\n\n", "event label", "start time", "duration");
-	for (ddan = 0; ddan < ndisdaqtrains; ddan++) {
-		pitscan += optr - dur_readout;
-		fprintf(fseq, "%-50s%20dus%20dus\n", "disdaq readout", (int)pitscan, dur_readout);
-		pitscan += dur_readout;
-	}
-	for (framen = 0; framen < nframes; framen++) {
-		for (shotn = 0; shotn < opnshots; shotn++) {
-			if (doblksat) {
-				if (doblksattbl[framen] == 1)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "bulk sat pulse", (int)pitscan, dur_blksatcore);
-				pitscan += dur_blksatcore + TIMESSI; /* add bulk sat core */
-			}
-
-			/* add tadjust */
-			pitscan += tadjusttbl[framen];
-
-			if (prep1_id > 0) { /* add prep1 pulse/pld core */
-				if (prep1_lbltbl[framen] == 0)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "prep1 ctl pulse", (int)pitscan, dur_prep1core);
-				else if (prep1_lbltbl[framen] == 1)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "prep1 lbl pulse", (int)pitscan, dur_prep1core);
-				pitscan += dur_prep1core + TIMESSI;
-				pitscan += (prep1_pldtbl[framen] > 0) * (prep1_pldtbl[framen] + TIMESSI);
-			}
-			if (prep2_id > 0) { /* add prep2 pulse/pld core */
-				if (prep2_lbltbl[framen] == 0)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "prep2 ctl pulse", (int)pitscan, dur_prep2core);
-				else if (prep2_lbltbl[framen] == 1)
-					fprintf(fseq, "%-50s%20dus%20dus\n", "prep2 lbl pulse", (int)pitscan, dur_prep2core);
-				pitscan += dur_prep2core + TIMESSI;
-				pitscan += (prep2_pldtbl[framen] > 0) * (prep2_pldtbl[framen] + TIMESSI);
-			}
-
-			if (dofatsat) { /* if fat sat is enabled */
-				fprintf(fseq, "%-50s%20dus%20dus\n", "fat sat pulse", (int)pitscan, dur_fatsatcore);
-				pitscan += dur_fatsatcore + TIMESSI; /* add fat sat core */
-			}
-
-			fprintf(fseq, "%-50s%20dus%20dus\n", "readout", (int)pitscan, dur_readout);
-			pitscan += dur_readout; /* add the readout cores */
-		}
-	}
-	fclose(fseq);
+	pitscan = (nframes*opnshots + ndisdaqtrains) * optr; /* pitscan controls the clock time on the interface */	
 	
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
@@ -1307,17 +979,14 @@ STATUS predownload( void )
 	/* Set up Tx/Rx frequencies */
 	for (slice = 0; slice < opslquant; slice++) rsp_info[slice].rsprloc = 0;
 	setupslices(rf1_freq, rsp_info, opslquant, a_gzrf1, 1.0, opfov, TYPTRANSMIT);
-	setupslices(rf2_freq, rsp_info, opslquant, a_gzrf2, 1.0, opfov, TYPTRANSMIT);
-	setupslices(receive_freq, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
+	setupslices(echo1_freq, rsp_info, opslquant, 0.0, 1.0, 2.0, TYPREC);
 
 	/* Average together all slice frequencies */
-	xmitfreq1 = 0;
-	xmitfreq2 = 0;
+	xmitfreq = 0;
 	recfreq = 0;	
 	for (slice = 0; slice < opslquant; slice++) {
-		xmitfreq1 += (float)rf1_freq[slice] / (float)opslquant;
-		xmitfreq2 += (float)rf2_freq[slice] / (float)opslquant;
-		recfreq += (float)receive_freq[slice] / (float)opslquant;
+		xmitfreq += (float)rf1_freq[slice] / (float)opslquant;
+		recfreq += (float)echo1_freq[slice] / (float)opslquant;
 	}
 
 	if( orderslice( TYPNORMORDER, opslquant, opslquant, TRIG_INTERN ) == FAILURE )
@@ -1362,10 +1031,11 @@ STATUS predownload( void )
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
-	
+
+
 	/* Print scan info to a file */
 	finfo = fopen("scaninfo.txt", "w");
-
+/*
 	fprintf(finfo, "cvs:\n");
 	fprintf(finfo, "\t%-50s%20f\n", "opfov:", opfov);
 	fprintf(finfo, "\t%-50s%20f\n", "opflip:", opflip);
@@ -1434,8 +1104,9 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "dur_tipcore:", dur_tipcore);
 	fprintf(finfo, "\t%-50s%20d\n", "dur_flipcore:", dur_flipcore);
 	fprintf(finfo, "\t%-50s%20d\n", "dur_seqcore:", dur_seqcore);
-	
+*/	
 	fclose(finfo);
+
 
 @inline Prescan.e PSpredownload	
 
@@ -1448,7 +1119,7 @@ STATUS predownload( void )
 
 @pg
 /*********************************************************************
- *                 ASL3DFLEX.E PULSEGEN SECTION                      *
+ *                  UMVSASL.E PULSEGEN SECTION                       *
  *                                                                   *
  * Write here the functional code that loads hardware sequencer      *
  * memory with data that will allow it to play out the sequence.     *
@@ -1464,37 +1135,70 @@ STATUS pulsegen( void )
 	sspinit(psd_board_type);
 	int tmploc;	
 
-	/*********************************/
-	/* Generate bulk saturation core */
-	/*********************************/	
-	fprintf(stderr, "pulsegen(): beginning pulse generation of blksatcore (bulk saturation core)\n");
-	tmploc = 0;	
-
-	fprintf(stderr, "pulsegen(): generating blksatrho & blksattheta (bulk saturation rf)...\n");
-	tmploc += pgbuffertime; /* start time for blksat rf pulse */
-	EXTWAVE(RHO, blksatrho, tmploc, 5000, 1.0, 250, sech_7360.rho, , loggrd);
-	EXTWAVE(THETA, blksattheta, tmploc, 5000, 1.0, 250, sech_7360.theta, , loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_blksatrho; /* end time for blksat rf pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);	
-
-	fprintf(stderr, "pulsegen(): generating gzblksatcrush (bulk saturation crusher)...\n");
-	tmploc += pgbuffertime; /* start time for blksat crusher */
-	TRAPEZOID(ZGRAD, gzblksatcrush, tmploc + pw_gzblksatcrusha, 0, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzblksatcrusha + pw_gzblksatcrush + pw_gzblksatcrushd; /* end time for blksat crusher */
-	fprintf(stderr, " end: %dus\n", tmploc);
-	tmploc += pgbuffertime; /* add some buffer */
+	/************************/
+	/* generate presat core */
+	/************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of presatcore (asl pre-saturation core)\n");
+	tmploc = 0;
 	
-	fprintf(stderr, "pulsegen(): finalizing blksatcore...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_blksatcore, tmploc);
-	SEQLENGTH(blksatcore, dur_blksatcore, blksatcore);
+	fprintf(stderr, "pulsegen(): generating rfps1 (presat rf pulse 1)...\n");
+	tmploc += pgbuffertime; /* start time for rfps1 pulse */
+	TRAPEZOID(RHO, rfps1, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	tmploc += pw_rfps1;
+	
+	fprintf(stderr, "pulsegen(): generating rfps1c (presat rf crusher 1)...\n");
+	tmploc += pgbuffertime; /*start time for gzrf1spoil */
+	TRAPEZOID(ZGRAD, rfps1c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_rfps1ca + pw_rfps1c + pw_rfps1cd; /* end time for gzrf1spoil */
+	fprintf(stderr, " end: %dus\n", tmploc);
+
+	fprintf(stderr, "pulsegen(): generating rfps2 (presat rf pulse 1)...\n");
+	tmploc = 4000 + pgbuffertime; /* start time for rfps2 pulse */
+	TRAPEZOID(RHO, rfps2, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	tmploc += pw_rfps2;
+	
+	fprintf(stderr, "pulsegen(): generating rfps2c (presat rf crusher 1)...\n");
+	tmploc += pgbuffertime; /*start time for gzrf1spoil */
+	TRAPEZOID(ZGRAD, rfps2c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_rfps2ca + pw_rfps1c + pw_rfps1cd; /* end time for gzrf1spoil */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	
+	fprintf(stderr, "pulsegen(): generating rfps3 (presat rf pulse 1)...\n");
+	tmploc = 8000 + pgbuffertime; /* start time for rfps3 pulse */
+	TRAPEZOID(RHO, rfps3, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	tmploc += pw_rfps3;
+	
+	fprintf(stderr, "pulsegen(): generating rfps3c (presat rf crusher 1)...\n");
+	tmploc += pgbuffertime;
+	TRAPEZOID(ZGRAD, rfps3c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_rfps3ca + pw_rfps1c + pw_rfps1cd;
+	fprintf(stderr, " end: %dus\n", tmploc);
+	
+	fprintf(stderr, "pulsegen(): generating rfps4 (presat rf pulse 1)...\n");
+	tmploc = 12000 + pgbuffertime;
+	TRAPEZOID(RHO, rfps4, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	tmploc += pw_rfps4;
+	
+	fprintf(stderr, "pulsegen(): generating rfps4c (presat rf crusher 1)...\n");
+	tmploc += pgbuffertime;
+	TRAPEZOID(ZGRAD, rfps4c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_rfps4ca + pw_rfps1c + pw_rfps1cd;
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime; /* add some buffer time */
+
+	fprintf(stderr, "pulsegen(): finalizing presatcore...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_presatcore, tmploc);
+	SEQLENGTH(presatcore, dur_presatcore, presatcore);
 	fprintf(stderr, "\tDone.\n");
 
 
-	/*****************************/
-	/* Generate prep1 label core */
-	/*****************************/	
+	/**************************/
+	/* generate prep1lbl core */
+	/**************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of prep1lblcore (prep1 label core)\n");
 	tmploc = 0;
 	
@@ -1514,9 +1218,9 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 
-	/*******************************/
-	/* Generate prep1 control core */
-	/*******************************/	
+	/**************************/
+	/* generate prep1ctl core */
+	/**************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of prep1ctlcore (prep1 control core)\n");
 	tmploc = 0;
 	
@@ -1536,9 +1240,9 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 	
 
-	/*****************************/
-	/* Generate prep2 label core */
-	/*****************************/	
+	/**************************/
+	/* Generate prep2lbl core */
+	/**************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of prep2lblcore (prep2 label core)\n");
 	tmploc = 0;
 	
@@ -1558,9 +1262,9 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 
-	/*******************************/
-	/* Generate prep2 control core */
-	/*******************************/	
+	/**************************/
+	/* Generate prep2ctl core */
+	/**************************/	
 	fprintf(stderr, "pulsegen(): beginning pulse generation of prep2ctlcore (prep2 control core)\n");
 	tmploc = 0;
 	
@@ -1580,18 +1284,18 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 		
 	
-	/****************************************/
-	/* Generate background suppression core */
-	/****************************************/	
+	/************************/
+	/* generate bkgsup core */
+	/************************/
 	fprintf(stderr, "pulsegen(): beginning pulse generation of bkgsupcore (background suppression core)\n");
 	tmploc = 0;	
 
-	fprintf(stderr, "pulsegen(): generating bkgsuprho & bkgsuptheta (background suppression rf)...\n");
+	fprintf(stderr, "pulsegen(): generating rfbs_rho & rfbs_theta (background suppression rf)...\n");
 	tmploc += pgbuffertime; /* start time for bkgsup rf */
-	EXTWAVE(RHO, bkgsuprho, tmploc, 5000, 1.0, 500, sech_7360.rho, , loggrd);
-	EXTWAVE(THETA, bkgsuptheta, tmploc, 5000, 1.0, 500, sech_7360.theta, , loggrd);
+	EXTWAVE(RHO, rfbs_rho, tmploc, 5000, 1.0, 500, sech_7360.rho, , loggrd);
+	EXTWAVE(THETA, rfbs_theta, tmploc, 5000, 1.0, 500, sech_7360.theta, , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_bkgsuprho; /* end time for bkg sup rf */
+	tmploc += pw_rfbs_rho; /* end time for bkg sup rf */
 	fprintf(stderr, " end: %dus\n", tmploc);	
 	tmploc += pgbuffertime; /* add some buffer */
 
@@ -1601,24 +1305,24 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 
-	/*********************************/
-	/* Generate fat saturation pulse */
-	/*********************************/
+	/************************/
+	/* generate fatsat core */
+	/************************/
 	fprintf(stderr, "pulsegen(): beginning pulse generation of fatsatcore (fat saturation core)\n");	
 	tmploc = 0;
 	
-	fprintf(stderr, "pulsegen(): generating fatsatrho (fat saturation rf pulse)...\n");
-	tmploc += pgbuffertime; /* start time for fatsatrho */
-	SINC2(RHO, fatsatrho, tmploc + psd_rf_wait, 3200, 1.0, ,0.5, , , loggrd);
+	fprintf(stderr, "pulsegen(): generating rffs (fat saturation rf pulse)...\n");
+	tmploc += pgbuffertime; /* start time for rffs */
+	SINC2(RHO, rffs, tmploc + psd_rf_wait, 3200, 1.0, ,0.5, , , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_fatsatrho; /* end time for fatsatrho */
+	tmploc += pw_rffs; /* end time for rffs */
 	fprintf(stderr, " end: %dus\n", tmploc);	
  
-	fprintf(stderr, "pulsegen(): generating gzfatsatcrush (fat saturation crusher gradients)...\n");
-	tmploc += pgbuffertime; /* start time for gzfatsatcrush */
-	TRAPEZOID(ZGRAD, gzfatsatcrush, tmploc + pw_gzfatsatcrusha, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	fprintf(stderr, "pulsegen(): generating gzrffsspoil (fat saturation crusher gradients)...\n");
+	tmploc += pgbuffertime; /* start time for gzrffsspoil */
+	TRAPEZOID(ZGRAD, gzrffsspoil, tmploc + pw_gzrffsspoila, GRAD_UPDATE_TIME*1000, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzfatsatcrusha + pw_gzfatsatcrush + pw_gzfatsatcrushd; /* end time for gzfatsatcrush */
+	tmploc += pw_gzrffsspoila + pw_gzrffsspoil + pw_gzrffsspoild; /* end time for gzrffsspoil */
 	fprintf(stderr, " end: %dus\n", tmploc);
 	tmploc += pgbuffertime; /* add some buffer */
 
@@ -1628,71 +1332,61 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tDone.\n");
 
 	
-	/***********************************/
-	/* Generate spin echo tipdown core */
-	/***********************************/	
-	fprintf(stderr, "pulsegen(): beginning pulse generation of tipcore (rf tipdown core for FSE readout)\n");
+	/************************/
+	/* generate irprep core */
+	/************************/	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of irprep core (inversion recovery prep pulse)\n");
 	tmploc = 0;
 
-	fprintf(stderr, "pulsegen(): generating rf1 (90deg tipdown pulse)...\n");
-	tmploc += pgbuffertime; /* start time for rf1 pulse */
-	SLICESELZ(rf1, tmploc + pw_gzrf1a, 3200, (opslthick + opslspace)*opslquant, 90.0, 2, 1, loggrd);
+	fprintf(stderr, "pulsegen(): generating rf0 (180deg inversion pulse)...\n");
+	tmploc += pgbuffertime; /* start time for r0 */
+	SINC2(RHO, rf0, tmploc + psd_rf_wait, 3200, 1.0, ,2, , , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf1 pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-
-	fprintf(stderr, "pulsegen(): generating gzrf1r (90deg tipdown gradient refocuser)...\n");
-	tmploc += pgbuffertime; /* start time for gzrf1r */
-	TRAPEZOID(ZGRAD, gzrf1r, tmploc + pw_gzrf1ra, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* end time for gzrf1r pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-	tmploc += pgbuffertime; /* add some buffer */
-
-	tmploc += deadtime_tipcore; /* add deadtime to account for TE */
-
-	fprintf(stderr, "pulsegen(): finalizing spin echo tipdown core...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipcore, tmploc);
-	SEQLENGTH(tipcore, dur_tipcore, tipcore);
-	fprintf(stderr, "\tDone.\n");
-
-
-	/*************************************/
-	/* Generate spin echo refocuser core */
-	/*************************************/
-	fprintf(stderr, "pulsegen(): beginning pulse generation of (flipcore) FSE inversion/GRE tipdown core\n");
-	tmploc = 0;
-
-	fprintf(stderr, "pulsegen(): generating gzrf2crush1 (pre-rf2 crusher)...\n");
-	tmploc += pgbuffertime; /* start time for gzrf2crush1 */
-	TRAPEZOID(ZGRAD, gzrf2crush1, tmploc + pw_gzrf2crush1a, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf2crush1a + pw_gzrf2crush1 + pw_gzrf2crush1d; /* end time for gzrf2crush1 pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-
-	fprintf(stderr, "pulsegen(): generating rf2 (FSE inversion/GRE tipdown)...\n");
-	tmploc += pgbuffertime; /* start time for rf2 */
-	SLICESELZ(rf2, tmploc + pw_gzrf2a, 3200, (opslthick + opslspace)*opslquant, 180.0, 2, 1, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf2a + pw_gzrf2 + pw_gzrf2d; /* end time for rf2 pulse */
-	fprintf(stderr, " end: %dus\n", tmploc);
-
-	fprintf(stderr, "pulsegen(): generating gzrf2crush2 (post-rf2 crusher for FSE/tipdown gradient rewinder for GRE)...\n");
-	tmploc += pgbuffertime; /* start time for gzrf2crush2 */
-	TRAPEZOID(ZGRAD, gzrf2crush2, tmploc + pw_gzrf2crush2a, 3200, 0, loggrd);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += pw_gzrf2crush2a + pw_gzrf2crush2 + pw_gzrf2crush2d; /* end time for gzrf2crush2 pulse */
+	tmploc += pw_rf0; /* end time for rffs */
 	fprintf(stderr, " end: %dus\n", tmploc);	
-	tmploc += pgbuffertime;
 
-	fprintf(stderr, "pulsegen(): finalizing flip core...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_flipcore, tmploc);
-	SEQLENGTH(flipcore, dur_flipcore, flipcore);
+	fprintf(stderr, "pulsegen(): finalizing irprep core...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_irprepcore, tmploc);
+	SEQLENGTH(irprepcore, dur_irprepcore, irprepcore);
 	fprintf(stderr, "\tDone.\n");
 
 
 	/*************************/
-	/* Generate readout core */
+	/* generate tipdown core */
+	/*************************/
+	fprintf(stderr, "pulsegen(): beginning pulse generation of tipdown core (GRE tipdown core)\n");
+	tmploc = 0;
+
+	fprintf(stderr, "pulsegen(): generating gzrf1spoil (pre-rf1 crusher)...\n");
+	tmploc += pgbuffertime; /* start time for gzrf1spoil */
+	TRAPEZOID(ZGRAD, gzrf1spoil, tmploc + pw_gzrf1spoila, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1spoila + pw_gzrf1spoil + pw_gzrf1spoild; /* end time for gzrf1spoil */
+	fprintf(stderr, " end: %dus\n", tmploc);
+
+	fprintf(stderr, "pulsegen(): generating rf1 (tipdown pulse)...\n");
+	tmploc += pgbuffertime; /* start time for rf1 */
+	SLICESELZ(rf1, tmploc + pw_gzrf1a, 3200, (opslthick + opslspace)*opslquant, opflip, 2, 1, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf2 pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+
+	fprintf(stderr, "pulsegen(): generating gzrf1r (rf1 tipdown kspace rewinder)...\n");
+	tmploc += pgbuffertime; /* start time for gzrf1r */
+	TRAPEZOID(ZGRAD, gzrf1r, tmploc + pw_gzrf1r, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* end time for gzrf1r pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime;
+
+	fprintf(stderr, "pulsegen(): finalizing tipdown core...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipdowncore, tmploc);
+	SEQLENGTH(tipdowncore, dur_tipdowncore, tipdowncore);
+	fprintf(stderr, "\tDone.\n");
+
+
+	/*************************/
+	/* generate readout core */
 	/*************************/
 	fprintf(stderr, "pulsegen(): beginning pulse generation of readout core (seqcore)\n");
 	tmploc = 0;
@@ -1717,7 +1411,7 @@ STATUS pulsegen( void )
 
 
 	/**********************************/
-	/* Generate deadtime (empty) core */
+	/* generate deadtime (empty) core */
 	/**********************************/
 	fprintf(stderr, "pulsegen(): beginning pulse generation of empty core (emptycore)\n");
 
@@ -1744,7 +1438,7 @@ STATUS pulsegen( void )
 
 @rspvar
 /*********************************************************************
- *                   ASL3DFLEX.E RSPVAR SECTION                      *
+ *                    UMVSASL.E RSPVAR SECTION                       *
  *                                                                   *
  * Declare here the real time variables that can be viewed and modi- *
  * fied while the IPG PSD process is running. Only limited standard  *
@@ -1790,7 +1484,7 @@ int seqCount;
 
 @rsp
 /*********************************************************************
- *                   ASL3DFLEX.E RSP SECTION                         *
+ *                    UMVSASL.E RSP SECTION                          *
  *                                                                   *
  * Write here the functional code for the real time processing (IPG  *
  * schedule_ide). You may declare standard C variables, but of limited types *
@@ -1827,12 +1521,11 @@ STATUS psdinit( void )
 	setrfltrs( (int)filter_echo1, &echo1 );
 			
 	/* Set rf1, rf2 tx and rx frequency */
-	setfrequency((int)xmitfreq1, &rf1, 0);
-	setfrequency((int)xmitfreq2, &rf2, 0);
+	setfrequency((int)xmitfreq, &rf1, 0);
 	setfrequency((int)recfreq, &echo1, 0);
 
 	/* Set fat sat frequency */
-	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &fatsatrho, 0);
+	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &rffs, 0);
 	
 	/* Get the original rotation matrix */
 	getrotate( tmtx0, 0 );
@@ -1860,32 +1553,48 @@ int play_deadtime(int deadtime) {
 	
 	return ttotal;
 }
-/* PLAY_BLKSAT() Function for playing bulk saturation pulse */
-int play_blksat(int doblksatf) {
+/* function for playing asl pre-saturation pulse */
+int play_presat() {
 
-	if (doblksatf) {
-		/* Play bulk saturation pulse */	
-		fprintf(stderr, "\tplay_blksat(): playing bulk saturation pulse (%d us)...\n", dur_blksatcore + TIMESSI);
+	/* Play bulk saturation pulse */	
+	fprintf(stderr, "\tplay_presat(): playing asl pre-saturation pulse (%d us)...\n", dur_presatcore + TIMESSI);
 
-		boffset(off_blksatcore);
-		startseq(0, MAY_PAUSE);
-		settrigger(TRIG_INTERN, 0);
-	}
-	else {
-		play_deadtime(dur_blksatcore + TIMESSI);	
-	}
+	boffset(off_presatcore);
+	startseq(0, MAY_PAUSE);
+	settrigger(TRIG_INTERN, 0);
 
-	fprintf(stderr, "\tplay_blksat(): Done.\n");
+	/* play the pre-saturation delay */
+	fprintf(stderr, "scan(): playing asl pre-saturation delay (%d us)...\n", presat_delay);
+	play_deadtime(presat_delay);		
 
-	return dur_blksatcore + TIMESSI;
+	fprintf(stderr, "\tplay_presat(): Done.\n");
+
+	return dur_presatcore + TIMESSI + presat_delay;
 }
 
-/* PLAY_ASLPREP() Function for playing asl prep pulses & delays */
-int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs1, int tbgs2, int pld) {
+/* function for playing asl prep pulses & delays */
+int play_aslprep(s32* off_ctlcore, s32* off_lblcore, int mod, int dur, int pld, int tbgs1, int tbgs2, int tbgs3) {
 	int ttotal = 0;
 	int ttmp;
+	int type;
+	
+	/* determine current mode */		
+	switch (mod) {
+		case 1: /* label, control... */
+			type = (framen + 1) % 2; /* 1, 0, 1, 0 */
+			break;
+		case 2: /* control, label... */
+			type = framen % 2; /* 0, 1, 0, 1 */
+			break;
+		case 3: /* label */
+			type = 1;
+			break;
+		case 4: /* control */
+			type = 0;
+			break;
+	}
 
-	/* Play the VSASL pulse */	
+	/* play the asl prep pulse */	
 	switch (type) {
 		case 0: /* control */
 			fprintf(stderr, "\tplay_aslprep(): playing control pulse (%d us)...\n", dur + TIMESSI);
@@ -1909,14 +1618,14 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 
-	/* Play pld and background suppression */
+	/* play pld and background suppression */
 	if (pld > 0) {
 
-		/* Initialize pld before subtracting out tbgs timing */
+		/* initialize pld before subtracting out tbgs timing */
 		ttmp = pld;
 
 		if (tbgs1 > 0) {
-			/* Play first background suppression delay/pulse */
+			/* play first background suppression delay/pulse */
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 1 delay (%d us)...\n", tbgs1 + TIMESSI);		
 			setperiod(tbgs1, &emptycore, 0);
 			ttmp -= (tbgs1 + TIMESSI);
@@ -1934,7 +1643,7 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 		}
 		
 		if (tbgs2 > 0) {
-			/* Play second background suppression delay/pulse */
+			/* play second background suppression delay/pulse */
 			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 delay (%d us)...\n", tbgs2 + TIMESSI);		
 			setperiod(tbgs2, &emptycore, 0);
 			ttmp -= (tbgs2 + TIMESSI);
@@ -1950,14 +1659,32 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 			settrigger(TRIG_INTERN, 0);
 			ttotal += dur_bkgsupcore + TIMESSI;
 		}
+		
+		if (tbgs3 > 0) {
+			/* play second background suppression delay/pulse */
+			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 delay (%d us)...\n", tbgs3 + TIMESSI);		
+			setperiod(tbgs3, &emptycore, 0);
+			ttmp -= (tbgs3 + TIMESSI);
+			boffset(off_emptycore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+			ttotal += tbgs3 + TIMESSI;
 
-		/* Check that ttmp is non-negative */
+			fprintf(stderr, "\tplay_aslprep(): playing bkg suppression pulse 2 (%d us)...\n", dur_bkgsupcore + TIMESSI);
+			ttmp -= (dur_bkgsupcore + TIMESSI);
+			boffset(off_bkgsupcore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN, 0);
+			ttotal += dur_bkgsupcore + TIMESSI;
+		}
+
+		/* check that ttmp is non-negative */
 		if (ttmp < 0) {
-			fprintf(stderr, "\tplay_aslprep(): ERROR: invalid pld and background suppression time combination\n");
+			fprintf(stderr, "\tplay_aslprep(): ERROR: sum of background supression pulse delays must not exceed the PLD!\n");
 			rspexit();
 		}
 
-		/* Play remaining PLD deadtime */
+		/* play remaining PLD deadtime */
 		fprintf(stderr, "\tplay_aslprep(): playing post-label delay (%d us), total end delay = %d us...\n", pld, ttmp);
 		setperiod(ttmp - TIMESSI, &emptycore, 0);
 		boffset(off_emptycore);
@@ -1969,7 +1696,7 @@ int play_aslprep(int type, s32* off_ctlcore, s32* off_lblcore, int dur, int tbgs
 	return ttotal;
 }
 
-/* PLAY_FATSAT() Function for playing fat sat pulse */
+/* function for playing fat sat pulse */
 int play_fatsat() {
 	int ttotal = 0;
 	fprintf(stderr, "\tplay_fatsat(): playing fat sat pulse (%d us)...\n", dur_fatsatcore + TIMESSI);
@@ -1984,62 +1711,57 @@ int play_fatsat() {
 	return ttotal;
 }
 
-/* PLAY_TIP() Function for playing FSE tipdown pulse and TE deadtime */
-int play_tip() {
+/* function for playing inversion recovery prep pulse and deadtime */
+int play_irprep() {
 	int ttotal = 0;
-	fprintf(stderr, "\tplay_tip(): playing FSE tipdown pulse and echo time delay (%d us)...\n", dur_tipcore + TIMESSI);
+	fprintf(stderr, "\tplay_irprep(): playing inversion recovery prep pulse (%d us)...\n", dur_irprepcore + TIMESSI);
 
-	/* Play the tipcore */
-	setphase(phs_tip, &rf1, 0);
-	boffset(off_tipcore);
+	/* Play the irprepcore */
+	boffset(off_irprepcore);
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
-	ttotal += dur_tipcore + TIMESSI;
+	ttotal += dur_irprepcore + TIMESSI;
 
 	return ttotal;	
 }
 
-/* PLAY_FLIP() Function for playing GRE tipdown pulse or the FSE refocusing pulses */
-int play_flip(int flipn) {
+/* function for playing GRE tipdown pulse */
+int play_tipdown(float phs) {
 	int ttotal = 0;
-	fprintf(stderr, "\tplay_flip(): playing flipcore (%d us)...\n", dur_flipcore);
 
-	/* Set the flip angle & phase */
-	setiamp((int)(flipfactbl[flipn]*ia_rf2), &rf2, 0);
-	setphase(flipphstbl[flipn], &rf2, 0);
-	if (ro_mode == 1) /* FSE, sweep the phs table */
-		setphase(flipphstbl[flipn] + M_PI/2, &echo1, 0);
-	else /* GRE, phs_flip = phs_tip */
-		setphase(flipphstbl[flipn], &echo1, 0);
+	/* Set the phase for rf spoiling */
+	fprintf(stderr, "\tplay_tipdown(): setting rf1 phase to %fdeg...\n", phs);
+	setphase(phs, &rf1, 0);
 
-	/* Play the flip core */
-	boffset(off_flipcore);
+	/* Play the tipdown */
+	fprintf(stderr, "\tplay_tipdown(): playing tipdowncore (%d us)...\n", dur_tipdowncore);
+	boffset(off_tipdowncore);
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
-	ttotal += dur_flipcore + TIMESSI;
+	ttotal += dur_tipdowncore + TIMESSI;
 
 	return ttotal;	
 }
 
-/* PLAY_READOUT() Function for playing the readout section */
+/* function for playing the acquisition window */
 int play_readout(int grad_off) {
 	int ttotal = 0;
 	fprintf(stderr, "\tplay_readout(): playing seqcore (%d us)...\n", dur_seqcore);
 
 	if (grad_off) {
-		/* Kill the gradients */
+		/* kill the gradients */
 		setiamp(0, &gxw, 0);
 		setiamp(0, &gyw, 0);
 		setiamp(0, &gzw, 0);
 	}
 
-	/* Play the seqcore */
+	/* play the seqcore */
 	boffset(off_seqcore);
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 	ttotal += dur_seqcore + TIMESSI; 
 
-	/* Restore the gradients */
+	/* restore the gradients */
 	setiamp(ia_gxw, &gxw, 0);
 	setiamp(ia_gyw, &gyw, 0);
 	setiamp(ia_gzw, &gzw, 0);
@@ -2048,11 +1770,11 @@ int play_readout(int grad_off) {
 	return ttotal;
 }
 
-/* PLAY_ENDSCAN() Function for sending endpass packet at end of sequence */
+/* function for sending endpass packet at end of sequence */
 STATUS play_endscan() {
 	fprintf(stderr, "\tplay_endscan(): sending endpass packet...\n");
 	
-	/* Send SSP packet to end scan */
+	/* send SSP packet to end scan */
 	boffset( off_pass );
 	setwamp(SSPD + DABPASS + DABSCAN, &endpass, 2);
 	settrigger(TRIG_INTERN, 0);
@@ -2062,21 +1784,16 @@ STATUS play_endscan() {
 	return SUCCESS;
 }
 
-/* PRESCANCORE() Function for playing prescan sequence */
+/* function for playing prescan sequence */
 STATUS prescanCore() {
 
-	/* Initialize the rotation matrix */
+	/* initialize the rotation matrix */
 	setrotate( tmtx0, 0 );
 	
 	for (view = 1 - rspdda; view < rspvus + 1; view++) {
 
-		if (ro_mode == 1) {
-			fprintf(stderr, "prescanCore(): Playing FSE tip pulse for prescan iteration %d...\n", view);
-			play_tip();
-		}
-
 		fprintf(stderr, "prescanCore(): Playing flip pulse for prescan iteration %d...\n", view);
-		play_flip(0);
+		play_tipdown(0);
 
 		/* Load the DAB */	
 		if (view < 1) {
@@ -2092,7 +1809,7 @@ STATUS prescanCore() {
 		play_readout(1); /* kill the gradients */
 
 		fprintf(stderr, "prescanCore(): playing deadtime for prescan iteration %d...\n", view);
-		play_deadtime(500000);
+		play_deadtime(50000);
 
 	}
 
@@ -2145,17 +1862,10 @@ STATUS scan( void )
 
 	int ttotal = 0;
 	int rotidx;
-	fprintf(stderr, "scan(): Beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);	
+	fprintf(stderr, "scan(): beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);	
 	
 	/* Play an empty acquisition to reset the DAB after prescan */
 	if (disdaqn == 0) {
-		/* David Frey (1/22/2024):
-		When disdaqs play, they reset the buffer by calling DABOFF so that prescan data can be written.
-		If no disdaqs are played (i.e. MRF), then the first acquisiton may be corrupted by prescan data.
-		These lines run a single empty acqusition, but will introduce a slight delay in the sequence.
-		This may cause issues when running fMRI stimulus that starts at the beginning of the sequence trigger.
-		*/
-
 		/* Turn the DABOFF */
 		loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
 		play_readout(1); /* 1 = kill the gradients */
@@ -2163,19 +1873,15 @@ STATUS scan( void )
 
 	/* Play disdaqs */
 	for (disdaqn = 0; disdaqn < ndisdaqtrains; disdaqn++) {
-		/* Calculate and play deadtime */
-		fprintf(stderr, "scan(): Playing TR deadtime for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
-		ttotal += play_deadtime(optr - dur_readout);
 		
-		if (ro_mode == 1) {
-			fprintf(stderr, "scan(): Playing FSE tip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
-			ttotal += play_tip();	
-		}
-
+		/* Calculate and play deadtime */
+		fprintf(stderr, "scan(): playing TR deadtime for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
+		ttotal += play_deadtime(optr - opetl * (dur_tipdowncore + TIMESSI + dur_seqcore + TIMESSI));
+		
 		/* Loop through echoes */
 		for (echon = 0; echon < opetl; echon++) {
-			fprintf(stderr, "scan(): Playing flip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
-			ttotal += play_flip(0);
+			fprintf(stderr, "scan(): playing flip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
+			ttotal += play_tipdown(echon*117);
 
 			/* Load the DAB */		
 			fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon+1);
@@ -2193,55 +1899,55 @@ STATUS scan( void )
 	}
 
 
-	/* Loop through frames and shots */
+	/* loop through frames and shots */
 	for (framen = 0; framen < nframes; framen++) {
 		for (shotn = 0; shotn < opnshots; shotn++) {
 
-			/* Play the Bulk saturation pulse for background suppression */
-			if (doblksat) {
-				fprintf(stderr, "scan(): Playing bulk saturation pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_blksat(doblksattbl[framen]);
+			/* play TR deadtime */
+			ttotal += play_deadtime(tr_deadtime);
+
+			/* play the ASL pre-saturation pulse for background suppression */
+			if (presat_flag) {
+				fprintf(stderr, "scan(): playing asl pre-saturation pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+				ttotal += play_presat();
 			}
-			/* delay 1 */
-			fprintf(stderr, "scan(): Playing TR deadtime for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-			ttotal += play_deadtime(tadjusttbl[framen]);		
 
 			if (prep1_id > 0 ) {
-				fprintf(stderr, "scan(): Playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_aslprep(prep1_lbltbl[framen], off_prep1ctlcore, off_prep1lblcore, dur_prep1core, prep1_tbgs1tbl[framen], prep1_tbgs2tbl[framen], prep1_pldtbl[framen]);
+				fprintf(stderr, "scan(): playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+				ttotal += play_aslprep(off_prep1ctlcore, off_prep1lblcore, prep1_mod, dur_prep1core, prep1_pld, prep1_tbgs1, prep1_tbgs2, prep1_tbgs3);
 			}
 			
-			if (prep2_id > 0) {
-				fprintf(stderr, "scan(): Playing prep2 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_aslprep(prep2_lbltbl[framen], off_prep2ctlcore, off_prep2lblcore, dur_prep2core, prep2_tbgs1tbl[framen], prep2_tbgs2tbl[framen], prep2_pldtbl[framen]);
+			if (prep2_id > 0 ) {
+				fprintf(stderr, "scan(): playing prep2 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+				ttotal += play_aslprep(off_prep2ctlcore, off_prep2lblcore, prep2_mod, dur_prep2core, prep2_pld, prep2_tbgs1, prep2_tbgs2, prep2_tbgs3);
 			}
-
+			
 			/* fat sat pulse */
-			if (dofatsat) {
-				fprintf(stderr, "scan(): Playing fat sat pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+			if (fatsat_flag) {
+				fprintf(stderr, "scan(): playing fat sat pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 				ttotal += play_fatsat();
 			}
 
-			/* FSE:  tipdown */
-			if (ro_mode == 1) {
-				fprintf(stderr, "scan(): Playing FSE tip pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_tip();	
+			/* inversion recovery prep pulse */
+			if (irprep_flag) {
+				fprintf(stderr, "scan(): playing inversion recovery prep pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+				ttotal += play_irprep();	
 			}
 
 			/* play disdaq echoes */
 			for (echon = 0; echon < ndisdaqechoes; echon++) {
-				fprintf(stderr, "scan(): Playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-				ttotal += play_flip(echon);
+				fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
+				ttotal += play_tipdown(echon*117);
 				
 				fprintf(stderr, "scan(): playing deadtime in place of readout for frame %d, shot %d, disdaq echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
 				ttotal += play_deadtime(dur_seqcore);
 			};
 
 			for (echon = 0; echon < opetl; echon++) {
-				fprintf(stderr, "scan(): Playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-				ttotal += play_flip(echon);
+				fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
+				ttotal += play_tipdown(echon*117);
 		
-				/* Load the DAB */
+				/* load the DAB */
 				slice = framen+1;
 				view = 	shotn*opetl + echon + 1;
 				echo = 0;
@@ -2294,7 +2000,7 @@ void dummylinks( void )
 * Define the functions that will run on the host 
 * during predownload operations
 *****************************************************/
-int genspiral(FILE* fID_partitions) {
+int genspiral() {
 
 	/* 4 parts of the gradient waveform:
 	 * 	- Z-encode (*_ze):		kZ encoding step
@@ -2472,11 +2178,10 @@ int genspiral(FILE* fID_partitions) {
 	return 1;
 }
 
-int genviews(FILE* fID_partitions) {
+int genviews() {
 
 	/* Declare values and matrices */
 	FILE* fID_kviews = fopen("kviews.txt","w");
-	char buff[200];
 	int framen, shotn, echon, n;
 	float rz1, rx, ry, rz2, dz;
 	float Rz1[9], Rx[9], Ry[9], Rz2[9], Tz[9];
@@ -2494,45 +2199,36 @@ int genviews(FILE* fID_partitions) {
 		for (shotn = 0; shotn < opnshots; shotn++) {
 			for (echon = 0; echon < opetl; echon++) {
 
-				if (fID_partitions == 0) { /* generate partitions */
 
-					/* Initialize rotation angles/kz shift */
-					rz1 = 2.0*M_PI * (float)shotn / (float)opnshots;
-					rx = 0.0;
-					ry = 0.0;
-					rz2 = 0.0;
-					dz = 0.0;
+				/* Initialize rotation angles/kz shift */
+				rz1 = 2.0*M_PI * (float)shotn / (float)opnshots;
+				rx = 0.0;
+				ry = 0.0;
+				rz2 = 0.0;
+				dz = 0.0;
 
-					/* Determine type of transformation */
-					switch (sptype3d) {
-						case 0 : /* 2D - shot by shot rotations only */
-							break;
-						case 1 : /* Kz shifts */
-							dz = 2.0/(float)(opetl) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
-							break;
-						case 2 : /* Single axis rotation */
-							rx = 2.0*M_PI * echon / PHI;
-							break;
-						case 3 : /* Double axis rotations */
-							rx = acos(fmod(echon*phi1, 1.0)); /* polar angle */
-							rz2 = 2.0*M_PI * fmod(echon*phi2, 1.0); /* azimuthal angle */
-							break;		
-						case 4: /* Debugging case */
-							rx = M_PI/2.0*echon;
-							ry = M_PI/4.0*shotn;	
-							break;
-						default:
-							return 0;
-					}
-
+				/* Determine type of transformation */
+				switch (sptype3d) {
+					case 0 : /* 2D - shot by shot rotations only */
+						break;
+					case 1 : /* Kz shifts */
+						dz = 2.0/(float)(opetl) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
+						break;
+					case 2 : /* Single axis rotation */
+						rx = 2.0*M_PI * echon / PHI;
+						break;
+					case 3 : /* Double axis rotations */
+						rx = acos(fmod(echon*phi1, 1.0)); /* polar angle */
+						rz2 = 2.0*M_PI * fmod(echon*phi2, 1.0); /* azimuthal angle */
+						break;		
+					case 4: /* Debugging case */
+						rx = M_PI/2.0*echon;
+						ry = M_PI/4.0*shotn;	
+						break;
+					default:
+						return 0;
 				}
-				else {
-					fprintf(stderr, "genviews(): reading in rotation angles and kz fraction from file for frame %d, shot %d, echo %d\n", framen, shotn, echon);
 
-					/* Loop through points in theta file */
-					fgets(buff, 200, fID_partitions);
-					sscanf(buff, "%f %f %f %f %f", &rz1, &rx, &ry, &rz2, &dz);
-				}			
 
 				/* Calculate the transformation matrices */
 				Tz[8] = dz;
@@ -2653,7 +2349,7 @@ int readprep(int id, int *len,
 	while (fgets(buff, 200, fID)) {
 		sscanf(buff, "%lf %lf", &lblval, &ctlval);
 		grad_lbl[i] = (int)lblval;
-		grad_ctl[i] = (int)ctlval*(!zero_CTL_grads);
+		grad_ctl[i] = (int)ctlval*(!zero_ctl_grads);
 		i++;
 	}
 	fclose(fID);
@@ -2665,177 +2361,6 @@ int readprep(int id, int *len,
 	}
 	
 	*len = tmplen;
-
-	return 1;
-}
-/* This function adds a linear phase shift to the velocity selective pulses
- in order to shift the velocity selectivity profile to a different velocity */
-int calc_prep_phs_from_velocity (
-	int* vsi_pulse_mag, 
-	int* vsi_pulse_phs, 
-	int* vsi_pulse_grad, 
-	float vel_target, 
-	int vsi_train_len, 
-	double vsi_Gmax)
-{
-	/* GAMMA_H1 26754 in (rad/s)/Gauss */
-	double phase_val;
-	double grad_val;
-	double pos=0.0;
-	double dt = 4e-6;
-	double delta_phs = 0.0;
-	int 	i;
-	int	DACMAX = 32766;
-	int	tmp;
-	double  pulseMax = 0.0;
-
-
-	/* find the segments with 180 degree pulses- assume the 180s have the highest B1 in the train */
-	for (i=0; i<vsi_train_len; i++)
-	{
-		if (pulseMax < vsi_pulse_mag[i] ) 
-			pulseMax = vsi_pulse_phs[i] ;
-
-	}
-
-
-	for (i=1; i<vsi_train_len; i++)
-	{
-		/* from DAC units to radians */
-		phase_val = M_PI * (double)(vsi_pulse_phs[i]) /  (double)FS_PI  ; 		
-		/* from DAC units to G/cm */
-		grad_val = vsi_Gmax * (double)(vsi_pulse_grad[i]) / (double)DACMAX ;
-
-		/* calc the phase gained by moving spins during THIS dt interval */
-		pos += vel_target*dt; 
-		delta_phs += GAMMA * grad_val * pos * dt ;
-
-		/* change the phase of the pulse accordingly */
-		phase_val -=  delta_phs;
-
-		/* from radians to DAC ... unwrap first  , then make them even numbers only. */	
-		phase_val = atan2( sin(phase_val), cos(phase_val));
-		tmp = (int)(phase_val / M_PI * FS_PI);
-		vsi_pulse_phs[i] = 2*(tmp/2);
-	}
-
-	for (i=0; i<vsi_train_len; i++)
-	{
-		if (vsi_pulse_mag[i] == 0) 
-			vsi_pulse_phs[i] = 0;
-
-	}
-
-	return 1;
-}	
-
-
-int readschedule(int id, int* var, char* varname, int lines) {
-
-	FILE* fID;
-	char fname[200];
-	int val;
-	
-	if (id == 0)
-		return 0;
-
-	/* Open the schedule file */
-	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
-	fprintf(stderr, "readschedule(): opening %s...\n", fname);
-	fID = fopen(fname, "r");
-	if (fID == 0) {
-		fprintf(stderr, "File not found.\n");
-		return 0;
-	}
-
-	/* Read in the array */
-	int i = 0;
-	while (fscanf(fID, "%d\n", &val) != EOF) {
-		var[i] = val;
-		i++;
-	}
-	fclose(fID);
-
-	/* If only 1 line is read in (scalar --> array) */
-	if (i == 1) {
-		for (i = 1; i < lines; i++)
-			var[i] = var[0];
-	}
-
-	/* If number of lines is less than number of lines to read */
-	if (i < lines - 1)
-		return -1;
-
-	return 1;
-}
-
-int readschedulef(int id, float* var, char* varname, int lines) {
-
-	FILE* fID;
-	char fname[200];
-	float val;
-	
-	if (id == 0)
-		return 0;
-
-	/* Open the schedule file */
-	sprintf(fname, "./aslprep/schedules/%05d/%s.txt", id, varname);
-	fprintf(stderr, "readschedule(): opening %s...\n", fname);
-	fID = fopen(fname, "r");
-	if (fID == 0) {
-		fprintf(stderr, "File not found.\n");
-		return 0;
-	}
-
-	/* Read in the array */
-	int i = 0;
-	while (fscanf(fID, "%f\n", &val) != EOF) {
-		var[i] = val;
-		i++;
-	}
-	fclose(fID);
-
-	/* If only 1 line is read in (scalar --> array) */
-	if (i == 1) {
-		for (i = 1; i < lines; i++)
-			var[i] = var[0];
-	}
-
-	/* If number of lines is less than number of lines to read */
-	if (i < lines - 1)
-		return -1;
-
-	return 1;
-}
-
-int genlbltbl(int mod, int* lbltbl)
-{
-	int framen;
-
-	/* Loop through frames */
-	for (framen = 0; framen < nframes; framen++) {
-
-		/* Set labeling scheme */
-		if (framen < nm0frames){
-			lbltbl[framen] = -1;
-		}
-		else {
-			switch (mod) {
-				case 1: /* Label, control... */
-					lbltbl[framen] = (framen - nm0frames + 1) % 2; /* 1, 0, 1, 0 */
-					break;
-				case 2: /* Control, label... */
-					lbltbl[framen] = (framen - nm0frames) % 2; /* 0, 1, 0, 1 */
-					break;
-				case 3: /* Label */
-					lbltbl[framen] = 1;
-					break;
-				case 4: /* Control */
-					lbltbl[framen] = 0;
-					break;
-			}
-		}
-	}	
 
 	return 1;
 }
@@ -2869,5 +2394,5 @@ float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 }
 
 
-/************************ END OF ASL3DFLEX.E ******************************/
+/************************ END OF UMVSASL.E ******************************/
 

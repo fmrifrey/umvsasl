@@ -26,7 +26,7 @@ MAKE_TARGET = programs
 /*
  * The root name of the PSD to be built; eg: 2dfast, fsemaster
  */
-PSD = asl3dflex
+PSD = umvsasl
 
 /*
  * Local inline files used in this PSD are to be specified here.

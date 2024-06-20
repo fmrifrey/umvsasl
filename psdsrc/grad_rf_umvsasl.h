@@ -14,8 +14,8 @@
 #include "sar_pm.h"
 
 /* only do this once in any given compilation.*/
-#ifndef  grad_rf_asl3dflex_INCL
-#define  grad_rf_asl3dflex_INCL
+#ifndef  grad_rf_umvsasl_INCL
+#define  grad_rf_umvsasl_INCL
 
 RF_PULSE rfpulse[MAX_RFPULSE] = {
 #include "rf_Prescan.h"
