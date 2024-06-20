@@ -268,6 +268,7 @@ int readprep(int id, int *len,
 		int *rho_lbl, int *theta_lbl, int *grad_lbl,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
 float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf);
+float calc_hard_B1(int pw_rf, float flip_rf);
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -752,20 +753,20 @@ STATUS predownload( void )
 	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
 	
-	rfps1_b1 = 0.1;
-	fprintf(stderr, "predownload(): maximum B1 for presat pulse: %f Gauss \n", rfps1_b1);
+	rfps1_b1 = calc_hard_B1(pw_rfps1, 72.0); /* flip angle of 72 degrees */
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse 1: %f Gauss \n", rfps1_b1);
 	if (rfps1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps1_b1;
 	
-	rfps2_b1 = 0.1;
+	rfps2_b1 = calc_hard_B1(pw_rfps2, 92.0); /* flip angle of 92 degrees */
 	fprintf(stderr, "predownload(): maximum B1 for presat pulse 2: %f Gauss \n", rfps2_b1);
 	if (rfps2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps2_b1;
 	
-	rfps3_b1 = 0.1;
-	fprintf(stderr, "predownload(): maximum B1 for presat pulse: %f Gauss \n", rfps3_b1);
+	rfps3_b1 = calc_hard_B1(pw_rfps3, 126.0); /* flip angle of 126 degrees */
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse 3: %f Gauss \n", rfps3_b1);
 	if (rfps3_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps3_b1;
 	
-	rfps4_b1 = 0.1;
-	fprintf(stderr, "predownload(): maximum B1 for presat pulse 2: %f Gauss \n", rfps4_b1);
+	rfps4_b1 = calc_hard_B1(pw_rfps4, 193.0); /* flip angle of 193 degrees */
+	fprintf(stderr, "predownload(): maximum B1 for presat pulse 4: %f Gauss \n", rfps4_b1);
 	if (rfps4_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfps4_b1;
 
 	rfbs_b1 = 0.234;
@@ -811,12 +812,24 @@ STATUS predownload( void )
 
 	a_rfps1 = rfps1_b1 / maxB1Seq;
 	ia_rfps1 = a_rfps1 * MAX_PG_WAMP;
+	pw_rfps1 = 1ms; /* 1ms hard pulse */
+	pw_rfps1a = 0; /* hard pulse - no ramp */
+	pw_rfps1d = 0;
 	a_rfps2 = rfps2_b1 / maxB1Seq;
 	ia_rfps2 = a_rfps2 * MAX_PG_WAMP;
+	pw_rfps2 = 1ms; /* 1ms hard pulse */
+	pw_rfps2a = 0; /* hard pulse - no ramp */
+	pw_rfps2d = 0;
 	a_rfps3 = rfps3_b1 / maxB1Seq;
 	ia_rfps3 = a_rfps3 * MAX_PG_WAMP;
+	pw_rfps3 = 1ms; /* 1ms hard pulse */
+	pw_rfps3a = 0; /* hard pulse - no ramp */
+	pw_rfps3d = 0;
 	a_rfps4 = rfps4_b1 / maxB1Seq;
 	ia_rfps4 = a_rfps4 * MAX_PG_WAMP;
+	pw_rfps4 = 1ms; /* 1ms hard pulse */
+	pw_rfps4a = 0; /* hard pulse - no ramp */
+	pw_rfps4d = 0;
 
 	a_rfbs_rho = rfbs_b1 / maxB1Seq;
 	ia_rfbs_rho = a_rfbs_rho * MAX_PG_WAMP;
@@ -1143,48 +1156,48 @@ STATUS pulsegen( void )
 	
 	fprintf(stderr, "pulsegen(): generating rfps1 (presat rf pulse 1)...\n");
 	tmploc += pgbuffertime; /* start time for rfps1 pulse */
-	TRAPEZOID(RHO, rfps1, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	TRAPEZOID(RHO, rfps1, tmploc + psd_rf_wait, 1ms, 0, loggrd);
 	tmploc += pw_rfps1;
 	
 	fprintf(stderr, "pulsegen(): generating rfps1c (presat rf crusher 1)...\n");
 	tmploc += pgbuffertime; /*start time for gzrf1spoil */
-	TRAPEZOID(ZGRAD, rfps1c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	TRAPEZOID(ZGRAD, rfps1c, tmploc + pw_rfps1ca, 1ms, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_rfps1ca + pw_rfps1c + pw_rfps1cd; /* end time for gzrf1spoil */
 	fprintf(stderr, " end: %dus\n", tmploc);
 
-	fprintf(stderr, "pulsegen(): generating rfps2 (presat rf pulse 1)...\n");
+	fprintf(stderr, "pulsegen(): generating rfps2 (presat rf pulse 2)...\n");
 	tmploc = 4000 + pgbuffertime; /* start time for rfps2 pulse */
-	TRAPEZOID(RHO, rfps2, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	TRAPEZOID(RHO, rfps2, tmploc + psd_rf_wait, 1ms, 0, loggrd);
 	tmploc += pw_rfps2;
 	
-	fprintf(stderr, "pulsegen(): generating rfps2c (presat rf crusher 1)...\n");
+	fprintf(stderr, "pulsegen(): generating rfps2c (presat rf crusher 2)...\n");
 	tmploc += pgbuffertime; /*start time for gzrf1spoil */
-	TRAPEZOID(ZGRAD, rfps2c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	TRAPEZOID(ZGRAD, rfps2c, tmploc + pw_rfps1ca, 1ms, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_rfps2ca + pw_rfps1c + pw_rfps1cd; /* end time for gzrf1spoil */
 	fprintf(stderr, " end: %dus\n", tmploc);
 	
-	fprintf(stderr, "pulsegen(): generating rfps3 (presat rf pulse 1)...\n");
+	fprintf(stderr, "pulsegen(): generating rfps3 (presat rf pulse 3)...\n");
 	tmploc = 8000 + pgbuffertime; /* start time for rfps3 pulse */
-	TRAPEZOID(RHO, rfps3, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	TRAPEZOID(RHO, rfps3, tmploc + psd_rf_wait, 1ms, 0, loggrd);
 	tmploc += pw_rfps3;
 	
-	fprintf(stderr, "pulsegen(): generating rfps3c (presat rf crusher 1)...\n");
+	fprintf(stderr, "pulsegen(): generating rfps3c (presat rf crusher 3)...\n");
 	tmploc += pgbuffertime;
-	TRAPEZOID(ZGRAD, rfps3c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	TRAPEZOID(ZGRAD, rfps3c, tmploc + pw_rfps1ca, 1ms, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_rfps3ca + pw_rfps1c + pw_rfps1cd;
 	fprintf(stderr, " end: %dus\n", tmploc);
 	
-	fprintf(stderr, "pulsegen(): generating rfps4 (presat rf pulse 1)...\n");
+	fprintf(stderr, "pulsegen(): generating rfps4 (presat rf pulse 4)...\n");
 	tmploc = 12000 + pgbuffertime;
-	TRAPEZOID(RHO, rfps4, tmploc + psd_rf_wait, GRAD_UPDATE_TIME*1000, 0, loggrd);
+	TRAPEZOID(RHO, rfps4, tmploc + psd_rf_wait, 1ms, 0, loggrd);
 	tmploc += pw_rfps4;
 	
-	fprintf(stderr, "pulsegen(): generating rfps4c (presat rf crusher 1)...\n");
+	fprintf(stderr, "pulsegen(): generating rfps4c (presat rf crusher 4)...\n");
 	tmploc += pgbuffertime;
-	TRAPEZOID(ZGRAD, rfps4c, tmploc + pw_rfps1ca, 2000, 0, loggrd);
+	TRAPEZOID(ZGRAD, rfps4c, tmploc + pw_rfps1ca, 1ms, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_rfps4ca + pw_rfps1c + pw_rfps1cd;
 	fprintf(stderr, " end: %dus\n", tmploc);
@@ -2393,6 +2406,9 @@ float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 	return (SAR_ASINC1/area * 3200/pw_rf * flip_rf/90.0 * MAX_B1_SINC1_90);
 }
 
+float calc_hard_B1(int pw_rf, float flip_rf) {
+	return (flip_rf / 180.0 * M_PI / GAMMA / (float)(pw_rf*1e-6));
+}
 
 /************************ END OF UMVSASL.E ******************************/
 

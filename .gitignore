@@ -1,4 +1,4 @@
-asl3dflex
+umvsasl
 *.host*
 *.psd*
 *.tgt*
@@ -21,13 +21,13 @@ host/
 sim_linux/
 tgt_ice/
 tgt_mgd/
-asl3dflex.cnvendian.api.h
-asl3dflex.cnvendian.c
-asl3dflex.cnvendian.globalvar.h
-asl3dflex.cnvendian.input.i
-asl3dflex.cnvendian.private.h
-asl3dflex.cvcopy.cpp
-.asl3dflex.e.swp
+umvsasl.cnvendian.api.h
+umvsasl.cnvendian.c
+umvsasl.cnvendian.globalvar.h
+umvsasl.cnvendian.input.i
+umvsasl.cnvendian.private.h
+umvsasl.cvcopy.cpp
+.umvsasl.e.swp
 *.trace
 *.swp
 *.log
@@ -35,8 +35,8 @@ dev-linux32/
 host32/
 ice-agp/
 *.bak*
-.asl3dflex.e.swo
+.umvsasl.e.swo
 .vscode/
 .~lock.vel_target_phs.txt#
-asl3dflex.bak.e
+umvsasl.bak.e
 
