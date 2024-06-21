@@ -119,7 +119,7 @@ float recfreq;
 float xmitfreq;
 
 @cv
-
+/*********************************************************************
  *                      UMVSASL.E CV SECTION                         *
  *                                                                   *
  * Standard C variables of _limited_ types common for both the Host  *
@@ -620,9 +620,6 @@ STATUS predownload( void )
 		return FAILURE;
 	}
 
-	/* Scale the rotation matrices */
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, opnshots*opetl, 0);
-	
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
 	a_gyw = YGRAD_max;
