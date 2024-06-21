@@ -619,6 +619,28 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
+/*************/
+int rotidx;
+int i;
+for (rotidx = 0; rotidx < opnshots*opetl; rotidx++) {
+	fprintf(stderr, "predownload(): before scalerotmats, R(%d,:) = [", rotidx);
+	for (i = 0; i < 9; i++) {
+		fprintf(stderr, "%ld ", tmtxtbl[rotidx][i]);
+	}
+fprintf(stderr, "]\n");
+}
+/*************/
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*nframes, 0);
+/*************/
+for (rotidx = 0; rotidx < opnshots*opetl; rotidx++) {
+	fprintf(stderr, "predownload(): after scalerotmats, R(%d,:) = [", rotidx);
+	for (i = 0; i < 9; i++) {
+		fprintf(stderr, "%ld ", tmtxtbl[rotidx][i]);
+	}
+fprintf(stderr, "]\n");
+}
+/*************/
+
 
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
@@ -1721,6 +1743,7 @@ STATUS scan( void )
 
 	int ttotal = 0;
 	int rotidx;
+	int i;
 	fprintf(stderr, "scan(): beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);	
 	
 	/* Play an empty acquisition to reset the DAB after prescan */
@@ -1815,6 +1838,12 @@ STATUS scan( void )
 
 				/* Set the view transformation matrix */
 				rotidx = shotn*opetl + echon;
+				fprintf(stderr, "R(%d,:) = [", rotidx);
+				for (i = 0; i < 9; i++) {
+					fprintf(stderr, "%d \t", (int)tmtxtbl[rotidx][i]);
+				}
+				fprintf(stderr, "]\n");
+				
 				setrotate( tmtxtbl[rotidx], 0 );
 				
 
@@ -1990,7 +2019,7 @@ int genviews() {
 
 	/* Declare values and matrices */
 	FILE* fID_kviews = fopen("kviews.txt","w");
-	int shotn, echon, n;
+	int rotidx, shotn, echon, n;
 	float rz, dz;
 	float Rz[9], Tz[9];
 	float T_0[9], T[9];
@@ -2006,6 +2035,9 @@ int genviews() {
 	for (shotn = 0; shotn < opnshots; shotn++) {
 		for (echon = 0; echon < opetl; echon++) {
 
+			/* calculate view index */
+			rotidx = shotn*opetl + echon;
+
 			/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
 			rz = 2.0*M_PI * (float)shotn / (float)opnshots;
 			dz = 2.0/(float)(opetl) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
@@ -2015,18 +2047,31 @@ int genviews() {
 			genrotmat('z', rz, Rz);
 
 			/* Multiply the transformation matrices */
-			multmat(3,3,3,T_0,Tz,T);
-			multmat(3,3,3,Rz,T,T);
+			multmat(3,3,3,T_0,Tz,T); /* T = T_0 * Tz */
+			multmat(3,3,3,Rz,T,T); /* T = Rz * T */
 
 			/* Save the matrix to the table of matrices */
-			fprintf(fID_kviews, "%d \t%d \t%f \t%f \t", shotn, echon, rz, dz);
+			fprintf(fID_kviews, "%d \t%d \t%f \t%f \t", shotn, echon, rz, dz);	
+			fprintf(stderr, "genviews(): R(%d,:) = [", rotidx);
 			for (n = 0; n < 9; n++) {
 				fprintf(fID_kviews, "%f \t", T[n]);
-				tmtxtbl[opnshots*opetl + echon][n] = (long)round(MAX_PG_WAMP*T[n]);
+				fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
+				tmtxtbl[rotidx][n] = (long)round(MAX_PG_WAMP*T[n]);
 			}
 			fprintf(fID_kviews, "\n");
+			fprintf(stderr, "]\n");
 		}
 	}
+
+/*************/
+for (rotidx = 0; rotidx < opnshots*opetl; rotidx++) {
+	fprintf(stderr, "genviews(): R(%d,:) = [", rotidx);
+	for (n = 0; n < 9; n++) {
+		fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
+	}
+fprintf(stderr, "]\n");
+}
+/*************/
 
 	/* Close the files */
 	fclose(fID_kviews);
