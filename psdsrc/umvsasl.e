@@ -158,9 +158,10 @@ int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* Trajectory cvs */
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",};
+int narms = 1 with {1, 1000, 1, VIS, "Number of spiral arms",};
 float kz_acc = 1.0 with {1, 100.0, 1.0, VIS, "kz acceleration (SENSE) factor (for SOS only)",};
-float sp_acc0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
-float sp_acc1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
+float vds_acc0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
+float vds_acc1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 float F0 = 0 with { , , 0, INVIS, "vds fov coefficient 0",};
 float F1 = 0 with { , , 0, INVIS, "vds fov coefficient 1",};
 float F2 = 0 with { , , 0, INVIS, "vds fov coefficient 2",};
@@ -451,6 +452,14 @@ STATUS cveval( void )
 	cvmin(opuser4, 0);
 	cvmax(opuser4, 100);
 	ndisdaqechoes = opuser4;
+	
+	piuset += use5;
+	cvdesc(opuser5, "Number of spiral arms");
+	cvdef(opuser5, narms);
+	opuser5 = narms;
+	cvmin(opuser5, 1);
+	cvmax(opuser5, opxres);
+	narms = opuser5;
 
 	piuset += use7;
 	cvdesc(opuser7, "kz acceleration factor (SOS only)");
@@ -462,19 +471,19 @@ STATUS cveval( void )
 
 	piuset += use8;
 	cvdesc(opuser8, "VD-spiral center oversampling factor");
-	cvdef(opuser8, sp_acc0);
-	opuser8 = sp_acc0;
+	cvdef(opuser8, vds_acc0);
+	opuser8 = vds_acc0;
 	cvmin(opuser8, 0.001);
 	cvmax(opuser8, 50.0);
-	sp_acc0 = opuser8;
+	vds_acc0 = opuser8;
 
 	piuset += use9;
 	cvdesc(opuser9, "VD-spiral edge oversampling factor");
-	cvdef(opuser9, sp_acc1);
-	opuser9 = sp_acc1;
+	cvdef(opuser9, vds_acc1);
+	opuser9 = vds_acc1;
 	cvmin(opuser9, 0.001);
 	cvmax(opuser9, 50.0);
-	sp_acc1 = opuser9;
+	vds_acc1 = opuser9;
 
 	piuset += use10;
 	cvdesc(opuser10, "Recon script ID #");
@@ -605,8 +614,8 @@ STATUS predownload( void )
 		
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
-	F0 = sp_acc1/(float)opnshots * (float)opfov / 10.0;
-	F1 = 2*pow((float)opfov/10.0,2)/opxres *(sp_acc1 - sp_acc0)/(float)opnshots;
+	F0 = vds_acc1 / (float)narms * (float)opfov / 10.0;
+	F1 = 2*pow((float)opfov/10.0,2)/opxres *(vds_acc1 - vds_acc0)/(float)narms;
 	F2 = 0;
 	if (genspiral() == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
@@ -619,27 +628,7 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
-/*************/
-int rotidx;
-int i;
-for (rotidx = 0; rotidx < opnshots*opetl; rotidx++) {
-	fprintf(stderr, "predownload(): before scalerotmats, R(%d,:) = [", rotidx);
-	for (i = 0; i < 9; i++) {
-		fprintf(stderr, "%ld ", tmtxtbl[rotidx][i]);
-	}
-fprintf(stderr, "]\n");
-}
-/*************/
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*nframes, 0);
-/*************/
-for (rotidx = 0; rotidx < opnshots*opetl; rotidx++) {
-	fprintf(stderr, "predownload(): after scalerotmats, R(%d,:) = [", rotidx);
-	for (i = 0; i < 9; i++) {
-		fprintf(stderr, "%ld ", tmtxtbl[rotidx][i]);
-	}
-fprintf(stderr, "]\n");
-}
-/*************/
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*narms, 0);
 
 
 	/* Update the readout pulse parameters */
@@ -943,7 +932,7 @@ fprintf(stderr, "]\n");
 	/* set sequence clock */
 	pidmode = PSD_CLOCK_NORM;
 	pitslice = optr;
-	pitscan = (nframes*opnshots + ndisdaqtrains) * optr; /* pitscan controls the clock time on the interface */	
+	pitscan = (nframes*narms*opnshots + ndisdaqtrains) * optr; /* pitscan controls the clock time on the interface */	
 	
 	/* Set up the filter structures to be downloaded for realtime 
 	   filter generation. Get the slot number of the filter in the filter rack 
@@ -1006,7 +995,7 @@ fprintf(stderr, "]\n");
 	cvmax(rhnslices, 32767);
 
 	rhfrsize = grad_len;
-	rhnframes = 2*ceil((float)(opetl * opnshots + 1) / 2.0);
+	rhnframes = 2*ceil((float)(opetl * narms * opnshots + 1) / 2.0);
 	rhnecho = 1;
 	rhnslices = nframes + 1;
 	rhrawsize = 2*rhptsize*rhfrsize * (rhnframes + 1) * rhnslices * rhnecho;
@@ -1348,6 +1337,7 @@ extern PSD_EXIT_ARG psdexitarg;
 /* Declare rsps */
 int echon;
 int shotn;
+int armn;
 int framen;
 int disdaqn;
 int n;
@@ -1743,7 +1733,6 @@ STATUS scan( void )
 
 	int ttotal = 0;
 	int rotidx;
-	int i;
 	fprintf(stderr, "scan(): beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);	
 	
 	/* Play an empty acquisition to reset the DAB after prescan */
@@ -1783,77 +1772,75 @@ STATUS scan( void )
 
 	/* loop through frames and shots */
 	for (framen = 0; framen < nframes; framen++) {
-		for (shotn = 0; shotn < opnshots; shotn++) {
+		for (armn = 0; armn < narms; armn++) {
+			for (shotn = 0; shotn < opnshots; shotn++) {
 
-			/* play TR deadtime */
-			ttotal += play_deadtime(tr_deadtime);
+				/* play TR deadtime */
+				ttotal += play_deadtime(tr_deadtime);
 
-			/* play the ASL pre-saturation pulse for background suppression */
-			if (presat_flag) {
-				fprintf(stderr, "scan(): playing asl pre-saturation pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_presat();
-			}
+				fprintf(stderr, "scan(): ************* beginning loop for frame %d, arm %d, shot %d *************", framen, shotn, armn);
 
-			if (prep1_id > 0 ) {
-				fprintf(stderr, "scan(): playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_aslprep(off_prep1ctlcore, off_prep1lblcore, prep1_mod, dur_prep1core, prep1_pld, prep1_tbgs1, prep1_tbgs2, prep1_tbgs3);
-			}
-			
-			if (prep2_id > 0 ) {
-				fprintf(stderr, "scan(): playing prep2 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_aslprep(off_prep2ctlcore, off_prep2lblcore, prep2_mod, dur_prep2core, prep2_pld, prep2_tbgs1, prep2_tbgs2, prep2_tbgs3);
-			}
-			
-			/* fat sat pulse */
-			if (fatsat_flag) {
-				fprintf(stderr, "scan(): playing fat sat pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-				ttotal += play_fatsat();
-			}
-
-			/* play disdaq echoes */
-			for (echon = 0; echon < ndisdaqechoes; echon++) {
-				fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-				ttotal += play_tipdown(117*echon);
-				
-				fprintf(stderr, "scan(): playing deadtime in place of readout for frame %d, shot %d, disdaq echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
-				ttotal += play_deadtime(dur_seqcore);
-			};
-
-			for (echon = 0; echon < opetl; echon++) {
-				fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-				ttotal += play_tipdown(117*(echon + ndisdaqechoes));
-		
-				/* load the DAB */
-				slice = framen+1;
-				view = 	shotn*opetl + echon + 1;
-				echo = 0;
-				fprintf(stderr, "scan(): loaddab(&echo1, %d, %d, DABSTORE, %d, DABON, PSD_LOAD_DAB_ALL)...\n", slice, echo, view);
-				loaddab(&echo1,
-						slice,
-						echo,
-						DABSTORE,
-						view,
-						DABON,
-						PSD_LOAD_DAB_ALL);		
-
-				/* Set the view transformation matrix */
-				rotidx = shotn*opetl + echon;
-				fprintf(stderr, "R(%d,:) = [", rotidx);
-				for (i = 0; i < 9; i++) {
-					fprintf(stderr, "%d \t", (int)tmtxtbl[rotidx][i]);
+				/* play the ASL pre-saturation pulse for background suppression */
+				if (presat_flag) {
+					fprintf(stderr, "scan(): playing asl pre-saturation pulse for frame %d, arm %d, shot %d (t = %d / %.0f us)...\n", framen, armn, shotn, ttotal, pitscan);
+					ttotal += play_presat();
 				}
-				fprintf(stderr, "]\n");
-				
-				setrotate( tmtxtbl[rotidx], 0 );
-				
 
-				fprintf(stderr, "scan(): playing readout for frame %d, shot %d, echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
-				ttotal += play_readout(kill_grads);
+				if (prep1_id > 0 ) {
+					fprintf(stderr, "scan(): playing prep1 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+					ttotal += play_aslprep(off_prep1ctlcore, off_prep1lblcore, prep1_mod, dur_prep1core, prep1_pld, prep1_tbgs1, prep1_tbgs2, prep1_tbgs3);
+				}
 
-				/* Reset the rotation matrix */
-				setrotate( tmtx0, 0 );
+				if (prep2_id > 0 ) {
+					fprintf(stderr, "scan(): playing prep2 pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+					ttotal += play_aslprep(off_prep2ctlcore, off_prep2lblcore, prep2_mod, dur_prep2core, prep2_pld, prep2_tbgs1, prep2_tbgs2, prep2_tbgs3);
+				}
+
+				/* fat sat pulse */
+				if (fatsat_flag) {
+					fprintf(stderr, "scan(): playing fat sat pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+					ttotal += play_fatsat();
+				}
+
+				/* play disdaq echoes */
+				for (echon = 0; echon < ndisdaqechoes; echon++) {
+					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
+					ttotal += play_tipdown(117*echon);
+
+					fprintf(stderr, "scan(): playing deadtime in place of readout for frame %d, shot %d, disdaq echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
+					ttotal += play_deadtime(dur_seqcore);
+				};
+
+				for (echon = 0; echon < opetl; echon++) {
+					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
+					ttotal += play_tipdown(117*(echon + ndisdaqechoes));
+
+					/* load the DAB */
+					slice = framen+1;
+					view = 	armn*opnshots*opetl + shotn*opetl + echon + 1;
+					echo = 0;
+					fprintf(stderr, "scan(): loaddab(&echo1, %d, %d, DABSTORE, %d, DABON, PSD_LOAD_DAB_ALL)...\n", slice, echo, view);
+					loaddab(&echo1,
+							slice,
+							echo,
+							DABSTORE,
+							view,
+							DABON,
+							PSD_LOAD_DAB_ALL);		
+
+					/* Set the view transformation matrix */
+					rotidx = armn*opnshots*opetl + shotn*opetl + echon;
+					setrotate( tmtxtbl[rotidx], 0 );
+
+
+					fprintf(stderr, "scan(): playing readout for frame %d, shot %d, echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
+					ttotal += play_readout(kill_grads);
+
+					/* Reset the rotation matrix */
+					setrotate( tmtx0, 0 );
+				}
+
 			}
-
 		}
 	}
 
@@ -1910,7 +1897,7 @@ int genspiral() {
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
-	float kzmax = (kz_acc * opetl / D / 2.0); /* kspace z sampling radius (cm^-1) */
+	float kzmax = (kz_acc * opetl * opnshots / D / 2.0); /* kspace z sampling radius (cm^-1) */
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
@@ -2019,7 +2006,7 @@ int genviews() {
 
 	/* Declare values and matrices */
 	FILE* fID_kviews = fopen("kviews.txt","w");
-	int rotidx, shotn, echon, n;
+	int rotidx, armn, shotn, echon, n;
 	float rz, dz;
 	float Rz[9], Tz[9];
 	float T_0[9], T[9];
@@ -2032,46 +2019,38 @@ int genviews() {
         orthonormalize(T_0, 3, 3);
 
 	/* Loop through all views */
-	for (shotn = 0; shotn < opnshots; shotn++) {
-		for (echon = 0; echon < opetl; echon++) {
+	for (armn = 0; armn < narms; armn++) {
+		for (shotn = 0; shotn < opnshots; shotn++) {
+			for (echon = 0; echon < opetl; echon++) {
 
-			/* calculate view index */
-			rotidx = shotn*opetl + echon;
+				/* calculate view index */
+				rotidx = armn*opnshots*opetl + shotn*opetl + echon;
 
-			/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
-			rz = 2.0*M_PI * (float)shotn / (float)opnshots;
-			dz = 2.0/(float)(opetl) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
+				/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
+				rz = 2.0*M_PI * (float)armn / (float)narms;
+				dz = 2.0/(float)(opetl*opnshots) * (center_out_idx(opnshots,shotn)*opetl + center_out_idx(opetl,echon)) - 1.0;
 
-			/* Calculate the transformation matrices */
-			Tz[8] = dz;
-			genrotmat('z', rz, Rz);
+				/* Calculate the transformation matrices */
+				Tz[8] = dz;
+				genrotmat('z', rz, Rz);
 
-			/* Multiply the transformation matrices */
-			multmat(3,3,3,T_0,Tz,T); /* T = T_0 * Tz */
-			multmat(3,3,3,Rz,T,T); /* T = Rz * T */
+				/* Multiply the transformation matrices */
+				multmat(3,3,3,T_0,Tz,T); /* T = T_0 * Tz */
+				multmat(3,3,3,Rz,T,T); /* T = Rz * T */
 
-			/* Save the matrix to the table of matrices */
-			fprintf(fID_kviews, "%d \t%d \t%f \t%f \t", shotn, echon, rz, dz);	
-			fprintf(stderr, "genviews(): R(%d,:) = [", rotidx);
-			for (n = 0; n < 9; n++) {
-				fprintf(fID_kviews, "%f \t", T[n]);
-				fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
-				tmtxtbl[rotidx][n] = (long)round(MAX_PG_WAMP*T[n]);
+				/* Save the matrix to the table of matrices */
+				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t", armn, shotn, echon, rz, dz);	
+				fprintf(stderr, "genviews(): R(%d,:) = [", rotidx);
+				for (n = 0; n < 9; n++) {
+					fprintf(fID_kviews, "%f \t", T[n]);
+					tmtxtbl[rotidx][n] = (long)round(MAX_PG_WAMP*T[n]);
+					fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
+				}
+				fprintf(fID_kviews, "\n");
+				fprintf(stderr, "]\n");
 			}
-			fprintf(fID_kviews, "\n");
-			fprintf(stderr, "]\n");
 		}
 	}
-
-/*************/
-for (rotidx = 0; rotidx < opnshots*opetl; rotidx++) {
-	fprintf(stderr, "genviews(): R(%d,:) = [", rotidx);
-	for (n = 0; n < 9; n++) {
-		fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
-	}
-fprintf(stderr, "]\n");
-}
-/*************/
 
 	/* Close the files */
 	fclose(fID_kviews);
