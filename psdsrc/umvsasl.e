@@ -119,7 +119,7 @@ float recfreq;
 float xmitfreq;
 
 @cv
-/*********************************************************************
+
  *                      UMVSASL.E CV SECTION                         *
  *                                                                   *
  * Standard C variables of _limited_ types common for both the Host  *
@@ -138,12 +138,6 @@ float xmitfreq;
 @inline Prescan.e PScvs
 
 int numdda = 4;			/* For Prescan: # of disdaqs ps2*/
-
-float xmtaddScan;
-int obl_debug = 0 with {0, 1, 0, INVIS, "On(=1) to print messages for obloptimize",};
-int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based on actual rotation matrices",};
-int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
-float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
 float SLEWMAX = 12500.0 with {1000, 25000.0, 12500.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
@@ -165,10 +159,8 @@ int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 /* Trajectory cvs */
 int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",};
 float kz_acc = 1.0 with {1, 100.0, 1.0, VIS, "kz acceleration (SENSE) factor (for SOS only)",};
-float spvd0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
-float spvd1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
-int sptype2d = 4 with {1, 4, 1, VIS, "1 = spiral out, 2 = spiral in, 3 = spiral out-in, 4 = spiral in-out",};
-int sptype3d = 3 with {0, 4, 1, VIS, "0 = 2D (shotxshot rot only) 1 = stack of spirals, 2 = rotating spirals (single axis), 3 = rotating spirals (2 axes), 4 = debug mode",};
+float sp_acc0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
+float sp_acc1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
 float F0 = 0 with { , , 0, INVIS, "vds fov coefficient 0",};
 float F1 = 0 with { , , 0, INVIS, "vds fov coefficient 1",};
 float F2 = 0 with { , , 0, INVIS, "vds fov coefficient 2",};
@@ -209,6 +201,13 @@ int dur_tipdowncore = 0 with {0, , 0, INVIS, "Duration of the slice selective ti
 int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
 int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime within core (us)",};
 int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime within core (us)",};
+
+/* inhereted from grass.e: */
+float xmtaddScan;
+int obl_debug = 0 with {0, 1, 0, INVIS, "On(=1) to print messages for obloptimize",};
+int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based on actual rotation matrices",};
+int debug = 0 with {0,1,0,INVIS,"1 if debug is on ",};
+float echo1bw = 16 with {,,,INVIS,"Echo1 filter bw.in KHz",};
 
 @host
 /*********************************************************************
@@ -453,22 +452,6 @@ STATUS cveval( void )
 	cvmax(opuser4, 100);
 	ndisdaqechoes = opuser4;
 
-	piuset += use5;
-	cvdesc(opuser5, "2D spiral: 1=out 2=in 3=out-in 4=in-out");
-	cvdef(opuser5, sptype2d);
-	opuser5 = sptype2d;
-	cvmin(opuser5, 1);
-	cvmax(opuser5, 4);
-	sptype2d = opuser5;
-
-	piuset += use6;
-	cvdesc(opuser6, "3D spiral: 0=2D 1=stack 2=1-ax-rots 3=2-ax-rots");
-	cvdef(opuser6, sptype3d);
-	opuser6 = sptype3d;
-	cvmin(opuser6, 0);
-	cvmax(opuser6, 4);
-	sptype3d = opuser6;
-
 	piuset += use7;
 	cvdesc(opuser7, "kz acceleration factor (SOS only)");
 	cvdef(opuser7, kz_acc);
@@ -479,19 +462,19 @@ STATUS cveval( void )
 
 	piuset += use8;
 	cvdesc(opuser8, "VD-spiral center oversampling factor");
-	cvdef(opuser8, spvd0);
-	opuser8 = spvd0;
+	cvdef(opuser8, sp_acc0);
+	opuser8 = sp_acc0;
 	cvmin(opuser8, 0.001);
 	cvmax(opuser8, 50.0);
-	spvd0 = opuser8;
+	sp_acc0 = opuser8;
 
 	piuset += use9;
 	cvdesc(opuser9, "VD-spiral edge oversampling factor");
-	cvdef(opuser9, spvd1);
-	opuser9 = spvd1;
+	cvdef(opuser9, sp_acc1);
+	opuser9 = sp_acc1;
 	cvmin(opuser9, 0.001);
 	cvmax(opuser9, 50.0);
-	spvd1 = opuser9;
+	sp_acc1 = opuser9;
 
 	piuset += use10;
 	cvdesc(opuser10, "Recon script ID #");
@@ -622,8 +605,8 @@ STATUS predownload( void )
 		
 	/* Generate initial spiral trajectory */
 	fprintf(stderr, "predownload(): calling genspiral()\n");
-	F0 = spvd0/(float)opnshots * (float)opfov / 10.0;
-	F1 = 2*pow((float)opfov/10.0,2)/opxres *(spvd1 - spvd0)/(float)opnshots;
+	F0 = sp_acc1/(float)opnshots * (float)opfov / 10.0;
+	F1 = 2*pow((float)opfov/10.0,2)/opxres *(sp_acc1 - sp_acc0)/(float)opnshots;
 	F2 = 0;
 	if (genspiral() == 0) {
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
@@ -638,7 +621,7 @@ STATUS predownload( void )
 	}
 
 	/* Scale the rotation matrices */
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*nframes, 0);
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, opnshots*opetl, 0);
 	
 	/* Update the readout pulse parameters */
 	a_gxw = XGRAD_max;
@@ -1834,8 +1817,9 @@ STATUS scan( void )
 						PSD_LOAD_DAB_ALL);		
 
 				/* Set the view transformation matrix */
-				rotidx = framen*opnshots*opetl + shotn*opetl + echon;
+				rotidx = shotn*opetl + echon;
 				setrotate( tmtxtbl[rotidx], 0 );
+				
 
 				fprintf(stderr, "scan(): playing readout for frame %d, shot %d, echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
 				ttotal += play_readout(kill_grads);
@@ -1875,18 +1859,7 @@ void dummylinks( void )
 *****************************************************/
 int genspiral() {
 
-	/* 4 parts of the gradient waveform:
-	 * 	- Z-encode (*_ze):		kZ encoding step
-	 *	- Spiral (*_sp):		kXY-plane spiral trajectory (readout)
-	 *	- Ramp-down (*_rd):		XY gradient ramp down
-	 *	- kspace Rewinder (*_kr):	kspace rewinder (XYZ trapezoidal gradient)
-	 */
-
-	/* gradient waveforms will be in units of rad*G/ms */
-
 	FILE* fID_ktraj = fopen("ktraj.txt", "w");
-	FILE* fID_grad = fopen("grad.txt", "w");
-	FILE* fID_graddac = fopen("graddac.txt", "w");
 
 	/* declare variables */
 	int n;
@@ -1911,7 +1884,7 @@ int genspiral() {
 	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
-	float kzmax = (sptype3d == 1) ? (kz_acc * opetl / D / 2.0) : (kxymax);
+	float kzmax = (kz_acc * opetl / D / 2.0); /* kspace z sampling radius (cm^-1) */
 
 	/* generate the z encoding trapezoid gradient */
 	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
@@ -1923,7 +1896,7 @@ int genspiral() {
 	F[0] = F0;
 	F[1] = F1;
 	F[2] = F2;
-	calc_vds(sm, gm, dt, dt, (sptype2d<3) ? (1) : (2), F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
+	calc_vds(sm, gm, dt, dt, 1, F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
 	T_sp = dt * np_sp;
 
 	/* calculate gradients at end of spiral */
@@ -1986,45 +1959,14 @@ int genspiral() {
 			gzn = -kz0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
 		}
 
-
-		switch (sptype2d) {
-			case 1: /* spiral out */
-				gx[n + nnav] = gxn;
-				gy[n + nnav] = gyn;
-				gz[n + nnav] = gzn;
-				break;
-			case 2: /* spiral in */
-				gx[np - 1 - n + nnav] = gxn;
-				gy[np - 1 - n +  nnav] = gyn;
-				gz[np - 1 - n + nnav] = gzn;
-				break;
-			case 3: /* spiral out-in */
-				gx[n] = gxn;
-				gy[n] = gyn;
-				gz[n] = gzn;
-				gx[2*np + nnav - 1 - n] = gxn;
-				gy[2*np + nnav - 1 - n] = gyn;
-				gz[2*np + nnav - 1 - n] = -gzn;
-				break;
-			case 4: /* spiral in-out */
-				gx[np - 1 - n] = gxn;
-				gy[np - 1 - n] = gyn;
-				gz[np - 1 - n] = -gzn;
-				gx[np + nnav + n] = gxn;
-				gy[np + nnav + n] = gyn;
-				gz[np + nnav + n] = gzn;
-				break;
-			default:
-				return 0;
-				break;
-		}
+		/* save to array after navigator points */
+		gx[n + nnav] = gxn;
+		gy[n + nnav] = gyn;
+		gz[n + nnav] = gzn;
 	}
 
 	/* calculate total number of points */
-	if (sptype2d > 2)
-		grad_len = 2*np + nnav;
-	else
-		grad_len = np + nnav;
+	grad_len = np + nnav;
 
 	/* calculate kspace location, fs gradients, and write to file */
 	kxn = 0.0;
@@ -2040,13 +1982,9 @@ int genspiral() {
 		Gz[n] = 2*round(MAX_PG_WAMP/ZGRAD_max * gz[n] / 2.0);
 		
 		fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzn);
-		fprintf(fID_grad, "%f \t%f \t%f\n", gx[n], gy[n], gz[n]);
-		fprintf(fID_graddac, "%d \t%d \t%d\n", Gx[n], Gy[n], Gz[n]);
 	}
 
 	fclose(fID_ktraj);
-	fclose(fID_grad);
-	fclose(fID_graddac);
 
 	return 1;
 }
@@ -2055,9 +1993,9 @@ int genviews() {
 
 	/* Declare values and matrices */
 	FILE* fID_kviews = fopen("kviews.txt","w");
-	int framen, shotn, echon, n;
-	float rz1, rx, ry, rz2, dz;
-	float Rz1[9], Rx[9], Ry[9], Rz2[9], Tz[9];
+	int shotn, echon, n;
+	float rz, dz;
+	float Rz[9], Tz[9];
 	float T_0[9], T[9];
 
 	/* Initialize z translation to identity matrix */
@@ -2068,63 +2006,28 @@ int genviews() {
         orthonormalize(T_0, 3, 3);
 
 	/* Loop through all views */
-	for (framen = 0; framen < nframes; framen++) {
-		for (shotn = 0; shotn < opnshots; shotn++) {
-			for (echon = 0; echon < opetl; echon++) {
+	for (shotn = 0; shotn < opnshots; shotn++) {
+		for (echon = 0; echon < opetl; echon++) {
 
+			/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
+			rz = 2.0*M_PI * (float)shotn / (float)opnshots;
+			dz = 2.0/(float)(opetl) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
 
-				/* Initialize rotation angles/kz shift */
-				rz1 = 2.0*M_PI * (float)shotn / (float)opnshots;
-				rx = 0.0;
-				ry = 0.0;
-				rz2 = 0.0;
-				dz = 0.0;
+			/* Calculate the transformation matrices */
+			Tz[8] = dz;
+			genrotmat('z', rz, Rz);
 
-				/* Determine type of transformation */
-				switch (sptype3d) {
-					case 0 : /* 2D - shot by shot rotations only */
-						break;
-					case 1 : /* Kz shifts */
-						dz = 2.0/(float)(opetl) * pow(-1.0,echon)*floor((float)(echon + 1)/2.0);
-						break;
-					case 2 : /* Single axis rotation */
-						rx = 2.0*M_PI * echon / PHI;
-						break;
-					case 3 : /* Double axis rotations */
-						rx = acos(fmod(echon*phi1, 1.0)); /* polar angle */
-						rz2 = 2.0*M_PI * fmod(echon*phi2, 1.0); /* azimuthal angle */
-						break;		
-					case 4: /* Debugging case */
-						rx = M_PI/2.0*echon;
-						ry = M_PI/4.0*shotn;	
-						break;
-					default:
-						return 0;
-				}
+			/* Multiply the transformation matrices */
+			multmat(3,3,3,T_0,Tz,T);
+			multmat(3,3,3,Rz,T,T);
 
-
-				/* Calculate the transformation matrices */
-				Tz[8] = dz;
-				genrotmat('z', rz1, Rz1);
-				genrotmat('x', rx, Rx);
-				genrotmat('y', ry, Ry);
-				genrotmat('z', rz2, Rz2);
-
-				/* Multiply the transformation matrices */
-				multmat(3,3,3,T_0,Tz,T);
-				multmat(3,3,3,Rz1,T,T);
-				multmat(3,3,3,Rx,T,T);
-				multmat(3,3,3,Ry,T,T);
-				multmat(3,3,3,Rz2,T,T);
-
-				/* Save the matrix to the table of matrices */
-				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t%f \t%f \t%f \t", framen, shotn, echon, rz1, rx, ry, rz2, dz);
-				for (n = 0; n < 9; n++) {
-					fprintf(fID_kviews, "%f \t", T[n]);
-					tmtxtbl[framen*opnshots*opetl + shotn*opetl + echon][n] = (long)round(MAX_PG_WAMP*T[n]);
-				}
-				fprintf(fID_kviews, "\n");
+			/* Save the matrix to the table of matrices */
+			fprintf(fID_kviews, "%d \t%d \t%f \t%f \t", shotn, echon, rz, dz);
+			for (n = 0; n < 9; n++) {
+				fprintf(fID_kviews, "%f \t", T[n]);
+				tmtxtbl[opnshots*opetl + echon][n] = (long)round(MAX_PG_WAMP*T[n]);
 			}
+			fprintf(fID_kviews, "\n");
 		}
 	}
 
