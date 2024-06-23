@@ -49,7 +49,11 @@ The repository is broken up into several subdirectories:
 To select the pulse sequence, choose any basic sequence (i.e. 3-plane localizer) and then go to imaging options:
 
 #### Pulse Sequence Structure:
+Our sequence uses several ASL preperation pulses prior to a spoiled gradient echo (SPGR) acquisition. Our sequence acquires data using an interleaved variable density 3D stack of spirals kspace trajecory.
+
 A top-down view of our pulse sequence is shown in the figure below:
 ![pulsesequencediagram](https://github.com/fmrifrey/umvsasl/assets/96143939/4bc1e478-81b4-4090-836e-895f8e85dd65)
+
+At the top-level, we loop through temporal frames. At each frame, all data for a single image volume is collected. Within each frame, we acquire multiple spiral arms of the 3D stack of spirals. Between each arm, the stack of spirals are rotated by uniform rotations, as shown below:
 
 
