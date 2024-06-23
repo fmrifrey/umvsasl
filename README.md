@@ -1,18 +1,17 @@
 # umvsasl
 written by David Frey for fMRI lab at University of Michigan, PI: Luis Hernandez-Garcia
 
-Welcome to our asl3dflex project repository. This project implements an end-to-end pipeline for pulse sequence development and image reconstruction for velocity-selective ASL.
+Welcome to our umvsasl project repository. This project implements an end-to-end pipeline for pulse sequence development and image reconstruction for velocity-selective ASL.
 
 ## Table of Contents
-
 1. [Introduction](#introduction)
     - [Directory Structure](#directory-structure)
 2. [Usage](#usage)
-    - [Scanner Operation](#scanner-operation)
+    - [Running the Pulse Sequence](#scanner-operation)
         - [Scanner Setup](#scanner-setup)
-        - [Running Basic Sequences](#running-basic-sequences)
-        - [Running ASL Sequences](#running-asl-sequences)
+        - [Pulse Sequence Structure](#pulse-sequence-structure)
         - [List of User Control Variables](#list-of-user-control-variables)
+        - [Scanner Operation Tips](#scanner-operation-tips)
     - [MATLAB Reconstruction](#matlab-reconstruction)
         - [Requirements](#recon-requirements)
         - [Basic NUFFT Reconstruction Example](#recon-example)
@@ -31,10 +30,12 @@ The repository is broken up into several subdirectories:
 - `/recon`: Contains MATLAB scripts for reconstructing MRI data. This code should be used only on the machine dedicated to reconstruction.
 - `/scanner`: Contains a library of bash scripts and pulse .txt files used for scanning. These files should be on the path of the MRI system host (usually /usr/g/bin).
 - `/docs`: Contains files documenting validation testing of our project
+    - `/tests`: Contains notes from experimental validation testing of our sequence
+- `/assets`: Contains assets for documentation on GitHub
 
 ## Usage
 
-### Scanner Operation
+### Running the Pulse Sequence
 
 #### Scanner Setup
 
@@ -46,3 +47,9 @@ The repository is broken up into several subdirectories:
   
 ##### Selecting the pulse sequence:
 To select the pulse sequence, choose any basic sequence (i.e. 3-plane localizer) and then go to imaging options:
+
+#### Pulse Sequence Structure:
+A top-down view of our pulse sequence is shown in the figure below:
+![pulsesequencediagram](https://github.com/fmrifrey/umvsasl/assets/96143939/4bc1e478-81b4-4090-836e-895f8e85dd65)
+
+
