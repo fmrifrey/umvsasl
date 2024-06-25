@@ -535,6 +535,7 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
+	FILE* finfo;
 	int echo1_freq[opslquant], rf1_freq[opslquant];
 	int slice;
 	int minesp, minte, maxte, absmintr;	
@@ -1002,6 +1003,74 @@ STATUS predownload( void )
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
+	
+	/* Print scan info to a file */
+	finfo = fopen("scaninfo.txt", "w");
+
+	fprintf(finfo, "cvs:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "opfov:", opfov);
+	fprintf(finfo, "\t%-50s%20f\n", "opflip:", opflip);
+	fprintf(finfo, "\t%-50s%20d\n", "opslquant:", opslquant);
+	fprintf(finfo, "\t%-50s%20f\n", "opslthick:", opslthick);
+	fprintf(finfo, "\t%-50s%20f\n", "optr:", (float)optr);
+	fprintf(finfo, "\t%-50s%20d\n", "opte:", opte);	
+	fprintf(finfo, "\t%-50s%20d\n", "opnshots:", opnshots);
+	fprintf(finfo, "\t%-50s%20d\n", "opetl:", opetl);	
+
+	fprintf(finfo, "hardware cvs:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "SLEWMAX:", SLEWMAX);
+	fprintf(finfo, "\t%-50s%20f\n", "GMAX:", GMAX);
+	fprintf(finfo, "\t%-50s%20f\n", "RFMAX:", RFMAX);
+
+	fprintf(finfo, "readout cvs:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "nframes:", nframes);
+	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqtrains", ndisdaqtrains);
+	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqechoes", ndisdaqechoes);
+	fprintf(finfo, "\t%-50s%20d\n", "fatsat_flag:", fatsat_flag);
+	fprintf(finfo, "\t%-50s%20d\n", "pgbuffertime:", pgbuffertime);
+	fprintf(finfo, "\t%-50s%20d\n", "kill_grads:", kill_grads);
+
+	fprintf(finfo, "trajectory cvs:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "narms:", narms);
+	fprintf(finfo, "\t%-50s%20d\n", "nnav:", nnav);
+	fprintf(finfo, "\t%-50s%20f\n", "vds_acc0:", vds_acc0);
+	fprintf(finfo, "\t%-50s%20f\n", "vds_acc1:", vds_acc1);
+	fprintf(finfo, "\t%-50s%20f\n", "kz_acc:", kz_acc);
+	
+	fprintf(finfo, "ASL prep cvs:\n");
+	fprintf(finfo, "\t%-50s%20d\n", "presat_flag:", presat_flag);
+	fprintf(finfo, "\t%-50s%20d\n", "presat_delay:", presat_delay);	
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_id:", prep1_id);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_pld:", prep1_pld);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_ncycles", prep1_ncycles);
+	fprintf(finfo, "\t%-50s%20f\n", "prep1_rfmax:", prep1_rfmax);
+	fprintf(finfo, "\t%-50s%20f\n", "prep1_gmax:", prep1_gmax);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_mod", prep1_mod);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs1", prep1_tbgs1);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs2", prep1_tbgs2);
+	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs3", prep1_tbgs3);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_id:", prep2_id);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_pld:", prep2_pld);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_ncycles", prep2_ncycles);
+	fprintf(finfo, "\t%-50s%20f\n", "prep2_rfmax:", prep2_rfmax);
+	fprintf(finfo, "\t%-50s%20f\n", "prep2_gmax:", prep2_gmax);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_mod", prep2_mod);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs1", prep2_tbgs1);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs2", prep2_tbgs2);
+	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs3", prep2_tbgs3);
+
+	fprintf(finfo, "\ntime cvs:\n");
+	fprintf(finfo, "\t%-50s%20f\n", "pitscan:", pitscan);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_presatcore:", dur_presatcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_prep1core:", dur_prep1core);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_prep2core:", dur_prep2core);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_bkgsupcore:", dur_bkgsupcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_fatsatcore:", dur_fatsatcore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_tipdowncore:", dur_tipdowncore);
+	fprintf(finfo, "\t%-50s%20d\n", "dur_seqcore:", dur_seqcore);
+	fprintf(finfo, "\t%-50s%20d\n", "tr_deadtime:", tr_deadtime);
+	
+	fclose(finfo);
 
 @inline Prescan.e PSpredownload	
 
