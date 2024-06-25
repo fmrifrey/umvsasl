@@ -2028,7 +2028,7 @@ int genviews() {
 
 				/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
 				rz = 2.0*M_PI * (float)armn / (float)narms;
-				dz = 2.0/(float)(opetl*opnshots) * (center_out_idx(opnshots,shotn)*opetl + center_out_idx(opetl,echon)) - 1.0;
+				dz = 2.0/(float)opetl * (center_out_idx(opetl,echon) - 1.0/(float)opnshots*center_out_idx(opnshots,shotn)) - 1.0;
 
 				/* Calculate the transformation matrices */
 				Tz[8] = dz;

@@ -12,7 +12,7 @@ int diff(float* x, int lenx, float di, float* y);
 float fsumarr(float *x, int lenx);
 float getmaxabs(float *x, int lenx);
 float trap(float t, float t_start, float t_ramp, float t_plateau);
-int center_out_idx(int Nleaves, int Nslices, int leafn, int slicen);
+int center_out_idx(int length, int idx);
 
 int eye(float *M, int n) {
 	
