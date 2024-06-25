@@ -31,14 +31,12 @@ function [kdata,klocs,N,fov] = read_data(pfile)
     kviews = load(kviewsfile);
     
     % transform kspace locations using rotation matrices
-    klocs = zeros(size(klocs0,1),3,nviews,nframes); % klocs = [N x 3 x nviews x nframes]
-    for framen = 1:nframes
-        for viewn = 1:nviews
-            R = reshape(kviews((framen-1)*nviews + viewn,end-8:end)',3,3)';
-            klocs(:,:,viewn,framen) = klocs0*R';
-        end
+    klocs = zeros(size(klocs0,1),3,nviews); % klocs = [N x 3 x nviews]
+    for viewn = 1:nviews
+        R = reshape(kviews(viewn,end-8:end)',3,3)';
+        klocs(:,:,viewn) = klocs0*R';
     end
-    klocs = permute(klocs,[1,3,2,4]); % klocs = [N x nviews x 3 x nframes]
+    klocs = permute(klocs,[1,3,2]); % klocs = [N x nviews x 3]
     
     % save N and fov
     N = hdr.image.dim_X * ones(1,3);
