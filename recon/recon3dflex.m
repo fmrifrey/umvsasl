@@ -15,6 +15,8 @@ function x = recon3dflex(varargin)
 %       for all subsequent frames
 %   - coilwise: option to rearrange data for coil-wise recon of 1st frame,
 %       this is useful for creating SENSE maps from fully-sampled data
+%   - ccfac: coil compression factor (i.e. ccfac = 4 will compressed data
+%       to 1/4 of the channels)
 %
 
     % check that mirt is set up
@@ -26,6 +28,7 @@ function x = recon3dflex(varargin)
     defaults.niter = 0;
     defaults.recycle = 0;
     defaults.coilwise = 0;
+    defaults.ccfac = 1;
     
     % parse input parameters
     args = vararg_pair(defaults,varargin);
@@ -39,12 +42,16 @@ function x = recon3dflex(varargin)
     % get sizes
     nframes = size(kdata,3); % number of frames
     ncoils = size(kdata,4); % number of coils
-
+    
     % check SENSE map
     if isempty(args.smap) && ncoils > 1
         warning('sense map is empty, compressing data to 1 coil...');
-        kdata = ir_mri_coil_compress(kdata,'ncoil',1);
         ncoils = 1;
+        kdata = ir_mri_coil_compress(kdata,'ncoil',ncoils);
+    elseif (args.ccfac > 1)
+        ncoils = ceil(ncoils/args.ccfac);
+        kdata = ir_mri_coil_compress(kdata,'ncoil',ncoils);
+        args.smap = ir_mri_coil_compress(args.smap,'ncoil',ncoils);
     end
     
     % set nufft arguments
@@ -71,6 +78,7 @@ function x = recon3dflex(varargin)
         fprintf('Reconstructing frame %d/%d\n', framen, nframes);
         if (framen > 1) && (args.niter > 0) && args.recycle
             x0 = x(:,:,:,1); % recycle solution to frame 1 as initialization
+            args.niter = min(10,ceil(args.niter/4));
         else
             x0 = reshape(A' * (w.*b), N);
             x0 = ir_wls_init_scale(A,b,x0);
@@ -81,11 +89,13 @@ function x = recon3dflex(varargin)
         r = reshape(A'*b - A'*(A*x_star), size(x_star));
         p = r;
         rsold = r(:)' * r(:);
+        x_set = zeros([N(:)',args.niter]);
         for n = 1:args.niter
             % calculate the gradient descent step
             AtAp = reshape(A'*(A*p), size(x_star));
             alpha = rsold / (p(:)' * AtAp(:));
             x_star = x_star + alpha * p;
+            x_set(:,:,:,n) = x_star;
             
             % calculate new residual
             r = r - alpha * AtAp;
