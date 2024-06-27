@@ -149,6 +149,7 @@ int ndisdaqtrains = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginn
 int ndisdaqechoes = 0 with {0, , 0, VIS, "Number of disdaq echos at beginning of echo train",};
 
 int fatsat_flag = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
+int rfspoil_flag = 1 with {0, 1, 0, VIS, "Option to do RF phase cycling (117deg increments to tipdown phase)",};
 
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 float crushfac = 3.0 with {0, 10, 0, VIS, "Crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
@@ -1029,6 +1030,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "fatsat_flag:", fatsat_flag);
 	fprintf(finfo, "\t%-50s%20d\n", "pgbuffertime:", pgbuffertime);
 	fprintf(finfo, "\t%-50s%20d\n", "kill_grads:", kill_grads);
+	fprintf(finfo, "\t%-50s%20d\n", "rfspoil_flag:", rfspoil_flag);	
 
 	fprintf(finfo, "trajectory cvs:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "narms:", narms);
@@ -1821,7 +1823,7 @@ STATUS scan( void )
 		/* Loop through echoes */
 		for (echon = 0; echon < opetl; echon++) {
 			fprintf(stderr, "scan(): playing flip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
-			ttotal += play_tipdown(117*echon);
+			ttotal += play_tipdown(rfspoil_flag*117*echon);
 
 			/* Load the DAB */		
 			fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon+1);
@@ -1874,7 +1876,8 @@ STATUS scan( void )
 				/* play disdaq echoes */
 				for (echon = 0; echon < ndisdaqechoes; echon++) {
 					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-					ttotal += play_tipdown(117*echon);
+					ttotal += play_tipdown(rfspoil_flag*117*echon);
+
 
 					fprintf(stderr, "scan(): playing deadtime in place of readout for frame %d, shot %d, disdaq echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
 					ttotal += play_deadtime(dur_seqcore);
@@ -1882,7 +1885,7 @@ STATUS scan( void )
 
 				for (echon = 0; echon < opetl; echon++) {
 					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-					ttotal += play_tipdown(117*(echon + ndisdaqechoes));
+					ttotal += play_tipdown(rfspoil_flag*117*(echon + ndisdaqechoes));
 
 					/* load the DAB */
 					slice = framen+1;
