@@ -962,7 +962,7 @@ STATUS predownload( void )
 		recfreq += (float)echo1_freq[slice] / (float)opslquant;
 	}
 
-	if( orderslice( TYPNORMORDER, opslquant, opslquant, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNORMORDER, nframes + 1, nframes + 1, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
