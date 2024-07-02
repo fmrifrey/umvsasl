@@ -91,7 +91,6 @@ int ZGRAD_falltime;
 /* Declare readout gradient waveform arrays */
 int Gx[MAXWAVELEN];
 int Gy[MAXWAVELEN];
-int Gz[MAXWAVELEN];
 int grad_len = 5000;
 
 /* Declare table of readout gradient transformation matrices */
@@ -148,8 +147,9 @@ int nframes = 2 with {1, , 2, VIS, "Number of frames",};
 int ndisdaqtrains = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
 int ndisdaqechoes = 0 with {0, , 0, VIS, "Number of disdaq echos at beginning of echo train",};
 
-int fatsat_flag = 1 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
-int rfspoil_flag = 1 with {0, 1, 0, VIS, "Option to do RF phase cycling (117deg increments to tipdown phase)",};
+int fatsat_flag = 0 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
+int rfspoil_flag = 0 with {0, 1, 0, VIS, "Option to do RF phase cycling (117deg increments to tipdown phase)",};
+int flowcomp_flag = 0 with {0, 1, 0, VIS, "Option to use flow-compensated slice select gradients",};
 
 int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
 float crushfac = 3.0 with {0, 10, 0, VIS, "Crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
@@ -539,6 +539,7 @@ STATUS predownload( void )
 	FILE* finfo;
 	int echo1_freq[opslquant], rf1_freq[opslquant];
 	int slice;
+	float kzmax;
 	int minesp, minte, maxte, absmintr;	
 	float rf1_b1;
 	float rfps1_b1, rfps2_b1, rfps3_b1, rfps4_b1;
@@ -613,9 +614,25 @@ STATUS predownload( void )
 	pw_gzrf1ra = tmp_pwa;
 	pw_gzrf1rd = tmp_pwd;
 	a_gzrf1r = tmp_a;
-		
-	/* Generate initial spiral trajectory */
-	fprintf(stderr, "predownload(): calling genspiral()\n");
+	
+	/* set parameters for flow compensated kz-encode (pre-scaled to kzmax) */
+	kzmax = (float)(kz_acc * opetl * opnshots) / ((float)opfov/10.0) / 2.0;
+	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax * (1 + flowcomp_flag); /* multiply by 2 if flow compensated */
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+	pw_gzw = tmp_pw;
+	pw_gzwa = tmp_pwa;
+	pw_gzwd = tmp_pwd;
+	a_gzw = tmp_a;
+	
+	/* set parameters for flowcomp pre-phaser */
+	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax; /* multiply by 2 if flow compensated */
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
+	pw_gzfc = tmp_pw;
+	pw_gzfc = tmp_pwa;
+	pw_gzfc = tmp_pwd;
+	a_gzfc = -tmp_a;
+	
+	/* generate initial spiral trajectory */
 	F0 = vds_acc1 / (float)narms * (float)opfov / 10.0;
 	F1 = 2*pow((float)opfov/10.0,2)/opxres *(vds_acc1 - vds_acc0)/(float)narms;
 	F2 = 0;
@@ -623,29 +640,21 @@ STATUS predownload( void )
 		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
+	a_gxw = XGRAD_max;
+	a_gyw = YGRAD_max;
+	ia_gxw = MAX_PG_WAMP;
+	ia_gyw = MAX_PG_WAMP;
+	res_gxw = grad_len;
+	res_gyw = grad_len;
+	pw_gxw = GRAD_UPDATE_TIME*grad_len;
+	pw_gyw = GRAD_UPDATE_TIME*grad_len;
 	
 	/* Generate view transformations */
-	fprintf(stderr, "predownload(): calling genviews()\n");
 	if (genviews() == 0) {
 		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
 		return FAILURE;
 	}
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*narms, 0);
-
-
-	/* Update the readout pulse parameters */
-	a_gxw = XGRAD_max;
-	a_gyw = YGRAD_max;
-	a_gzw = ZGRAD_max;
-	ia_gxw = MAX_PG_WAMP;
-	ia_gyw = MAX_PG_WAMP;
-	ia_gzw = MAX_PG_WAMP;
-	res_gxw = grad_len;
-	res_gyw = grad_len;
-	res_gzw = grad_len;
-	pw_gxw = GRAD_UPDATE_TIME*grad_len;
-	pw_gyw = GRAD_UPDATE_TIME*grad_len;
-	pw_gzw = GRAD_UPDATE_TIME*grad_len;
 
 	/* Calculate minimum ESP */
 	minesp = 1ms; /* fudge factor */
@@ -654,6 +663,12 @@ STATUS predownload( void )
 	minesp += pw_gzrf1spoila + pw_gzrf1spoil + pw_gzrf1spoild; /* crush1 pulse */
 	minesp += pgbuffertime; /* buffer */
 	minesp += TIMESSI; /* inter-core time */
+	minesp += pgbuffertime; /* buffer */
+	if (flowcomp_flag) {
+		minesp += pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
+		minesp += pgbuffertime; /* buffer */
+	}
+	minesp += pw_gzwa + pw_gzw + pw_gzwd; /* z encode + flowcomp rephaser */
 	minesp += pgbuffertime; /* buffer */
 	minesp += pw_gxw; /* readout window length */
 	minesp += pgbuffertime; /* buffer */
@@ -670,6 +685,12 @@ STATUS predownload( void )
 	minte += pgbuffertime; /* buffer */
 	minte += TIMESSI; /* inter-core time */
 	minte += pgbuffertime; /* buffer */
+	if (flowcomp_flag) {
+		minte += pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
+		minte += pgbuffertime; /* buffer */
+	}
+	minte += pw_gzwa + pw_gzw + pw_gzwd; /* z encode + flowcomp rephaser */
+	minte += pgbuffertime; /* buffer */
 
 	maxte = esp; /* echo spacing */
 	maxte -= (pw_gzrf1/2 + pw_gzrf1a); /* 1st half of crusher at end of readout */
@@ -677,6 +698,12 @@ STATUS predownload( void )
 	maxte -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* crusher */
 	maxte -= pgbuffertime; /* buffer */
 	maxte -= TIMESSI; /* inter-core time */
+	maxte -= pgbuffertime; /* buffer */
+	if (flowcomp_flag) {
+		maxte -= pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
+		maxte -= pgbuffertime; /* buffer */
+	}
+	maxte -= pw_gzwa + pw_gzw + pw_gzwd; /* z encode + flowcomp rephaser */
 	maxte -= pgbuffertime; /* buffer */
 	maxte -= pw_gxw; /* readout */
 
@@ -856,7 +883,13 @@ STATUS predownload( void )
 
 	/* calculate duration of seqcore */
 	dur_seqcore = 0;
-	dur_seqcore += deadtime1_seqcore + pgbuffertime;	
+	dur_seqcore += deadtime1_seqcore + pgbuffertime;
+	if (flowcomp_flag) {
+		dur_seqcore += pw_gzfca + pw_gzfc + pw_gzfcd;
+		dur_seqcore += pgbuffertime;
+	}
+	dur_seqcore += pw_gzwa + pw_gzw + pw_gzwd;
+	dur_seqcore += pgbuffertime;	
 	dur_seqcore += GRAD_UPDATE_TIME*grad_len;
 	dur_seqcore += pgbuffertime + deadtime2_seqcore;
 
@@ -962,7 +995,7 @@ STATUS predownload( void )
 		recfreq += (float)echo1_freq[slice] / (float)opslquant;
 	}
 
-	if( orderslice( TYPNORMORDER, nframes + 1, nframes + 1, TRIG_INTERN ) == FAILURE )
+	if( orderslice( TYPNORMORDER, MAXNFRAMES+1, MAXNFRAMES+1, TRIG_INTERN ) == FAILURE )
 	{
 		epic_error( use_ermes, supfailfmt, EM_PSD_SUPPORT_FAILURE,
 				EE_ARGS(1), STRING_ARG, "orderslice" );
@@ -1031,6 +1064,7 @@ STATUS predownload( void )
 	fprintf(finfo, "\t%-50s%20d\n", "pgbuffertime:", pgbuffertime);
 	fprintf(finfo, "\t%-50s%20d\n", "kill_grads:", kill_grads);
 	fprintf(finfo, "\t%-50s%20d\n", "rfspoil_flag:", rfspoil_flag);	
+	fprintf(finfo, "\t%-50s%20d\n", "flowcomp_flag:", flowcomp_flag);	
 
 	fprintf(finfo, "trajectory cvs:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "narms:", narms);
@@ -1100,6 +1134,47 @@ STATUS pulsegen( void )
 {
 	sspinit(psd_board_type);
 	int tmploc;	
+
+
+	/*************************/
+	/* generate readout core */
+	/*************************/
+	fprintf(stderr, "pulsegen(): beginning pulse generation of readout core (seqcore)\n");
+	tmploc = 0;
+	tmploc += deadtime1_seqcore + pgbuffertime; /* add pre-readout deadtime + buffer */
+
+	if (flowcomp_flag) {
+		fprintf(stderr, "pulsegen(): generating gzfc... (flow comp dephaser gradient\n");
+		TRAPEZOID(ZGRAD, gzfc, tmploc, 1ms, 0, loggrd);	
+		fprintf(stderr, "\tstart: %dus, ", tmploc);
+		tmploc += pw_gzfca + pw_gzfc + pw_gzfcd; /* end time for gzfc */
+		fprintf(stderr, " end: %dus\n", tmploc);
+		tmploc += pgbuffertime; /* add some buffer */
+	}	
+
+	fprintf(stderr, "pulsegen(): generating gzw... (z encode + flow comp rephase gradient\n");
+	TRAPEZOID(ZGRAD, gzw, tmploc, 1ms, 0, loggrd);	
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzwa + pw_gzw + pw_gzwd; /* end time for gzw */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime; /* add some buffer */
+
+	fprintf(stderr, "pulsegen(): generating gxw, gyw (spiral readout gradients) and echo1 (data acquisition window)...\n");
+	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
+	INTWAVE(YGRAD, gyw, tmploc, YGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
+	ACQUIREDATA(echo1, tmploc + psd_grd_wait,,,);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += GRAD_UPDATE_TIME*grad_len; /* end time for readout */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime; /* add some buffer */
+
+	tmploc += deadtime2_seqcore; /* add post-readout deadtime */
+
+	fprintf(stderr, "pulsegen(): finalizing spiral readout core...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_seqcore, tmploc);
+	SEQLENGTH(seqcore, dur_seqcore, seqcore);
+	fprintf(stderr, "\tDone.\n");
+
 
 	/************************/
 	/* generate presat core */
@@ -1337,31 +1412,6 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): finalizing tipdown core...\n");
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_tipdowncore, tmploc);
 	SEQLENGTH(tipdowncore, dur_tipdowncore, tipdowncore);
-	fprintf(stderr, "\tDone.\n");
-
-
-	/*************************/
-	/* generate readout core */
-	/*************************/
-	fprintf(stderr, "pulsegen(): beginning pulse generation of readout core (seqcore)\n");
-	tmploc = 0;
-
-	fprintf(stderr, "pulsegen(): generating gxw, gyw, & gzw (readout gradients) and echo1 (data acquisition window)...\n");
-	tmploc += deadtime1_seqcore + pgbuffertime; /* start time for readout */
-	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
-	INTWAVE(YGRAD, gyw, tmploc, YGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
-	INTWAVE(ZGRAD, gzw, tmploc, ZGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gz, 1, loggrd);
-	ACQUIREDATA(echo1, tmploc + psd_grd_wait,,,);
-	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += GRAD_UPDATE_TIME*grad_len; /* end time for readout */
-	fprintf(stderr, " end: %dus\n", tmploc);
-	tmploc += pgbuffertime; /* add some buffer */
-
-	tmploc += deadtime2_seqcore; /* add post-readout deadtime */
-
-	fprintf(stderr, "pulsegen(): finalizing spiral readout core...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_seqcore, tmploc);
-	SEQLENGTH(seqcore, dur_seqcore, seqcore);
 	fprintf(stderr, "\tDone.\n");
 
 
@@ -1694,7 +1744,7 @@ int play_readout(int grad_off) {
 		/* kill the gradients */
 		setiamp(0, &gxw, 0);
 		setiamp(0, &gyw, 0);
-		setiamp(0, &gzw, 0);
+		/*setiamp(0, &gzw, 0);*/
 	}
 
 	/* play the seqcore */
@@ -1706,7 +1756,7 @@ int play_readout(int grad_off) {
 	/* restore the gradients */
 	setiamp(ia_gxw, &gxw, 0);
 	setiamp(ia_gyw, &gyw, 0);
-	setiamp(ia_gzw, &gzw, 0);
+	/*setiamp(ia_gzw, &gzw, 0);*/
 
 	fprintf(stderr, "\tplay_readout(): Done.\n");
 	return ttotal;
@@ -1849,7 +1899,7 @@ STATUS scan( void )
 				/* play TR deadtime */
 				ttotal += play_deadtime(tr_deadtime);
 
-				fprintf(stderr, "scan(): ************* beginning loop for frame %d, arm %d, shot %d *************", framen, shotn, armn);
+				fprintf(stderr, "scan(): ************* beginning loop for frame %d, arm %d, shot %d *************\n", framen, shotn, armn);
 
 				/* play the ASL pre-saturation pulse for background suppression */
 				if (presat_flag) {
@@ -1947,126 +1997,59 @@ int genspiral() {
 	FILE* fID_ktraj = fopen("ktraj.txt", "w");
 
 	/* declare variables */
-	int n;
-	float t;
-	int np, np_ze, np_sp, np_rd, np_kr;
-	int tmp_pwa, tmp_pw, tmp_pwd;
-	float Tr_ze, Tp_ze, T_sp, T_rd, Tr_kr, Tp_kr;
-	float t1, t2, t3;
-	float gxn, gyn, gzn, kxn, kyn, kzn;
-	float gx0, gy0, g0, kx0, ky0, kz0, k0;
-	float h_ze, h_kr;
+	int n, np, np_rd;
+	float kxn, kyn;
+	float gx0, gy0, g0;
 	float F[3];
 
 	/* declare waveforms */
-	float *gx_sp, *gy_sp;
-	float gx[MAXWAVELEN], gy[MAXWAVELEN], gz[MAXWAVELEN];
+	float *gx, *gy;
 
 	/* convert units */
 	float dt = GRAD_UPDATE_TIME*1e-6; /* raster time (s) */
-	float D = (float)opfov / 10.0; /* fov (cm) */
-	float gm = GMAX; /* gradient amplitude limit (G/cm) */
-	float sm = SLEWMAX; /* slew limit (G/cm/s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
-	float kxymax = opxres / D / 2.0; /* kspace xy sampling radius (cm^-1) */
-	float kzmax = (kz_acc * opetl * opnshots / D / 2.0); /* kspace z sampling radius (cm^-1) */
-
-	/* generate the z encoding trapezoid gradient */
-	amppwgrad(kzmax/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_ze, &tmp_pwa, &tmp_pw, &tmp_pwd);
-	Tr_ze = (tmp_pwa + tmp_pwd) / 2.0 * 1e-6;
-	Tp_ze = tmp_pw * 1e-6;
-	np_ze = round((2*Tr_ze + Tp_ze) / dt);
+	float kxymax = (float)opxres / ((float)opfov/10.0) / 2.0; /* kspace xy sampling radius (cm^-1) */
+	float kzmax = (float)(kz_acc * opetl * opnshots) / ((float)opfov/10.0) / 2.0; /* kspace z sampling radius (cm^-1) */
 
 	/* generate the spiral trajectory */
 	F[0] = F0;
 	F[1] = F1;
 	F[2] = F2;
-	calc_vds(sm, gm, dt, dt, 1, F, 2, kxymax, MAXWAVELEN, &gx_sp, &gy_sp, &np_sp);
-	T_sp = dt * np_sp;
+	calc_vds(SLEWMAX, GMAX, dt, dt, 1, F, 2, kxymax, MAXWAVELEN, &gx, &gy, &np);
 
 	/* calculate gradients at end of spiral */
-	gx0 = gx_sp[np_sp - 1];
-	gy0 = gy_sp[np_sp - 1];
+	gx0 = gx[np - 1];
+	gy0 = gy[np - 1];
 	g0 = sqrt(pow(gx0,2) + pow(gy0,2));
-
-	/* calculate gradient ramp down time and round up to nearest sampling interval */
-	T_rd = g0 / sm;
-	T_rd = dt * ceil(T_rd / dt);
-	np_rd = round(T_rd/dt);
-
-	/* calculate gradients at end of ramp down */
-	kx0 = gam * dt * fsumarr(gx_sp, np_sp - 1) + gam * 1/2 * (T_rd + dt) * gx0;
-	ky0 = gam * dt * fsumarr(gy_sp, np_sp - 1) + gam * 1/2 * (T_rd + dt) * gy0;
-	kz0 = kzmax;
-	k0 = sqrt(pow(kx0,2) + pow(ky0,2) + pow(kz0,2));
-
-	/* generate the kspace rewinder */
-	amppwgrad(k0/gam*1e6, gm, 0, 0, ZGRAD_risetime, 0, &h_kr, &tmp_pwa, &tmp_pw, &tmp_pwd);
-	Tr_kr = (tmp_pwa + tmp_pwd) / 2.0 * 1e-6;
-	Tp_kr = tmp_pw * 1e-6;
-	np_kr = round((2*Tr_kr + Tp_kr) / dt);
-
-	/* calculate time markers */
-	t1 = 2*Tr_ze + Tp_ze;
-	t2 = t1 + T_sp;
-	t3 = t2 + T_rd;
-
+	np_rd = ceil(g0/SLEWMAX/dt);
+	
 	/* calculate total number of points */
-	np = np_ze + np_sp + np_rd + np_kr + 1;
-
-	/* loop through time points */
-	memset(gx, 0, sizeof gx);
-	memset(gy, 0, sizeof gx);
-	memset(gz, 0, sizeof gx);
-	for (n = 0; n < np; n++) {
-		t = dt * n;
-
-		if (t <= t1) { /* Z-encode gradient */
-			gxn = 0;
-			gyn = 0;
-			gzn = h_ze * trap(t, 0, Tr_ze, Tp_ze);
-		}
-
-		else if (t <= t2) { /* Spiral trajectory */
-			gxn = gx_sp[n - np_ze - 1];
-			gyn = gy_sp[n - np_ze - 1];
-			gzn = 0;
-		}
-
-		else if (t <= t3) { /* Gradient ramp-down */
-			gxn = gx0 * (1 - (t - t2) / T_rd);
-			gyn = gy0 * (1 - (t - t2) / T_rd);
-			gzn = 0;
-		}
-		else { /* Kspace rewinder */
-			gxn = -kx0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
-			gyn = -ky0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
-			gzn = -kz0/k0 * h_kr * trap(t, t3, Tr_kr, Tp_kr);
-		}
-
-		/* save to array after navigator points */
-		gx[n + nnav] = gxn;
-		gy[n + nnav] = gyn;
-		gz[n + nnav] = gzn;
-	}
-
-	/* calculate total number of points */
-	grad_len = np + nnav;
+	grad_len = nnav + np + np_rd;
 
 	/* calculate kspace location, fs gradients, and write to file */
 	kxn = 0.0;
 	kyn = 0.0;
-	kzn = 0.0;
 	for (n = 0; n < grad_len; n++) {
-		kxn += gam * gx[n] * dt;
-		kyn += gam * gy[n] * dt;
-		kzn += gam * gz[n] * dt;
+		if (n < nnav) { /* navigators */
+			kxn = 0.0;
+			kyn = 0.0;
+			Gx[n] = 0;
+			Gy[n] = 0;
+		}
+		else if (n < nnav + np) { /* spiral */
+			kxn += gam * gx[n - nnav] * dt;
+			kyn += gam * gy[n - nnav] * dt;
 
-		Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n] / 2.0);
-		Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n] / 2.0);
-		Gz[n] = 2*round(MAX_PG_WAMP/ZGRAD_max * gz[n] / 2.0);
-		
-		fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzn);
+			Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n - nnav] / 2.0);
+			Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n - nnav] / 2.0);
+		}	
+		else { /* ramp-down */
+			kxn = 0.0/0.0;
+			kyn = 0.0/0.0;
+			Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx0*(1 - (float)(n - nnav - np)/(float)np_rd) / 2.0);
+			Gy[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gy0*(1 - (float)(n - nnav - np)/(float)np_rd) / 2.0);
+		}	
+		fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzmax);
 	}
 
 	fclose(fID_ktraj);
@@ -2112,14 +2095,12 @@ int genviews() {
 
 				/* Save the matrix to the table of matrices */
 				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t", armn, shotn, echon, rz, dz);	
-				fprintf(stderr, "genviews(): R(%d,:) = [", rotidx);
 				for (n = 0; n < 9; n++) {
 					fprintf(fID_kviews, "%f \t", T[n]);
 					tmtxtbl[rotidx][n] = (long)round(MAX_PG_WAMP*T[n]);
 					fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
 				}
 				fprintf(fID_kviews, "\n");
-				fprintf(stderr, "]\n");
 			}
 		}
 	}
