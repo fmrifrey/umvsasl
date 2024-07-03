@@ -623,7 +623,7 @@ STATUS predownload( void )
 	pw_gzwa = tmp_pwa;
 	pw_gzwd = tmp_pwd;
 	a_gzw = tmp_a;
-	
+
 	/* set parameters for flowcomp pre-phaser */
 	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax; /* multiply by 2 if flow compensated */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
@@ -1511,6 +1511,7 @@ const CHAR *entry_name_list[ENTRY_POINT_MAX] = {
    adds more entry points and closes the list. */
 
 long tmtx0[9]; /* Initial transformation matrix */
+long zmtx[9] = {0};
 
 STATUS psdinit( void )
 {
@@ -1736,27 +1737,15 @@ int play_tipdown(float phs) {
 }
 
 /* function for playing the acquisition window */
-int play_readout(int grad_off) {
+int play_readout() {
 	int ttotal = 0;
 	fprintf(stderr, "\tplay_readout(): playing seqcore (%d us)...\n", dur_seqcore);
-
-	if (grad_off) {
-		/* kill the gradients */
-		setiamp(0, &gxw, 0);
-		setiamp(0, &gyw, 0);
-		/*setiamp(0, &gzw, 0);*/
-	}
 
 	/* play the seqcore */
 	boffset(off_seqcore);
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
 	ttotal += dur_seqcore + TIMESSI; 
-
-	/* restore the gradients */
-	setiamp(ia_gxw, &gxw, 0);
-	setiamp(ia_gyw, &gyw, 0);
-	/*setiamp(ia_gzw, &gzw, 0);*/
 
 	fprintf(stderr, "\tplay_readout(): Done.\n");
 	return ttotal;
@@ -1796,9 +1785,15 @@ STATUS prescanCore() {
 			fprintf(stderr, "prescanCore(): loaddab(&echo1, 0, 0, 0, %d, DABON, PSD_LOAD_DAB_ALL)...\n", view);
 			loaddab(&echo1, 0, 0, 0, view, DABON, PSD_LOAD_DAB_ALL);
 		}
+		
+		/* kill gradients */				
+		setrotate( zmtx, 0 );
 
 		fprintf(stderr, "prescanCore(): playing readout for prescan iteration %d...\n", view);
-		play_readout(1); /* kill the gradients */
+		play_readout();
+		
+		/* restore gradients */				
+		setrotate( tmtx0, 0 );
 
 		fprintf(stderr, "prescanCore(): playing deadtime for prescan iteration %d...\n", view);
 		play_deadtime(50000);
@@ -1860,7 +1855,13 @@ STATUS scan( void )
 	if (disdaqn == 0) {
 		/* Turn the DABOFF */
 		loaddab(&echo1, 0, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL);
-		play_readout(1); /* 1 = kill the gradients */
+		/* kill gradients */				
+		setrotate( zmtx, 0 );
+
+		play_readout();
+		
+		/* restore gradients */				
+		setrotate( tmtx0, 0 );
 	}
 
 	/* Play disdaqs */
@@ -1886,7 +1887,14 @@ STATUS scan( void )
 					PSD_LOAD_DAB_ALL);		
 
 			fprintf(stderr, "scan(): playing readout for disdaq train %d (%d us)...\n", disdaqn, dur_seqcore);
-			ttotal += play_readout(1); /* 1 = kill the gradients */
+			
+			/* kill gradients */				
+			setrotate( zmtx, 0 );
+
+			ttotal += play_readout();
+		
+			/* restore gradients */				
+			setrotate( tmtx0, 0 );
 		}
 	}
 
@@ -1952,11 +1960,13 @@ STATUS scan( void )
 
 					/* Set the view transformation matrix */
 					rotidx = armn*opnshots*opetl + shotn*opetl + echon;
-					setrotate( tmtxtbl[rotidx], 0 );
-
+					if (kill_grads)
+						setrotate( zmtx, 0 );
+					else
+						setrotate( tmtxtbl[rotidx], 0 );
 
 					fprintf(stderr, "scan(): playing readout for frame %d, shot %d, echo %d (%d us)...\n", framen, shotn, echon, dur_seqcore);
-					ttotal += play_readout(kill_grads);
+					ttotal += play_readout();
 
 					/* Reset the rotation matrix */
 					setrotate( tmtx0, 0 );
@@ -2098,7 +2108,6 @@ int genviews() {
 				for (n = 0; n < 9; n++) {
 					fprintf(fID_kviews, "%f \t", T[n]);
 					tmtxtbl[rotidx][n] = (long)round(MAX_PG_WAMP*T[n]);
-					fprintf(stderr, "%ld ", tmtxtbl[rotidx][n]);
 				}
 				fprintf(fID_kviews, "\n");
 			}
