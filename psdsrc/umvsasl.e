@@ -628,8 +628,8 @@ STATUS predownload( void )
 	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax; /* multiply by 2 if flow compensated */
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
 	pw_gzfc = tmp_pw;
-	pw_gzfc = tmp_pwa;
-	pw_gzfc = tmp_pwd;
+	pw_gzfca = tmp_pwa;
+	pw_gzfcd = tmp_pwd;
 	a_gzfc = -tmp_a;
 	
 	/* generate initial spiral trajectory */
@@ -656,34 +656,50 @@ STATUS predownload( void )
 	}
 	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*narms, 0);
 
-	/* Calculate minimum ESP */
+	/* calculate minimum ESP as beginning of tipdowncore to end of seqcore without deadtimes*/
+	fprintf(stderr, "predownload(): calculating minesp...\n");
 	minesp = 1ms; /* fudge factor */
-	minesp += pw_gzrf1/2 + pw_gzrf1d/2; /* 2nd half of the rf1 pulse */
+	
+	/* add tipdowncore object durations */
 	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf1spoila + pw_gzrf1spoil + pw_gzrf1spoild; /* crush1 pulse */
+	minesp += pw_gzrf1spoila + pw_gzrf1spoil + pw_gzrf1spoild; /* rf1 spoiler */
 	minesp += pgbuffertime; /* buffer */
-	minesp += TIMESSI; /* inter-core time */
+	minesp += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* rf1 and s.s. gradients */
+	minesp += pgbuffertime; /* buffer */
+	minesp += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* refocuser gradient */
+	minesp += pgbuffertime; /* buffer */
+
+	/* add intercore time */
+	minesp += TIMESSI;
+
+	/* add seqcore object durations */
 	minesp += pgbuffertime; /* buffer */
 	if (flowcomp_flag) {
-		minesp += pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
+		minesp += pw_gzfca + pw_gzfc + pw_gzfcd; /* flow comp prephaser gradient */
 		minesp += pgbuffertime; /* buffer */
 	}
-	minesp += pw_gzwa + pw_gzw + pw_gzwd; /* z encode + flowcomp rephaser */
+	minesp += pw_gzwa + pw_gzw + pw_gzwd; /* kz blip gradient */
 	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gxw; /* readout window length */
+	minesp += pw_gxw; /* spiral readout gradients */
 	minesp += pgbuffertime; /* buffer */
-	minesp += TIMESSI; /* inter-core time */
-	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* crush1 pulse */
-	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf1a + pw_gzrf1/2; /* 1st half of rf1 pulse */
-	minesp = GRAD_UPDATE_TIME*ceil((float)minesp/(float)GRAD_UPDATE_TIME); /* round up to gradient sampling interval */
 	
-	minte = (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse */
+	minesp = GRAD_UPDATE_TIME * ceil((float)minesp / (float)GRAD_UPDATE_TIME); /* round to nearest sampling interval */
+	fprintf(stderr, "predownload(): minesp = %dus...\n", minesp);
+	
+	/* calculate minimum TE as center of tipdown rf to beginning of spiral readout without deadtimes */
+	fprintf(stderr, "predownload(): calculating minte...\n");
+	minte = 200us; /* fudge factor */
+
+	/* add tipdowncore object durations */
+	minte = (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse & s.s. gradients */
 	minte += pgbuffertime; /* buffer */
 	minte += pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd; /* rewinder */
 	minte += pgbuffertime; /* buffer */
-	minte += TIMESSI; /* inter-core time */
+
+	/* add intercore time */
+	minte += TIMESSI;
+
+	/* add seqcore object durations */
 	minte += pgbuffertime; /* buffer */
 	if (flowcomp_flag) {
 		minte += pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
@@ -691,25 +707,20 @@ STATUS predownload( void )
 	}
 	minte += pw_gzwa + pw_gzw + pw_gzwd; /* z encode + flowcomp rephaser */
 	minte += pgbuffertime; /* buffer */
+	
+	minte = GRAD_UPDATE_TIME * ceil((float)minte / (float)GRAD_UPDATE_TIME); /* round to nearest sampling interval */
+	fprintf(stderr, "predownload(): minte = %dus...\n", minte);
 
-	maxte = esp; /* echo spacing */
-	maxte -= (pw_gzrf1/2 + pw_gzrf1a); /* 1st half of crusher at end of readout */
-	maxte -= pgbuffertime; /* buffer */
-	maxte -= (pw_gzrf1ra + pw_gzrf1r + pw_gzrf1rd); /* crusher */
-	maxte -= pgbuffertime; /* buffer */
-	maxte -= TIMESSI; /* inter-core time */
-	maxte -= pgbuffertime; /* buffer */
-	if (flowcomp_flag) {
-		maxte -= pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
-		maxte -= pgbuffertime; /* buffer */
-	}
-	maxte -= pw_gzwa + pw_gzw + pw_gzwd; /* z encode + flowcomp rephaser */
-	maxte -= pgbuffertime; /* buffer */
-	maxte -= pw_gxw; /* readout */
+	/* calculate max TE as ESP minus minte */
+	fprintf(stderr, "predownload(): calculating maxte...\n");
+	maxte = esp - minte; /* echo spacing */
+	fprintf(stderr, "predownload(): maxte = %dus...\n", maxte);
 
-	deadtime1_seqcore = opte - minte + pgbuffertime;
+	fprintf(stderr, "predownload(): calculating seqcore deadtimes...\n");
+	deadtime1_seqcore = opte - minte;
 	minesp += deadtime1_seqcore;
-	deadtime2_seqcore = esp - minesp + pgbuffertime; 
+	deadtime2_seqcore = esp - minesp; 
+	fprintf(stderr, "predownload(): deadtime1_seqcore = %dus, deadtime2_seqcore = %dus...\n", deadtime1_seqcore, deadtime2_seqcore);
 	
 	cvmin(esp, minesp);
 	cvmin(opuser1, minesp*1e-3);	
@@ -717,10 +728,6 @@ STATUS predownload( void )
 		opte = minte;
 	cvmin(opte, minte);
 	cvmax(opte, maxte);
-
-	/* Round deadtimes to nearest sampling interval */
-	deadtime1_seqcore += GRAD_UPDATE_TIME - (deadtime1_seqcore % GRAD_UPDATE_TIME);
-	deadtime2_seqcore -= (deadtime2_seqcore % GRAD_UPDATE_TIME);
 	
 	/* Update the asl prep pulse parameters */
 	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
@@ -1145,7 +1152,7 @@ STATUS pulsegen( void )
 
 	if (flowcomp_flag) {
 		fprintf(stderr, "pulsegen(): generating gzfc... (flow comp dephaser gradient\n");
-		TRAPEZOID(ZGRAD, gzfc, tmploc, 1ms, 0, loggrd);	
+		TRAPEZOID(ZGRAD, gzfc, tmploc + pw_gzfca, 1ms, 0, loggrd);	
 		fprintf(stderr, "\tstart: %dus, ", tmploc);
 		tmploc += pw_gzfca + pw_gzfc + pw_gzfcd; /* end time for gzfc */
 		fprintf(stderr, " end: %dus\n", tmploc);
@@ -1153,7 +1160,7 @@ STATUS pulsegen( void )
 	}	
 
 	fprintf(stderr, "pulsegen(): generating gzw... (z encode + flow comp rephase gradient\n");
-	TRAPEZOID(ZGRAD, gzw, tmploc, 1ms, 0, loggrd);	
+	TRAPEZOID(ZGRAD, gzw, tmploc + pw_gzwa, 1ms, 0, loggrd);	
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_gzwa + pw_gzw + pw_gzwd; /* end time for gzw */
 	fprintf(stderr, " end: %dus\n", tmploc);
