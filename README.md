@@ -62,7 +62,36 @@ At each frame, all data for a single image volume is collected, including all kz
 Each loop index at a given time also represents a specific transformation in 3D k-space of an initial 2D spiral sampling trajectory. Each "arm" represents a full stack of a single spiral arm at a specific rotation about the kz axis.
 
 ### List of User Control Variables
-[Provide a detailed list and explanation of user control variables here]
+| CV | Description |
+| --- | --- |
+| SLEWMAX | maximum allowed slew rate in G/cm/s |
+| GMAX | maximum allowed gradient amplitude in G/cm |
+| RFMAX | maximum allowed RF amplitude in mG |
+| opflip | flip angle of each rf tipdown |
+| optr | time between each SPGR echo train |
+| esp | time between each echo in SPGR echo train |
+| opetl | number of echoes in each SPGR echo train |
+| opnshots | number of kz interleaves in stack of spirals readout |
+| narms | number of interleaved spiral arms in each kz partition |
+| nframes | number of frames to acquire |
+| ndisdaqtrains | number of disdaq echo trains to play at the beginning of entire scan |
+| ndisdaqechoes | number of disdaq echoes to play at beginning of each SPGR echo train |
+| fatsat_flag | option to turn on the fat saturation pulse directly before each SPGR echo train |
+| rfspoil_flag | option to use RF phase cycling to spoil each excitation |
+| flowcomp_flag | option to add additional flow compensation gradients on each kz blip |
+| crushfac | crusher amplitude factor in cycles/vox (i.e. dk_crusher = crushfac * kzmax) |
+| kill_grads | option to kill the gradients in the readout to acquire FIDS |
+| nnav | number of navigator points at beginning of spiral readout |
+| kz_acc | undersampling (acceleration) factor along kz |
+| vds_acc0 | undersampling factor at center of variable density spiral |
+| vds_acc1 | undersampling factor at edge of variable density spiral |
+| presat_flag | option to include pre-saturation pulse at beginning of each TR |
+| presat_delay | delay between pre-saturation pulse and next object in each TR |
+| prep*_id | id number for selected pulse corresponding to directory in /aslprep/pulses |
+| prep*_pld | time between end of selected prep pulse and next object |
+| prep*_rfmax | rf amplitude of selected prep pulse |
+| prep*_gmax | gradient amplitude of selected prep pulse |
+| prep*_mod | modulation pattern for selected prep pulse (1 = L/C, 2 = C/L, 3 = always L, 4 = always C) |
 
 ### Scanner Setup
 
