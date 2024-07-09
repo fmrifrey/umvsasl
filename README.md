@@ -8,7 +8,6 @@ Welcome to our umvsasl project repository. This project implements an end-to-end
     - [Directory Structure](#directory-structure)
 2. [Usage](#usage)
     - [Pulse Sequence](#pulse-sequence)
-        - [Pulse Sequence Structure](#pulse-sequence-structure)
         - [List of User Control Variables](#list-of-user-control-variables)
         - [Scanner Setup](#scanner-setup)
             - [Prerequisites](#prerequisites)
