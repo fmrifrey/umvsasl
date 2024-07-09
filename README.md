@@ -87,11 +87,12 @@ Each loop index at a given time also represents a specific transformation in 3D 
 | vds_acc1 | undersampling factor at edge of variable density spiral |
 | presat_flag | option to include pre-saturation pulse at beginning of each TR |
 | presat_delay | delay between pre-saturation pulse and next object in each TR |
-| prep*_id | id number for selected pulse corresponding to directory in /aslprep/pulses |
+| prep*_id | id number for selected pulse corresponding to directory in /aslprep/pulses (0 = no pulse/delay) |
 | prep*_pld | time between end of selected prep pulse and next object |
 | prep*_rfmax | rf amplitude of selected prep pulse |
 | prep*_gmax | gradient amplitude of selected prep pulse |
 | prep*_mod | modulation pattern for selected prep pulse (1 = L/C, 2 = C/L, 3 = always L, 4 = always C) |
+| prep*_tbgs* | time from last object to selected background suppression pulse |
 
 ### Scanner Setup
 
