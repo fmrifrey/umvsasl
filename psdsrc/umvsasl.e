@@ -92,6 +92,7 @@ int ZGRAD_falltime;
 int Gx[MAXWAVELEN];
 int Gy[MAXWAVELEN];
 int grad_len = 5000;
+int ramp_len = 500;
 
 /* Declare table of readout gradient transformation matrices */
 long tmtxtbl[MAXNSHOTS*MAXNECHOES][9];
@@ -644,10 +645,10 @@ STATUS predownload( void )
 	a_gyw = YGRAD_max;
 	ia_gxw = MAX_PG_WAMP;
 	ia_gyw = MAX_PG_WAMP;
-	res_gxw = grad_len;
-	res_gyw = grad_len;
-	pw_gxw = GRAD_UPDATE_TIME*grad_len;
-	pw_gyw = GRAD_UPDATE_TIME*grad_len;
+	res_gxw = grad_len + ramp_len;
+	res_gyw = grad_len + ramp_len;
+	pw_gxw = GRAD_UPDATE_TIME*res_gxw;
+	pw_gyw = GRAD_UPDATE_TIME*res_gyw;
 	
 	/* Generate view transformations */
 	if (genviews() == 0) {
@@ -897,7 +898,7 @@ STATUS predownload( void )
 	}
 	dur_seqcore += pw_gzwa + pw_gzw + pw_gzwd;
 	dur_seqcore += pgbuffertime;	
-	dur_seqcore += GRAD_UPDATE_TIME*grad_len;
+	dur_seqcore += pw_gxw;
 	dur_seqcore += pgbuffertime + deadtime2_seqcore;
 
 	/* calculate minimum TR */
@@ -1167,11 +1168,11 @@ STATUS pulsegen( void )
 	tmploc += pgbuffertime; /* add some buffer */
 
 	fprintf(stderr, "pulsegen(): generating gxw, gyw (spiral readout gradients) and echo1 (data acquisition window)...\n");
-	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
-	INTWAVE(YGRAD, gyw, tmploc, YGRAD_max, grad_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
+	INTWAVE(XGRAD, gxw, tmploc, XGRAD_max, grad_len+ramp_len, GRAD_UPDATE_TIME*grad_len, Gx, 1, loggrd);
+	INTWAVE(YGRAD, gyw, tmploc, YGRAD_max, grad_len+ramp_len, GRAD_UPDATE_TIME*grad_len, Gy, 1, loggrd);
 	ACQUIREDATA(echo1, tmploc + psd_grd_wait,,,);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
-	tmploc += GRAD_UPDATE_TIME*grad_len; /* end time for readout */
+	tmploc += pw_gxw; /* end time for readout */
 	fprintf(stderr, " end: %dus\n", tmploc);
 	tmploc += pgbuffertime; /* add some buffer */
 
@@ -2041,32 +2042,31 @@ int genspiral() {
 	np_rd = ceil(g0/SLEWMAX/dt);
 	
 	/* calculate total number of points */
-	grad_len = nnav + np + np_rd;
+	grad_len = nnav + np;
+	ramp_len = np_rd;
 
 	/* calculate kspace location, fs gradients, and write to file */
 	kxn = 0.0;
 	kyn = 0.0;
-	for (n = 0; n < grad_len; n++) {
+	for (n = 0; n < grad_len + ramp_len; n++) {
 		if (n < nnav) { /* navigators */
-			kxn = 0.0;
-			kyn = 0.0;
 			Gx[n] = 0;
 			Gy[n] = 0;
+			kxn = 0.0;
+			kyn = 0.0;
+			fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzmax);
 		}
-		else if (n < nnav + np) { /* spiral */
-			kxn += gam * gx[n - nnav] * dt;
-			kyn += gam * gy[n - nnav] * dt;
-
+		else if (n < grad_len) { /* spiral */
 			Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n - nnav] / 2.0);
 			Gy[n] = 2*round(MAX_PG_WAMP/YGRAD_max * gy[n - nnav] / 2.0);
+			kxn += gam * gx[n - nnav] * dt;
+			kyn += gam * gy[n - nnav] * dt;
+			fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzmax);
 		}	
 		else { /* ramp-down */
-			kxn = 0.0/0.0;
-			kyn = 0.0/0.0;
 			Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx0*(1 - (float)(n - nnav - np)/(float)np_rd) / 2.0);
 			Gy[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gy0*(1 - (float)(n - nnav - np)/(float)np_rd) / 2.0);
 		}	
-		fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzmax);
 	}
 
 	fclose(fID_ktraj);
