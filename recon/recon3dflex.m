@@ -39,6 +39,10 @@ function x = recon3dflex(varargin)
         kdata = permute(kdata(:,:,1,:),[1,2,4,3]);
     end
     
+    % cut off first 50 pts of acquisition (sometimes gets corrupted)
+    kdata(1:50,:,:,:) = [];
+    klocs(1:50,:,:) = [];
+    
     % get sizes
     nframes = size(kdata,3); % number of frames
     ncoils = size(kdata,4); % number of coils
@@ -52,6 +56,10 @@ function x = recon3dflex(varargin)
         ncoils = ceil(ncoils/args.ccfac);
         kdata = ir_mri_coil_compress(kdata,'ncoil',ncoils);
         args.smap = ir_mri_coil_compress(args.smap,'ncoil',ncoils);
+    elseif size(args.smap,4) < ncoils
+        warning('compressing data down to ncoils in SENSE map');
+        ncoils = size(args.smap,4);
+        kdata = ir_mri_coil_compress(kdata,'ncoil',ncoils);
     end
     
     % set nufft arguments
