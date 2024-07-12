@@ -684,6 +684,9 @@ STATUS predownload( void )
 	minesp += pw_gxw; /* spiral readout gradients */
 	minesp += pgbuffertime; /* buffer */
 	
+	/* add intercore time */
+	minesp += TIMESSI;
+	
 	minesp = GRAD_UPDATE_TIME * ceil((float)minesp / (float)GRAD_UPDATE_TIME); /* round to nearest sampling interval */
 	fprintf(stderr, "predownload(): minesp = %dus...\n", minesp);
 	
