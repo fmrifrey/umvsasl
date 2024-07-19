@@ -1,7 +1,7 @@
 function [kdata,klocs,N,fov] = read_data(pfile)
 % Function to read in the pfile and .txt file data and format it for recon
 
-    if isempty(pfile)
+    if nargin < 1 || isempty(pfile)
         pfile = './P*.7'; % default: use first Pfile on current path
     end
     
