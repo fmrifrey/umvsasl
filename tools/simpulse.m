@@ -1,12 +1,32 @@
 function [M, t, B1, G] = simpulse(varargin)
+% Function to simulate isochromat magnetization in response to umvsasl prep
+%   pulses using bloch equation with RK4 integration method
+%
+% Run this function from a "pulse" directory in aslprep, containing the
+%   files rho.txt, theta.txt, and grad.txt
+%
+% by David Frey
+%
+% Required: MIRT (git@github.com:JeffFessler/mirt.git)
+%
+% Arguments:
+%   - B1max: peak B1 (mG) amplitude corresponding to uint16 max
+%   - Gmax: peak gradient (G/cm) amplitude corresponding to uint16 max
+%   - x0: initial displacement of isochromat (cm)
+%   - v: isochromat velocity (cm/s)
+%   - T1: isochromat longitudinal magnetization relaxation time constant (s)
+%   - T2: isochromat transverse magnetization relaxation time constant (s)
+%   - dt: sampling interval (s)
+%
 
-    defaults.B1max = 117; % peak B1 amplitude (mG)
-    defaults.Gmax = 1.5; % peak gradient amplitude (G/cm)
-    defaults.x0 = 0; % initial position (cm)
-    defaults.v = 0; % velocity (cm/s)
-    defaults.T1 = Inf; % longitudinal magnetization relaxation constant (s)
-    defaults.T2 = Inf; % transverse magnetization relaxation constant (s)
-    defaults.dt = 4e-6; % sampling interval (s)
+    % set defaults
+    defaults.B1max = 117;
+    defaults.Gmax = 1.5; %
+    defaults.x0 = 0;
+    defaults.v = 0;
+    defaults.T1 = Inf;
+    defaults.T2 = Inf;
+    defaults.dt = 4e-6;
     
     % parse input parameters
     args = vararg_pair(defaults, varargin);
