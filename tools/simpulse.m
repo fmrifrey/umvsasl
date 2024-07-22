@@ -21,7 +21,7 @@ function [M, t, B1, G] = simpulse(varargin)
 
     % set defaults
     defaults.B1max = 117;
-    defaults.Gmax = 1.5; %
+    defaults.Gmax = 1.5;
     defaults.x0 = 0;
     defaults.v = 0;
     defaults.T1 = Inf;
@@ -47,9 +47,9 @@ function [M, t, B1, G] = simpulse(varargin)
     % set initial value
     M0 = [0; 0; 1];
     
-    % loop through time points
+    % initialize magnetization
     M = zeros(3, length(t));
-    M(:,1) = M0; % initialize the first magnetization vector
+    M(:,1) = M0;
     
     % define bloch equation
     function dMdt = bloch(M, B)
@@ -59,7 +59,7 @@ function [M, t, B1, G] = simpulse(varargin)
                [0; 0; (M(3) - M0(3)) / args.T1]; % longitudinal relaxation
     end
 
-    % RK4 integration loop
+    % loop through time points & compute RK4 integration
     for i = 2:length(t)
         
         % compute the effective magnetic field
