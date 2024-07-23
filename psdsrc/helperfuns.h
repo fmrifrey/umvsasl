@@ -13,6 +13,8 @@ float fsumarr(float *x, int lenx);
 float getmaxabs(float *x, int lenx);
 float trap(float t, float t_start, float t_ramp, float t_plateau);
 int center_out_idx(int length, int idx);
+int reverseArray(float *arr, int n);
+int catArray(float *arr1, int n1, float *arr2, int n2, int npad, float *arr3);
 
 int eye(float *M, int n) {
 	
@@ -203,3 +205,24 @@ int center_out_idx(int length, int index) {
 	else
 		return center - (index / 2);
 };
+
+int reverseArray(float *arr, int n, float *arr2) {
+	for (int i = 0; i < n/2 + 1; ++i) {
+		arr2[i] = arr[n - i - 1];
+		arr2[n - i - 1] = arr[i];
+	}
+
+	return 0;
+}
+
+int catArray(float *arr1, int n1, float *arr2, int n2, int npad, float *arr3) {
+
+	if (n1 > 0)
+		memcpy(arr3, arr1, n1 * sizeof(float));
+	if (npad > 0)
+		memset((char*)arr3 + n1 * sizeof(float), 0, npad * sizeof(float));
+	if (n2 > 0)
+		memcpy((char*)arr3 + (n1 + npad) * sizeof(float), arr2, n2 * sizeof(float));
+
+	return 0;
+}
