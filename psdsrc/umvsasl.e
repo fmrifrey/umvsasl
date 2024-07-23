@@ -142,7 +142,6 @@ int numdda = 4;			/* For Prescan: # of disdaqs ps2*/
 
 float SLEWMAX = 12500.0 with {1000, 25000.0, 12500.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
 float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
-float RFMAX = 300 with {0, 500, 300, VIS, "Maximum allowed RF amplitude (mG)",};
 
 /* readout cvs */
 int nframes = 2 with {1, , 2, VIS, "Number of frames",};
@@ -774,7 +773,6 @@ STATUS predownload( void )
 		}
 	}
 
-	fprintf(stderr, "opflip = %f\n", (float)opflip);
 	rf1_b1 = calc_sinc_B1(cyc_rf1, pw_rf1, opflip);
 	fprintf(stderr, "predownload(): maximum B1 for rf1 pulse: %f\n", rf1_b1);
 	if (rf1_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf1_b1;
@@ -810,9 +808,20 @@ STATUS predownload( void )
 	prep2_b1 = (prep2_id > 0) ? (prep2_rfmax*1e-3) : (0);
 	fprintf(stderr, "predownload(): maximum B1 for prep2 pulse: %f Gauss\n", prep2_b1);
 	if (prep2_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = prep2_b1;
-
+	
 	/* Determine peak B1 across all entry points */
-	maxB1Seq = RFMAX * 1e-3;  /* units: maxB1Seq is in  Gauss */
+	maxB1Seq = 0.0;
+	for (entry=0; entry < MAX_ENTRY_POINTS; entry++) {
+		if (entry != L_SCAN) { /* since we aleady computed the peak B1 for L_SCAN entry point */
+			if (peakB1(&maxB1[entry], entry, RF_FREE, rfpulse) == FAILURE) {
+				epic_error(use_ermes,"peakB1 failed",EM_PSD_SUPPORT_FAILURE,1,STRING_ARG,"peakB1");
+				return FAILURE;
+			}
+		}
+		if (maxB1[entry] > maxB1Seq)
+			maxB1Seq = maxB1[entry];
+	}
+	fprintf(stderr, "predownload(): maxB1Seq = %f Gauss\n", maxB1Seq);
 
 	/* Set xmtadd according to maximum B1 and rescale for powermon,
 	   adding additional (audio) scaling if xmtadd is too big.
@@ -1074,7 +1083,6 @@ STATUS predownload( void )
 	fprintf(finfo, "hardware cvs:\n");
 	fprintf(finfo, "\t%-50s%20f\n", "SLEWMAX:", SLEWMAX);
 	fprintf(finfo, "\t%-50s%20f\n", "GMAX:", GMAX);
-	fprintf(finfo, "\t%-50s%20f\n", "RFMAX:", RFMAX);
 
 	fprintf(finfo, "readout cvs:\n");
 	fprintf(finfo, "\t%-50s%20d\n", "nframes:", nframes);
@@ -2338,11 +2346,12 @@ float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 	float area = 0.0;
 
 	/* Create an M-point symmetrical Hamming window */
-	for (n = 0; n < M; n++)
+	for (n = 0; n < M; n++) {
 		w[n] = 0.54 - 0.46*cos( 2*M_PI*n / (M-1) );
-	
+	}	
+
 	/* Create a sinc pulse */
-	for (n = -(M-1)/2; n < (M-1)/2; n++) {
+	for (n = -(M-1)/2; n < (M-1)/2 + 1; n++) {
 		if (n == 0)
 			x[n + (M-1)/2] = 1.0;
 		else
