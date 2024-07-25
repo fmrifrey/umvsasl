@@ -140,38 +140,39 @@ float xmitfreq;
 
 int numdda = 4;			/* For Prescan: # of disdaqs ps2*/
 
-float SLEWMAX = 12500.0 with {1000, 25000.0, 12500.0, VIS, "Maximum allowed slew rate (G/cm/s)",};
-float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "Maximum allowed gradient (G/cm)",};
+float SLEWMAX = 12500.0 with {1000, 25000.0, 12500.0, VIS, "maximum allowed slew rate (G/cm/s)",};
+float GMAX = 4.0 with {0.5, 5.0, 4.0, VIS, "maximum allowed gradient (G/cm)",};
 
 /* readout cvs */
-int nframes = 2 with {1, , 2, VIS, "Number of frames",};
-int ndisdaqtrains = 2 with {0, , 2, VIS, "Number of disdaq echo trains at beginning of scan loop",};
-int ndisdaqechoes = 0 with {0, , 0, VIS, "Number of disdaq echos at beginning of echo train",};
+int nframes = 2 with {1, , 2, VIS, "number of frames",};
+int ndisdaqtrains = 2 with {0, , 2, VIS, "number of disdaq echo trains at beginning of scan loop",};
+int ndisdaqechoes = 0 with {0, , 0, VIS, "number of disdaq echos at beginning of echo train",};
 
 int echo_mode = 0 with {0, 1, 0, VIS, "SPGR (0) or FSE (1)",};
-int fatsat_flag = 0 with {0, 1, 0, VIS, "Option to do play a fat saturation pulse/crusher before the readout",};
-int rfspoil_flag = 0 with {0, 1, 0, VIS, "Option to do RF phase cycling (117deg increments to tipdown phase)",};
-int flowcomp_flag = 0 with {0, 1, 0, VIS, "Option to use flow-compensated slice select gradients",};
+int fatsat_flag = 0 with {0, 1, 0, VIS, "option to do play a fat saturation pulse/crusher before the readout",};
+int rfspoil_flag = 0 with {0, 1, 0, VIS, "option to do RF phase cycling (117deg increments to tipdown phase)",};
+int flowcomp_flag = 0 with {0, 1, 0, VIS, "option to use flow-compensated slice select gradients",};
+int rf1_b1calib = 0 with {0, 1, 0, VIS, "option to sweep B1 amplitudes across frames from 0 to nominal B1 for rf1 pulse",};
 
-int pgbuffertime = 248 with {100, , 248, INVIS, "Gradient IPG buffer time (us)",};
-float crushfac = 3.0 with {0, 10, 0, VIS, "Crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
-int kill_grads = 0 with {0, 1, 0, VIS, "Option to turn off readout gradients",};
+int pgbuffertime = 248 with {100, , 248, INVIS, "gradient IPG buffer time (us)",};
+float crushfac = 3.0 with {0, 10, 0, VIS, "crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
+int kill_grads = 0 with {0, 1, 0, VIS, "option to turn off readout gradients",};
 
 int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* Trajectory cvs */
-int nnav = 250 with {0, 1000, 250, VIS, "Number of navigator points in spiral",};
-int narms = 1 with {1, 1000, 1, VIS, "Number of spiral arms",};
+int nnav = 250 with {0, 1000, 250, VIS, "number of navigator points in spiral",};
+int narms = 1 with {1, 1000, 1, VIS, "number of spiral arms",};
 int spi_mode = 0 with {0, 2, 0, VIS, "SPI mode (0 = SOS, 1 = TGA, 2 = 3DTGA)",};
 float kz_acc = 1.0 with {1, 100.0, 1.0, VIS, "kz acceleration (SENSE) factor (for SOS only)",};
-float vds_acc0 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral center oversampling factor",};
-float vds_acc1 = 1.0 with {0.001, 50.0, 1.0, VIS, "Spiral edge oversampling factor",};
+float vds_acc0 = 1.0 with {0.001, 50.0, 1.0, VIS, "spiral center oversampling factor",};
+float vds_acc1 = 1.0 with {0.001, 50.0, 1.0, VIS, "spiral edge oversampling factor",};
 float F0 = 0 with { , , 0, INVIS, "vds fov coefficient 0",};
 float F1 = 0 with { , , 0, INVIS, "vds fov coefficient 1",};
 float F2 = 0 with { , , 0, INVIS, "vds fov coefficient 2",};
 
 /* ASL prep pulse cvs */
-int presat_flag = 0 with {0, 1, 0, VIS, "Option to play asl pre-saturation pulse at beginning of each tr",};
+int presat_flag = 0 with {0, 1, 0, VIS, "option to play asl pre-saturation pulse at beginning of each tr",};
 int presat_delay = 1000000 with {0, , 1000000, VIS, "ASL pre-saturation delay (us)",};
 
 int zero_ctl_grads = 0 with {0, 1, 0, VIS, "option to zero out control gradients for asl prep pulses",};
@@ -185,6 +186,7 @@ int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation sch
 int prep1_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 1st background suppression delay (0 = no pulse)",};
 int prep1_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 2nd background suppression delay (0 = no pulse)",};
 int prep1_tbgs3 = 0 with {0, , 0, VIS, "ASL prep pulse 1: 3rd background suppression delay (0 = no pulse)",};
+int prep1_b1calib = 0 with {0, 1, 0, VIS, "ASL prep pulse 1: option to sweep B1 amplitudes across frames from 0 to nominal B1",};
 
 int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)",};
 int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
@@ -195,19 +197,20 @@ int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation sch
 int prep2_tbgs1 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 1st background suppression delay (0 = no pulse)",};
 int prep2_tbgs2 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 2nd background suppression delay (0 = no pulse)",};
 int prep2_tbgs3 = 0 with {0, , 0, VIS, "ASL prep pulse 2: 3rd background suppression delay (0 = no pulse)",};
+int prep2_b1calib = 0 with {0, 1, 0, VIS, "ASL prep pulse 2: option to sweep B1 amplitudes across frames from 0 to nominal B1",};
 
 /* Declare core duration variables */
-int dur_presatcore = 0 with {0, , 0, INVIS, "Duration of the ASL pre-saturation core (us)",};
-int dur_prep1core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 1 cores (us)",};
-int dur_prep2core = 0 with {0, , 0, INVIS, "Duration of the ASL prep 2 cores (us)",};
-int dur_bkgsupcore = 0 with {0, , 0, INVIS, "Duration of the background suppression core (us)",};
-int dur_fatsatcore = 0 with {0, , 0, INVIS, "Duration of the fat saturation core (us)",};
-int dur_tipdowncore = 0 with {0, , 0, INVIS, "Duration of the slice selective tipdown core (us)",};
-int dur_seqcore = 0 with {0, , 0, INVIS, "Duration of the spiral readout core (us)",};
-int deadtime1_seqcore = 0 with {0, , 0, INVIS, "Pre-readout deadtime within core (us)",};
-int deadtime2_seqcore = 0 with {0, , 0, INVIS, "Post-readout deadtime within core (us)",};
+int dur_presatcore = 0 with {0, , 0, INVIS, "duration of the ASL pre-saturation core (us)",};
+int dur_prep1core = 0 with {0, , 0, INVIS, "duration of the ASL prep 1 cores (us)",};
+int dur_prep2core = 0 with {0, , 0, INVIS, "duration of the ASL prep 2 cores (us)",};
+int dur_bkgsupcore = 0 with {0, , 0, INVIS, "duration of the background suppression core (us)",};
+int dur_fatsatcore = 0 with {0, , 0, INVIS, "duration of the fat saturation core (us)",};
+int dur_tipdowncore = 0 with {0, , 0, INVIS, "duration of the slice selective tipdown core (us)",};
+int dur_seqcore = 0 with {0, , 0, INVIS, "duration of the spiral readout core (us)",};
+int deadtime1_seqcore = 0 with {0, , 0, INVIS, "pre-readout deadtime within core (us)",};
+int deadtime2_seqcore = 0 with {0, , 0, INVIS, "post-readout deadtime within core (us)",};
 
-/* inhereted from grass.e: */
+/* inhereted from grass.e, not sure if it's okay to delete: */
 float xmtaddScan;
 int obl_debug = 0 with {0, 1, 0, INVIS, "On(=1) to print messages for obloptimize",};
 int obl_method = 0 with {0, 1, 0, INVIS, "On(=1) to optimize the targets based on actual rotation matrices",};
@@ -1877,6 +1880,7 @@ STATUS scan( void )
 
 	int ttotal = 0;
 	int rotidx;
+	float calib_scale;
 	fprintf(stderr, "scan(): beginning scan (t = %d / %.0f us)...\n", ttotal, pitscan);	
 	
 	/* Play an empty acquisition to reset the DAB after prescan */
@@ -1931,6 +1935,23 @@ STATUS scan( void )
 	for (framen = 0; framen < nframes; framen++) {
 		for (armn = 0; armn < narms; armn++) {
 			for (shotn = 0; shotn < opnshots; shotn++) {
+
+				/* set amplitudes for rf calibration modes */
+				calib_scale = (float)framen / (float)(nframes - 1);
+				if (rf1_b1calib) {
+					fprintf(stderr, "rf1_b1calib: setting ia_rf1 = %d\n", 2*(int)ceil(calib_scale*(float)ia_rf1 / 2.0));
+					setiamp(2*(int)ceil(calib_scale*(float)ia_rf1 / 2.0), &rf1, 0);
+				}
+				if (prep1_b1calib) {
+					fprintf(stderr, "prep1_b1calib: setting ia_prep1rholbl/ctl = %d\n", 2*(int)ceil(calib_scale*(float)ia_prep1rholbl / 2.0));
+					setiamp(2*(int)ceil(calib_scale*(float)ia_prep1rholbl / 2.0), &prep1rholbl, 0);
+					setiamp(2*(int)ceil(calib_scale*(float)ia_prep1rhoctl / 2.0), &prep1rhoctl, 0);
+				}
+				if (prep2_b1calib) {
+					fprintf(stderr, "prep2_b1calib: setting ia_prep2lbl/ctl = %d\n", 2*(int)ceil(calib_scale*(float)ia_prep2rholbl / 2.0));
+					setiamp(2*(int)ceil(calib_scale*(float)ia_prep2rholbl / 2.0), &prep2rholbl, 0);
+					setiamp(2*(int)ceil(calib_scale*(float)ia_prep2rhoctl / 2.0), &prep2rhoctl, 0);
+				}
 
 				/* play TR deadtime */
 				ttotal += play_deadtime(tr_deadtime);
@@ -2051,16 +2072,17 @@ int genspiral() {
 	float dt = GRAD_UPDATE_TIME*1e-6; /* raster time (s) */
 	float gam = 4258; /* gyromagnetic ratio (Hz/G) */
 	float kxymax = (float)opxres / ((float)opfov/10.0) / 2.0; /* max kxy radius (1/cm) */
-	float kzmax = (spi_mode == 0) * (float)(kz_acc * opetl * opnshots) / ((float)opfov/10.0); /* max kz radius (1/cm), 0 if SPI */
+	float kzmax = (spi_mode == 0) * (float)(kz_acc * opetl * opnshots) / ((float)opfov/10.0) / 2.0; /* max kz radius (1/cm), 0 if SPI */
 
 	/* declare temporary variables */
 	float gx_area, gy_area;
 	float tmp_area, tmp_a;
 	int tmp_pwa, tmp_pw, tmp_pwd;
 	float kxn, kyn;
+	
 	/* calculate FOV coefficients */
-	F0 = vds_acc1 / (float)narms * (float)opfov / 10.0;
-	F1 = 2*pow((float)opfov/10.0,2)/opxres *(vds_acc1 - vds_acc0)/(float)narms;
+	F0 = 1.1*(vds_acc1 / (float)narms * (float)opfov / 10.0);
+	F1 = 1.1*(2*pow((float)opfov/10.0,2)/opxres *(vds_acc1 - vds_acc0)/(float)narms);
 	F2 = 0;
 	if (echo_mode == 1) { /* FSE */
 		F0 /= 2;
@@ -2072,12 +2094,9 @@ int genspiral() {
 	F[2] = F2;
 	
 	/* generate the vd-spiral out gradients */	
-	fprintf(stderr, "genspiral(): calculating vds waveform...\n");
 	calc_vds(SLEWMAX, GMAX, dt, dt, 1, F, 2, kxymax, MAXWAVELEN, &gx_vds, &gy_vds, &n_vds);
-	fprintf(stderr, "genspiral(): n_vds = %d...\n", n_vds);
 
 	/* calculate gradient ramp-down */
-	fprintf(stderr, "genspiral(): calculating gradient ramp-down...\n");
 	n_rmp = ceil(fmax(fabs(gx_vds[n_vds - 1]), fabs(gy_vds[n_vds - 1])) / SLEWMAX / dt);
 	gx_rmp = (float *)malloc(n_rmp*sizeof(float));
 	gy_rmp = (float *)malloc(n_rmp*sizeof(float));
@@ -2085,17 +2104,12 @@ int genspiral() {
 		gx_rmp[n] = gx_vds[n_vds - 1]*(1 - (float)n/(float)n_rmp);
 		gy_rmp[n] = gy_vds[n_vds - 1]*(1 - (float)n/(float)n_rmp);
 	}
-	fprintf(stderr, "genspiral(): n_rmp = %d...\n", n_rmp);
 
-	fprintf(stderr, "genspiral(): calculating area under gradients...\n");
 	gx_area = 1e6 * dt * (fsumarr(gx_vds, n_vds) + fsumarr(gx_rmp, n_rmp));
 	gy_area = 1e6 * dt * (fsumarr(gy_vds, n_vds) + fsumarr(gy_rmp, n_rmp));
 	tmp_area = fmax(fabs(gx_area), fabs(gy_area)); /* get max abs area */
-	fprintf(stderr, "genspiral(): gx_area = %f, gy_area = %f...\n", gx_area, gy_area);
-	fprintf(stderr, "genspiral(): tmp_area = %f...\n", tmp_area);
 
 	/* calculate optimal trapezoid kspace rewinder */
-	fprintf(stderr, "genspiral(): calculating kspace rewinders...\n");
 	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd);
 	n_rwd = ceil((float)(tmp_pwa + tmp_pw + tmp_pwd)/(float)GRAD_UPDATE_TIME);
 	gx_rwd = (float *)malloc(n_rwd*sizeof(float));
@@ -2103,21 +2117,16 @@ int genspiral() {
 	for (n = 0; n < n_rwd; n++) {
 		gx_rwd[n] = -gx_area/tmp_area*tmp_a*trap(n*1e6*dt,0.0,tmp_pwa,tmp_pw);
 		gy_rwd[n] = -gy_area/tmp_area*tmp_a*trap(n*1e6*dt,0.0,tmp_pwa,tmp_pw);
-		fprintf(stderr, "genspiral(): gx_rwd[%d] = %f, gy_rwd[%d] = %f...\n", n, gx_rwd[n], n, gy_rwd[n]);
 	}
-	fprintf(stderr, "genspiral(): n_rwd = %d...\n", n_rwd);
 
 	/* calculate total points in spiral + rewinder */
-	fprintf(stderr, "genspiral(): calculating points in spiral...\n");
 	n_sprl = n_vds + n_rmp + n_rwd;
 	gx_sprlo = (float *)malloc(n_sprl*sizeof(float));
 	gy_sprlo = (float *)malloc(n_sprl*sizeof(float));
 	gx_sprli = (float *)malloc(n_sprl*sizeof(float));
 	gy_sprli = (float *)malloc(n_sprl*sizeof(float));
-	fprintf(stderr, "genspiral(): n_sprl = %d...\n", n_sprl);
 
 	/* concatenate gradients to form spiral out */
-	fprintf(stderr, "genspiral(): forming spiral-out...\n");
 	gx_tmp = (float *)malloc((n_vds + n_rmp)*sizeof(float));
 	gy_tmp = (float *)malloc((n_vds + n_rmp)*sizeof(float));
 	catArray(gx_vds, n_vds, gx_rmp, n_rmp, 0, gx_tmp);
@@ -2128,11 +2137,9 @@ int genspiral() {
 	free(gy_tmp);
 
 	/* reverse the gradients to form spiral in */
-	fprintf(stderr, "genspiral(): forming spiral-in...\n");
 	reverseArray(gx_sprlo, n_sprl, gx_sprli);
 	reverseArray(gy_sprlo, n_sprl, gy_sprli);
 
-	fprintf(stderr, "genspiral(): combining spirals...\n");
 	if (echo_mode == 0) { /* SPGR - spiral out */
 		/* calculate window lengths */
 		grad_len = nnav + n_sprl;
@@ -2161,7 +2168,6 @@ int genspiral() {
 	}
 
 	/* integrate gradients to calculate kspace */
-	fprintf(stderr, "genspiral(): converting trajectory and gradients...\n");
 	kxn = 0.0;
 	kyn = 0.0;
 	for (n = 0; n < grad_len; n++) {
