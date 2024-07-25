@@ -2,8 +2,17 @@ function x = recon3dflex(varargin)
 % Function for performing CG-SENSE NUFFT reconstruction for umvsasl data
 %
 % by David Frey
+% 
+% Usage:
+% Specify a data directory using the 'pfile' argument, or simply run this
+%   function from the directory.
+% The data directory must include the following:
+%   - raw data pfile: (P*.7)
+%   - kviews file (kviews*.txt)
+%   - ktraj file (ktraj*.txt)
 %
-% Required: MIRT (git@github.com:JeffFessler/mirt.git)
+% Required paths:
+%   - MIRT (git@github.com:JeffFessler/mirt.git)
 %
 % Arguments:
 %   - pfile: pfile name search string, leave empty to use first P*.7 file
@@ -13,9 +22,11 @@ function x = recon3dflex(varargin)
 %   - niter: number of iterations for CG reconstruction
 %   - coilwise: option to rearrange data for coil-wise recon of 1st frame,
 %       this is useful for creating SENSE maps from fully-sampled data
+%   - resfac: image space resolution upsampling factor
 %   - ccfac: coil compression factor (i.e. ccfac = 4 will compressed data
 %       to 1/4 of the channels)
-%   - resfac: image domain upsampling factor
+%   - frames: frame indicies to reconstruct (default is all frames,
+%       reconned sequentially)
 %
 
     % check that mirt is set up
@@ -28,6 +39,7 @@ function x = recon3dflex(varargin)
     defaults.coilwise = 0;
     defaults.resfac = 1;
     defaults.ccfac = 1;
+    defaults.frames = [];
     
     % parse input parameters
     args = vararg_pair(defaults,varargin);
@@ -37,7 +49,7 @@ function x = recon3dflex(varargin)
     if args.coilwise % rearrange for coil-wise reconstruction of frame 1 (for making SENSE maps)
         kdata = permute(kdata(:,:,1,:),[1,2,4,3]);
     end
-    N = ceil(N/args.resfac); % upsample N
+    N = ceil(N*args.resfac); % upsample N
     
     % cut off first 50 pts of acquisition (sometimes gets corrupted)
     kdata(1:50,:,:,:) = [];
@@ -46,6 +58,9 @@ function x = recon3dflex(varargin)
     % get sizes
     nframes = size(kdata,3); % number of frames
     ncoils = size(kdata,4); % number of coils
+    if isempty(args.frames)
+        args.frames = 1:nframes; % default - use all frames
+    end
     
     % do coil compression
     if isempty(args.smap) && (ncoils > 1)
@@ -67,7 +82,7 @@ function x = recon3dflex(varargin)
     nufft_args = {N, 6*ones(1,3), 2*N, N/2, 'table', 2^10, 'minmax:kb'};
 
     % initialize x
-    x = zeros([N(:)',nframes]);
+    x = zeros([N(:)',length(args.frames)]);
     
     % calculate a new system operator
     omega = 2*pi*fov(:)'./N(:)'.*reshape(klocs,[],3);
@@ -80,21 +95,21 @@ function x = recon3dflex(varargin)
     end
     
     % loop through frames and recon
-    niter = args.niter; % extract to avoid broadcasting args to parfor
-    parfor framen = 1:nframes
-        
+    for i = 1:length(args.frames)
+        framen = args.frames(i);
+
         % get data for current frame
         b = reshape(kdata(:,:,framen,:),[],ncoils);
         b = b(omega_msk,:);
         
         % initialize with density compensated adjoint solution
-        fprintf("frame %d/%d: initializing solution x0 = A'*(w.*b)\n", framen, nframes)
+        fprintf("frame %d/%d: initializing solution x0 = A'*(w.*b)\n", i, length(args.frames))
         x0 = reshape( A' * (w.*b), N );
         x0 = ir_wls_init_scale(A, b, x0);
         
         % solve with CG
-        x(:,:,:,framen) = cg_solve(x0, A, b, niter, ...
-            sprintf('frame %d/%d: ', framen, nframes)); % prefix the output message with frame number
+        x(:,:,:,i) = cg_solve(x0, A, b, args.niter, ...
+            sprintf('frame %d/%d: ', i, length(args.frames))); % prefix the output message with frame number
         
     end
     
@@ -128,6 +143,11 @@ function x_star = cg_solve(x0, A, b, niter, msg_pfx)
         rsnew = r(:)' * r(:);
         p = r + (rsnew / rsold) * p;
         rsold = rsnew;
+
+        if exist('exitcg','var')
+            break % set a variable called "exitcg" to exit at current iteration when debugging
+        end
+
     end
     
 end
