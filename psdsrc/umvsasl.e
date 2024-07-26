@@ -554,7 +554,6 @@ STATUS cvcheck( void )
 /************************************************************************/
 STATUS predownload( void )
 {
-	FILE* finfo;
 	int echo1_freq[opslquant], rf1_freq[opslquant];
 	int slice;
 	float kzmax;
@@ -619,196 +618,7 @@ STATUS predownload( void )
 	a_rffs = 0.5 * 440 / 1250;	
 	pw_rffs = 4 * round(cyc_rffs*1e6 / 440);
 	res_rffs = pw_rffs / 2;	
-	
-	/* Set the parameters for the spin echo rf1 kspace rewinder */
-	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
-	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
-	tmp_a *= -0.5;
-	pw_gzrf1trap2 = tmp_pw;
-	pw_gzrf1trap2a = tmp_pwa;
-	pw_gzrf1trap2d = tmp_pwd;
-	a_gzrf1trap2 = tmp_a;
-
-	/* Set the parameters for the crusher gradients */
-	tmp_area = crushfac * 2*M_PI/GAMMA * opxres/(opfov/10.0) * 1e6; /* Area under crusher s.t. dk = crushfac*kmax (G/cm*us) */
-	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
-
-	pw_gzrffsspoil = tmp_pw;
-	pw_gzrffsspoila = tmp_pwa;
-	pw_gzrffsspoild = tmp_pwd;
-	a_gzrffsspoil = tmp_a;
-
-	pw_gzrf1trap1 = tmp_pw;
-	pw_gzrf1trap1a = tmp_pwa;
-	pw_gzrf1trap1d = tmp_pwd;
-	a_gzrf1trap1 = tmp_a;
-
-	if (echo_mode == 1) { /* FSE - make trap2 another crusher */
-		pw_gzrf1trap2 = tmp_pw;
-		pw_gzrf1trap2a = tmp_pwa;
-		pw_gzrf1trap2d = tmp_pwd;
-		a_gzrf1trap2 = tmp_a;
-	}
-
-	/* set parameters for rf1 kspace rewinder */
-	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
-	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
-	tmp_a *= -0.5;
-	pw_gzrf1trap2 = tmp_pw;
-	pw_gzrf1trap2a = tmp_pwa;
-	pw_gzrf1trap2d = tmp_pwd;
-	a_gzrf1trap2 = tmp_a;
-	
-	/* set parameters for flow compensated kz-encode (pre-scaled to kzmax) */
-	kzmax = (float)(kz_acc * opetl * opnshots) / ((float)opfov/10.0) / 2.0;
-	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax * (1 + flowcomp_flag); /* multiply by 2 if flow compensated */
-	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
-	pw_gzw1 = tmp_pw;
-	pw_gzw1a = tmp_pwa;
-	pw_gzw1d = tmp_pwd;
-	a_gzw1 = tmp_a;
-	
-	/* set parameters with the kz-rewinder */
-	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax;
-	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
-	pw_gzw2 = tmp_pw;
-	pw_gzw2a = tmp_pwa;
-	pw_gzw2d = tmp_pwd;
-	a_gzw2 = tmp_a;
-
-	/* set parameters for flowcomp pre-phaser */
-	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax; /* multiply by 2 if flow compensated */
-	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
-	pw_gzfc = tmp_pw;
-	pw_gzfca = tmp_pwa;
-	pw_gzfcd = tmp_pwd;
-	a_gzfc = -tmp_a;
-	
-	/* generate initial spiral trajectory */
-	fprintf(stderr, "predownload(): calculating spiral gradients...\n");
-	if (genspiral() == 0) {
-		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-		return FAILURE;
-	}
-	a_gxw = XGRAD_max;
-	a_gyw = YGRAD_max;
-	ia_gxw = MAX_PG_WAMP;
-	ia_gyw = MAX_PG_WAMP;
-	res_gxw = grad_len;
-	res_gyw = grad_len;
-	pw_gxw = GRAD_UPDATE_TIME*res_gxw;
-	pw_gyw = GRAD_UPDATE_TIME*res_gyw;
-	
-	/* Generate view transformations */
-	if (genviews() == 0) {
-		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
-		return FAILURE;
-	}
-	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*narms, 0);
-
-	/* calculate minimum ESP as beginning of rf1core to end of seqcore without deadtimes*/
-	fprintf(stderr, "predownload(): calculating minesp...\n");
-	minesp = 1ms; /* fudge factor */
-	
-	/* add rf1core object durations */
-	minesp += pgbuffertime; /* buffer */
-	if (echo_mode == 3) { /* bssfp - remove spoiler */
-		minesp += pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap1d; /* rf1 spoiler */
-		minesp += pgbuffertime; /* buffer */
-	}
-	minesp += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* rf1 and s.s. gradients */
-	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* refocuser gradient */
-	minesp += pgbuffertime; /* buffer */
-
-	/* add intercore time */
-	minesp += TIMESSI;
-
-	/* add seqcore object durations */
-	minesp += pgbuffertime; /* buffer */
-	if (flowcomp_flag) {
-		minesp += pw_gzfca + pw_gzfc + pw_gzfcd; /* flow comp prephaser gradient */
-		minesp += pgbuffertime; /* buffer */
-	}
-	minesp += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* kz blip gradient */
-	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gxw; /* spiral readout gradients */
-	minesp += pgbuffertime; /* buffer */
-	minesp += pw_gzw2a + pw_gzw2 + pw_gzw2d; /* kz blip gradient */
-	minesp += pgbuffertime; /* buffer */
-	
-	/* add intercore time */
-	minesp += TIMESSI;
-	
-	minesp = GRAD_UPDATE_TIME * ceil((float)minesp / (float)GRAD_UPDATE_TIME); /* round to nearest sampling interval */
-	fprintf(stderr, "predownload(): minesp = %dus...\n", minesp);
-	
-	/* calculate minimum TE as center of rf1 rf to beginning of spiral readout without deadtimes */
-	fprintf(stderr, "predownload(): calculating minte...\n");
-	minte = 200us; /* fudge factor */
-
-	/* add rf1core object durations */
-	minte = (pw_gzrf1/2 + pw_gzrf1d); /* 2nd half of rf1 pulse & s.s. gradients */
-	minte += pgbuffertime; /* buffer */
-	minte += (int)fmax(pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap1d, pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d); /* rewinder/crusher */
-	minte += pgbuffertime; /* buffer */
-
-	/* add intercore time */
-	minte += TIMESSI;
-
-	/* add seqcore object durations */
-	minte += pgbuffertime; /* buffer */
-	if (flowcomp_flag) {
-		minte += pw_gzfca + pw_gzfc + pw_gzfcd; /* flowcomp prephaser */
-		minte += pgbuffertime; /* buffer */
-	}
-	minte += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode + flowcomp rephaser */
-	minte += pgbuffertime; /* buffer */
-
-	if (echo_mode == 1) /* FSE - use echo spacing as te */
-		minte = minesp;
-	else if (echo_mode == 3) /* bSSFP - add the length of the spiral-in */
-		minte += grad_len * GRAD_UPDATE_TIME / 2;
-
-	minte = GRAD_UPDATE_TIME * ceil((float)minte / (float)GRAD_UPDATE_TIME); /* round to nearest sampling interval */
-	fprintf(stderr, "predownload(): minte = %dus...\n", minte);
-
-	fprintf(stderr, "predownload(): calculating seqcore deadtimes...\n");
-	deadtime1_seqcore = opte - minte;
-	if (echo_mode == 1) /* FSE - divide by 2 */
-		deadtime1_seqcore /= 2;
-	minesp += deadtime1_seqcore;
-	deadtime2_seqcore = (echo_mode == 1) ? (opte) : (esp) - minesp;
-	fprintf(stderr, "predownload(): deadtime1_seqcore = %dus, deadtime2_seqcore = %dus...\n", deadtime1_seqcore, deadtime2_seqcore);
-
-	if (echo_mode == 1) { /* FSE - calculate deadtime after tipdown */
-		fprintf(stderr, "predownload(): calculating rf0 deadtimes...\n");
-		deadtime_rf0core = opte/2; /* time between rf0 and rf1 */
-		deadtime_rf0core -= (pw_gzrf0/2 + pw_gzrf0d); /* 2nd half of rf0 pulse */
-		deadtime_rf0core -= pgbuffertime; /* buffer */
-		deadtime_rf0core -= TIMESSI; /* inter-core time */
-		deadtime_rf0core -= pgbuffertime; /* buffer */
-		deadtime_rf0core -= (pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap1d); /* pre-rf1 trapezoid */
-		deadtime_rf0core -= pgbuffertime; /* buffer */
-		deadtime_rf0core -= (pw_gzrf1a + pw_gzrf1/2); /* first half of rf1 pulse */
-	}
-	
-	cvmin(esp, minesp);
-	cvmin(opuser1, minesp*1e-3);	
-	if ((exist(opautote) == PSD_MINTE)||(exist(opautote) == PSD_MINTEFULL))
-		opte = minte;
-	cvmin(opte, minte);
-	
-	/* Update the asl prep pulse parameters */
-	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
-	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
-	a_prep1gradctl = (prep1_id > 0) ? (prep1_gmax) : (0); 
-	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)MAX_PG_WAMP);
-	a_prep2gradlbl = (prep2_id > 0) ? (prep2_gmax) : (0);
-	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
-	a_prep2gradctl = (prep2_id > 0) ? (prep2_gmax) : (0); 
-	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)MAX_PG_WAMP);
-
+		
 	/* First, find the peak B1 for all entry points (other than L_SCAN) */
 	for( entry=0; entry < MAX_ENTRY_POINTS; ++entry )
 	{
@@ -820,7 +630,7 @@ STATUS predownload( void )
 		}
 	}
 	
-	rf0_b1 = calc_sinc_B1(cyc_rf0, pw_rf0, opflip);
+	rf0_b1 = calc_sinc_B1(cyc_rf0, pw_rf0, 90.0);
 	fprintf(stderr, "predownload(): maximum B1 for rf0 pulse: %f\n", rf0_b1);
 	if (rf0_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rf0_b1;
 
@@ -873,7 +683,7 @@ STATUS predownload( void )
 			maxB1Seq = maxB1[entry];
 	}
 	fprintf(stderr, "predownload(): maxB1Seq = %f Gauss\n", maxB1Seq);
-
+	
 	/* Set xmtadd according to maximum B1 and rescale for powermon,
 	   adding additional (audio) scaling if xmtadd is too big.
 	   Add in coilatten, too. */
@@ -921,6 +731,252 @@ STATUS predownload( void )
 	
 	a_prep2rhoctl = prep2_b1 / maxB1Seq;
 	ia_prep2rhoctl = a_prep2rhoctl * MAX_PG_WAMP;
+	
+	/* Update the asl prep pulse gradients */
+	a_prep1gradlbl = (prep1_id > 0) ? (prep1_gmax) : (0);
+	ia_prep1gradlbl = (int)ceil(a_prep1gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
+	a_prep1gradctl = (prep1_id > 0) ? (prep1_gmax) : (0); 
+	ia_prep1gradctl = (int)ceil(a_prep1gradctl / ZGRAD_max * (float)MAX_PG_WAMP);
+	a_prep2gradlbl = (prep2_id > 0) ? (prep2_gmax) : (0);
+	ia_prep2gradlbl = (int)ceil(a_prep2gradlbl / ZGRAD_max * (float)MAX_PG_WAMP);
+	a_prep2gradctl = (prep2_id > 0) ? (prep2_gmax) : (0); 
+	ia_prep2gradctl = (int)ceil(a_prep2gradctl / ZGRAD_max * (float)MAX_PG_WAMP);
+	
+	/* Set the parameters for the spin echo rf1 kspace rewinder */
+	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
+	tmp_a *= -0.5;
+	pw_gzrf1trap2 = tmp_pw;
+	pw_gzrf1trap2a = tmp_pwa;
+	pw_gzrf1trap2d = tmp_pwd;
+	a_gzrf1trap2 = tmp_a;
+
+	/* Set the parameters for the crusher gradients */
+	tmp_area = crushfac * 2*M_PI/GAMMA * opxres/(opfov/10.0) * 1e6; /* Area under crusher s.t. dk = crushfac*kmax (G/cm*us) */
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+
+	pw_gzrffsspoil = tmp_pw;
+	pw_gzrffsspoila = tmp_pwa;
+	pw_gzrffsspoild = tmp_pwd;
+	a_gzrffsspoil = tmp_a;
+
+	pw_gzrf1trap1 = tmp_pw;
+	pw_gzrf1trap1a = tmp_pwa;
+	pw_gzrf1trap1d = tmp_pwd;
+	a_gzrf1trap1 = tmp_a;
+
+	/* set trap2 as a crusher (for FSE case) */
+	pw_gzrf1trap2 = tmp_pw;
+	pw_gzrf1trap2a = tmp_pwa;
+	pw_gzrf1trap2d = tmp_pwd;
+	a_gzrf1trap2 = tmp_a;
+	
+	/* calculate slice select refocuser gradient */
+	tmp_area = a_gzrf1 * (pw_gzrf1 + (pw_gzrf1a + pw_gzrf1d)/2.0);
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+	tmp_a *= -0.5;
+	
+	pw_gzrf0r = tmp_pw;
+	pw_gzrf0ra = tmp_pwa;
+	pw_gzrf0rd = tmp_pwd;
+	a_gzrf0r = tmp_a;
+	
+	if (echo_mode > 1) { /* GRE modes - make trap2 a slice selct refocuser */
+		pw_gzrf1trap2 = tmp_pw;
+		pw_gzrf1trap2a = tmp_pwa;
+		pw_gzrf1trap2d = tmp_pwd;
+		a_gzrf1trap2 = tmp_a;
+	}
+
+	/* set parameters for flow compensated kz-encode (pre-scaled to kzmax) */
+	kzmax = (float)(kz_acc * opetl * opnshots) / ((float)opfov/10.0) / 2.0;
+	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax * (1 + flowcomp_flag); /* multiply by 2 if flow compensated */
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+	pw_gzw1 = tmp_pw;
+	pw_gzw1a = tmp_pwa;
+	pw_gzw1d = tmp_pwd;
+	a_gzw1 = tmp_a;
+	
+	/* set parameters with the kz-rewinder */
+	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax;
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 	
+	pw_gzw2 = tmp_pw;
+	pw_gzw2a = tmp_pwa;
+	pw_gzw2d = tmp_pwd;
+	a_gzw2 = tmp_a;
+
+	/* set parameters for flowcomp pre-phaser */
+	tmp_area = 2*M_PI/(GAMMA*1e-6) * kzmax; /* multiply by 2 if flow compensated */
+	amppwgrad(tmp_area, GMAX, 0, 0, ZGRAD_risetime, 0, &tmp_a, &tmp_pwa, &tmp_pw, &tmp_pwd); 
+	pw_gzfc = tmp_pw;
+	pw_gzfca = tmp_pwa;
+	pw_gzfcd = tmp_pwd;
+	a_gzfc = -tmp_a;
+	
+	/* generate initial spiral trajectory */
+	fprintf(stderr, "predownload(): calculating spiral gradients...\n");
+	if (genspiral() == 0) {
+		epic_error(use_ermes,"failure to generate spiral waveform", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+	a_gxw = XGRAD_max;
+	a_gyw = YGRAD_max;
+	ia_gxw = MAX_PG_WAMP;
+	ia_gyw = MAX_PG_WAMP;
+	res_gxw = grad_len;
+	res_gyw = grad_len;
+	pw_gxw = GRAD_UPDATE_TIME*res_gxw;
+	pw_gyw = GRAD_UPDATE_TIME*res_gyw;
+	
+	/* Generate view transformations */
+	if (genviews() == 0) {
+		epic_error(use_ermes,"failure to generate view transformation matrices", EM_PSD_SUPPORT_FAILURE, EE_ARGS(0));
+		return FAILURE;
+	}
+	scalerotmats(tmtxtbl, &loggrd, &phygrd, opetl*opnshots*narms, 0);
+
+	/* calculate minimum echo time and esp, and corresponding deadtimes */
+	minesp = 0;
+	minte = 0;
+	switch (echo_mode) {
+		case 1: /* FSE */
+			
+			/* calculate minimum esp (time from rf1 to next rf1) */
+			minesp += pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* post-rf crusher */
+			minesp += pgbuffertime;
+			minesp += TIMESSI; /* inter-core time */
+			minesp += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* flow comp pre-phaser */
+			minesp += pgbuffertime;
+			minesp += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode gradient */
+			minesp += pgbuffertime;
+			minesp += pw_gxw; /* spiral readout */
+			minesp += pgbuffertime;
+			minesp += pw_gzw2a + pw_gzw2 + pw_gzw2d; /* z rewind gradient */
+			minesp += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* for symmetry - add length of fc pre-phaser */
+			minesp += TIMESSI; /* inter-core time */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap1d; /* pre-rf crusher */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1a + pw_gzrf1; /* 1st half of rf1 pulse */
+
+			/* calculate minimum TE (time from center of rf0 to center of readout pulse) */
+			minte += pw_gzrf0/2 + pw_gzrf0d; /* 2nd half of rf0 pulse */
+			minte += pgbuffertime;
+			minte += pw_gzrf0ra + pw_gzrf0r + pw_gzrf0rd; /* rf0 slice select rewinder */
+			minte += pgbuffertime;
+			minte += TIMESSI; /* inter-core time */
+			minte += pgbuffertime;	
+			minte += pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap1d; /* pre-rf crusher */
+			minte += pgbuffertime;
+			minte += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* rf1 pulse */
+			minte += pgbuffertime;	
+			minte += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* post-rf crusher */
+			minte += pgbuffertime;
+			minte += TIMESSI; /* inter-core time */
+			minte += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* flow comp pre-phaser */
+			minte += pgbuffertime;
+			minte += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode gradient */
+			minte += pgbuffertime;
+			minte += pw_gxw/2; /* first half of spiral readout */
+
+			/* calculate deadtimes */
+			deadtime1_seqcore = (opte - minesp)/2;
+			deadtime1_seqcore -= (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* adjust for flowcomp symmetry */
+			minte += deadtime1_seqcore;
+			deadtime2_seqcore = (opte - minesp)/2;
+			deadtime2_seqcore += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime);		
+			deadtime_rf0core = opte - minte;	
+
+			minte = (int)fmax(minte, minesp);
+			minesp = 0; /* no restriction on esp cv - let opte control the echo spacing */
+	
+			break;
+
+		case 2: /* SPGR */
+			
+			/* calculate minimum esp (time from rf1 to next rf1) */
+			minesp += pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* rf1 slice select rewinder */
+			minesp += pgbuffertime;
+			minesp += TIMESSI; /* inter-core time */
+			minesp += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* flow comp pre-phaser */
+			minesp += pgbuffertime;
+			minesp += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode gradient */
+			minesp += pgbuffertime;
+			minesp += pw_gxw; /* spiral readout */
+			minesp += pgbuffertime;
+			minesp += pw_gzw2a + pw_gzw2 + pw_gzw2d; /* z rewind gradient */
+			minesp += TIMESSI; /* inter-core time */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap1d; /* pre-rf crusher */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1a + pw_gzrf1; /* 1st half of rf1 pulse */
+
+			/* calculate minimum TE (time from center of rf1 to beginning of readout pulse) */
+			minte += pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+			minte += pgbuffertime;	
+			minte += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* post-rf crusher */
+			minte += pgbuffertime;
+			minte += TIMESSI; /* inter-core time */
+			minte += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* flow comp pre-phaser */
+			minte += pgbuffertime;
+			minte += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode gradient */
+			minte += pgbuffertime;
+
+			/* calculate deadtimes */
+			deadtime_rf0core = 1ms; /* no effect here */
+			deadtime1_seqcore = opte - minte;
+			minesp += deadtime1_seqcore; /* add deadtime1 to minesp calculation */
+			deadtime2_seqcore = esp - minesp;
+		
+			break;
+
+		case 3: /* bSSFP */
+
+			/* calculate minimum esp (time from rf1 to next rf1) */
+			minesp += pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* rf1 slice select rewinder */
+			minesp += pgbuffertime;
+			minesp += TIMESSI; /* inter-core time */
+			minesp += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* flow comp pre-phaser */
+			minesp += pgbuffertime;
+			minesp += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode gradient */
+			minesp += pgbuffertime;
+			minesp += pw_gxw; /* spiral readout */
+			minesp += pgbuffertime;
+			minesp += pw_gzw2a + pw_gzw2 + pw_gzw2d; /* z rewind gradient */
+			minesp += TIMESSI; /* inter-core time */
+			minesp += pgbuffertime;
+			minesp += pw_gzrf1a + pw_gzrf1; /* 1st half of rf1 pulse */
+
+			/* calculate minimum TE (time from center of rf1 to beginning of readout pulse) */
+			minte += pw_gzrf1/2 + pw_gzrf1d; /* 2nd half of rf1 pulse */
+			minte += pgbuffertime;	
+			minte += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* post-rf crusher */
+			minte += pgbuffertime;
+			minte += TIMESSI; /* inter-core time */
+			minte += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime); /* flow comp pre-phaser */
+			minte += pgbuffertime;
+			minte += pw_gzw1a + pw_gzw1 + pw_gzw1d; /* z encode gradient */
+			minte += pgbuffertime;
+			minte += pw_gxw/2; /* first half of spiral readout */
+			
+			/* calculate deadtimes */
+			deadtime_rf0core = 1ms; /* no effect here */
+			deadtime1_seqcore = opte - minte;
+			minesp += deadtime1_seqcore; /* add deadtime1 to minesp calculation */
+			deadtime2_seqcore = esp - minesp;
+			
+			break;
+	}
+
+	/* set minimums */	
+	cvmin(esp, minesp);
+	cvmin(opte, minte);
 
 	/* Calculate the duration of presatcore */
 	dur_presatcore = 0;
@@ -959,6 +1015,8 @@ STATUS predownload( void )
 	dur_rf0core += pgbuffertime;
 	dur_rf0core += pw_gzrf0a + pw_gzrf0 + pw_gzrf0d;
 	dur_rf0core += pgbuffertime;
+	dur_rf1core += pw_gzrf0ra + pw_gzrf0r + pw_gzrf0rd;
+	dur_rf1core += pgbuffertime; 
 	dur_rf0core += deadtime_rf0core;
 	
 	/* calculate duration of rf1core */
@@ -974,16 +1032,14 @@ STATUS predownload( void )
 	/* calculate duration of seqcore */
 	dur_seqcore = 0;
 	dur_seqcore += deadtime1_seqcore + pgbuffertime;
-	if (flowcomp_flag) {
-		dur_seqcore += pw_gzfca + pw_gzfc + pw_gzfcd;
-		dur_seqcore += pgbuffertime;
-	}
+	dur_seqcore += (flowcomp_flag)*(pw_gzfca + pw_gzfc + pw_gzfcd + pgbuffertime);
 	dur_seqcore += pw_gzw1a + pw_gzw1 + pw_gzw1d;
 	dur_seqcore += pgbuffertime;	
 	dur_seqcore += pw_gxw;
-	dur_seqcore += pgbuffertime + deadtime2_seqcore;
+	dur_seqcore += pgbuffertime;
 	dur_seqcore += pw_gzw2a + pw_gzw2 + pw_gzw2d;
 	dur_seqcore += pgbuffertime;
+	dur_seqcore += deadtime2_seqcore;
 
 	/* calculate minimum TR */
 	absmintr = presat_flag*(dur_presatcore + TIMESSI + presat_delay);
@@ -1131,75 +1187,6 @@ STATUS predownload( void )
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
-	
-	/* Print scan info to a file */
-	finfo = fopen("scaninfo.txt", "w");
-
-	fprintf(finfo, "cvs:\n");
-	fprintf(finfo, "\t%-50s%20f\n", "opfov:", opfov);
-	fprintf(finfo, "\t%-50s%20f\n", "opflip:", opflip);
-	fprintf(finfo, "\t%-50s%20d\n", "opslquant:", opslquant);
-	fprintf(finfo, "\t%-50s%20f\n", "opslthick:", opslthick);
-	fprintf(finfo, "\t%-50s%20f\n", "optr:", (float)optr);
-	fprintf(finfo, "\t%-50s%20d\n", "opte:", opte);	
-	fprintf(finfo, "\t%-50s%20d\n", "opnshots:", opnshots);
-	fprintf(finfo, "\t%-50s%20d\n", "opetl:", opetl);	
-
-	fprintf(finfo, "hardware cvs:\n");
-	fprintf(finfo, "\t%-50s%20f\n", "SLEWMAX:", SLEWMAX);
-	fprintf(finfo, "\t%-50s%20f\n", "GMAX:", GMAX);
-
-	fprintf(finfo, "readout cvs:\n");
-	fprintf(finfo, "\t%-50s%20d\n", "nframes:", nframes);
-	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqtrains", ndisdaqtrains);
-	fprintf(finfo, "\t%-50s%20d\n", "ndisdaqechoes", ndisdaqechoes);
-	fprintf(finfo, "\t%-50s%20d\n", "fatsat_flag:", fatsat_flag);
-	fprintf(finfo, "\t%-50s%20d\n", "pgbuffertime:", pgbuffertime);
-	fprintf(finfo, "\t%-50s%20d\n", "kill_grads:", kill_grads);
-	fprintf(finfo, "\t%-50s%20d\n", "rfspoil_flag:", rfspoil_flag);	
-	fprintf(finfo, "\t%-50s%20d\n", "flowcomp_flag:", flowcomp_flag);	
-
-	fprintf(finfo, "trajectory cvs:\n");
-	fprintf(finfo, "\t%-50s%20d\n", "narms:", narms);
-	fprintf(finfo, "\t%-50s%20d\n", "nnav:", nnav);
-	fprintf(finfo, "\t%-50s%20f\n", "vds_acc0:", vds_acc0);
-	fprintf(finfo, "\t%-50s%20f\n", "vds_acc1:", vds_acc1);
-	fprintf(finfo, "\t%-50s%20f\n", "kz_acc:", kz_acc);
-	
-	fprintf(finfo, "ASL prep cvs:\n");
-	fprintf(finfo, "\t%-50s%20d\n", "presat_flag:", presat_flag);
-	fprintf(finfo, "\t%-50s%20d\n", "presat_delay:", presat_delay);	
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_id:", prep1_id);
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_pld:", prep1_pld);
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_ncycles", prep1_ncycles);
-	fprintf(finfo, "\t%-50s%20f\n", "prep1_rfmax:", prep1_rfmax);
-	fprintf(finfo, "\t%-50s%20f\n", "prep1_gmax:", prep1_gmax);
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_mod", prep1_mod);
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs1", prep1_tbgs1);
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs2", prep1_tbgs2);
-	fprintf(finfo, "\t%-50s%20d\n", "prep1_tbgs3", prep1_tbgs3);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_id:", prep2_id);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_pld:", prep2_pld);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_ncycles", prep2_ncycles);
-	fprintf(finfo, "\t%-50s%20f\n", "prep2_rfmax:", prep2_rfmax);
-	fprintf(finfo, "\t%-50s%20f\n", "prep2_gmax:", prep2_gmax);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_mod", prep2_mod);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs1", prep2_tbgs1);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs2", prep2_tbgs2);
-	fprintf(finfo, "\t%-50s%20d\n", "prep2_tbgs3", prep2_tbgs3);
-
-	fprintf(finfo, "\ntime cvs:\n");
-	fprintf(finfo, "\t%-50s%20f\n", "pitscan:", pitscan);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_presatcore:", dur_presatcore);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_prep1core:", dur_prep1core);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_prep2core:", dur_prep2core);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_bkgsupcore:", dur_bkgsupcore);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_fatsatcore:", dur_fatsatcore);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_rf1core:", dur_rf1core);
-	fprintf(finfo, "\t%-50s%20d\n", "dur_seqcore:", dur_seqcore);
-	fprintf(finfo, "\t%-50s%20d\n", "tr_deadtime:", tr_deadtime);
-	
-	fclose(finfo);
 
 @inline Prescan.e PSpredownload	
 
@@ -1493,6 +1480,16 @@ STATUS pulsegen( void )
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_gzrf0a + pw_gzrf0 + pw_gzrf0d; /* end time for rf2 pulse */
 	fprintf(stderr, " end: %dus\n", tmploc);
+		
+	fprintf(stderr, "pulsegen(): generating gzrf1trap2 (post-rf1 gradient trapezoid)...\n");
+	tmploc += pgbuffertime; /* start time for gzrf0r */
+	TRAPEZOID(ZGRAD, gzrf0r, tmploc + pw_gzrf0ra, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf0ra + pw_gzrf0r + pw_gzrf0rd; /* end time for gzrf1trap2 pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
+	tmploc += pgbuffertime; /* buffer */
+
+	tmploc += deadtime_rf0core;
 
 	fprintf(stderr, "pulsegen(): finalizing rf0 core...\n");
 	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_rf0core, tmploc);
@@ -1506,7 +1503,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of rf1 core\n");
 	tmploc = 0;
 
-	if (echo_mode != 3) {
+	if (echo_mode != 3) { /* bSSFP - do not use trap1 */
 		fprintf(stderr, "pulsegen(): generating gzrf1trap1 (pre-rf1 gradient trapezoid)...\n");
 		tmploc += pgbuffertime; /* start time for gzrf1trap1 */
 		TRAPEZOID(ZGRAD, gzrf1trap1, tmploc + pw_gzrf1trap1a, 3200, 0, loggrd);
@@ -1522,14 +1519,12 @@ STATUS pulsegen( void )
 	tmploc += pw_gzrf1a + pw_gzrf1 + pw_gzrf1d; /* end time for rf2 pulse */
 	fprintf(stderr, " end: %dus\n", tmploc);
 
-	if (echo_mode != 3) {
-		fprintf(stderr, "pulsegen(): generating gzrf1trap2 (post-rf1 gradient trapezoid)...\n");
-		tmploc += pgbuffertime; /* start time for gzrf1trap2 */
-		TRAPEZOID(ZGRAD, gzrf1trap2, tmploc + pw_gzrf1trap2a, 3200, 0, loggrd);
-		fprintf(stderr, "\tstart: %dus, ", tmploc);
-		tmploc += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* end time for gzrf1trap2 pulse */
-		fprintf(stderr, " end: %dus\n", tmploc);
-	}
+	fprintf(stderr, "pulsegen(): generating gzrf1trap2 (post-rf1 gradient trapezoid)...\n");
+	tmploc += pgbuffertime; /* start time for gzrf1trap2 */
+	TRAPEZOID(ZGRAD, gzrf1trap2, tmploc + pw_gzrf1trap2a, 3200, 0, loggrd);
+	fprintf(stderr, "\tstart: %dus, ", tmploc);
+	tmploc += pw_gzrf1trap2a + pw_gzrf1trap2 + pw_gzrf1trap2d; /* end time for gzrf1trap2 pulse */
+	fprintf(stderr, " end: %dus\n", tmploc);
 	tmploc += pgbuffertime;
 
 	fprintf(stderr, "pulsegen(): finalizing rf1 core...\n");
@@ -1864,7 +1859,6 @@ int play_rf1(float phs) {
 
 	/* set rx and tx phase */
 	setphase(phs, &rf1, 0);
-	setphase(phs, &echo1, 0);
 
 	/* Play the rf1 */
 	fprintf(stderr, "\tplay_rf1(): playing rf1core (%d us)...\n", dur_rf1core);
@@ -1918,33 +1912,30 @@ STATUS prescanCore() {
 			play_rf0(0);
 		}	
 
-		for (n = 0; n < ndisdaqechoes+1; n++) {
-
-			fprintf(stderr, "prescanCore(): Playing flip pulse for prescan iteration %d...\n", view);
-			play_rf1(0);
-
-			/* Load the DAB */	
-			if (view < 1 || n < ndisdaqechoes) {
-				fprintf(stderr, "prescanCore(): loaddab(&echo1, 0, 0, 0, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n");
-				loaddab(&echo1, 0, 0, 0, 0, DABOFF, PSD_LOAD_DAB_ALL);
-			}
-			else {
-				fprintf(stderr, "prescanCore(): loaddab(&echo1, 0, 0, 0, %d, DABON, PSD_LOAD_DAB_ALL)...\n", view);
-				loaddab(&echo1, 0, 0, 0, view, DABON, PSD_LOAD_DAB_ALL);
-			}
-
-			/* kill gradients */				
-			setrotate( zmtx, 0 );
-
-			fprintf(stderr, "prescanCore(): playing readout for prescan iteration %d...\n", view);
-			play_readout();
-
-			/* restore gradients */				
-			setrotate( tmtx0, 0 );
+		fprintf(stderr, "prescanCore(): Playing flip pulse for prescan iteration %d...\n", view);
+		play_rf1(90*(echo_mode == 1));
+			
+		/* Load the DAB */	
+		if (view < 1 || n < ndisdaqechoes) {
+			fprintf(stderr, "prescanCore(): loaddab(&echo1, 0, 0, 0, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n");
+			loaddab(&echo1, 0, 0, 0, 0, DABOFF, PSD_LOAD_DAB_ALL);
+		}
+		else {
+			fprintf(stderr, "prescanCore(): loaddab(&echo1, 0, 0, 0, %d, DABON, PSD_LOAD_DAB_ALL)...\n", view);
+			loaddab(&echo1, 0, 0, 0, view, DABON, PSD_LOAD_DAB_ALL);
 		}
 
+		/* kill gradients */				
+		setrotate( zmtx, 0 );
+
+		fprintf(stderr, "prescanCore(): playing readout for prescan iteration %d...\n", view);
+		play_readout();
+
+		/* restore gradients */				
+		setrotate( tmtx0, 0 );
+
 		fprintf(stderr, "prescanCore(): playing deadtime for prescan iteration %d...\n", view);
-		play_deadtime(50000);
+		play_deadtime(3s);
 
 	}
 
@@ -2020,16 +2011,18 @@ STATUS scan( void )
 		fprintf(stderr, "scan(): playing TR deadtime for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
 		ttotal += play_deadtime(optr - opetl * (dur_rf1core + TIMESSI + dur_seqcore + TIMESSI));
 		
-		ttotal += play_rf0(0);
+		if (echo_mode == 1) { /* FSE - play 90 */
+			fprintf(stderr, "scan(): playing 90deg FSE tipdown for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
+			play_rf0(0);
+		}	
 		
 		/* Loop through echoes */
-		for (echon = 0; echon < opetl; echon++) {
+		for (echon = 0; echon < opetl+ndisdaqechoes; echon++) {
 			fprintf(stderr, "scan(): playing flip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
-			
 			if (echo_mode == 1) /* FSE - CPMG */
 				ttotal += play_rf1(90);
 			else
-				ttotal += play_rf1(rfspoil_flag*117*echon);
+				ttotal += play_rf1(0);
 
 			/* Load the DAB */		
 			fprintf(stderr, "scan(): loaddab(&echo1, %d, 0, DABSTORE, 0, DABOFF, PSD_LOAD_DAB_ALL)...\n", echon+1);
@@ -2103,7 +2096,10 @@ STATUS scan( void )
 					ttotal += play_fatsat();
 				}
 				
-				ttotal += play_rf0(0);
+				if (echo_mode == 1) { /* FSE - play 90 */
+					fprintf(stderr, "scan(): playing 90deg FSE tipdown for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+					play_rf0(0);
+				}	
 
 				/* play disdaq echoes */
 				for (echon = 0; echon < ndisdaqechoes; echon++) {
@@ -2121,8 +2117,10 @@ STATUS scan( void )
 					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
 					if (echo_mode == 1) /* FSE - CPMG */
 						ttotal += play_rf1(90);
-					else
+					else {
 						ttotal += play_rf1(rfspoil_flag*117*(echon + ndisdaqechoes));
+						setphase(rfspoil_flag*117*(echon + ndisdaqechoes), &echo1, 0);
+					}
 
 					/* load the DAB */
 					slice = framen+1;
@@ -2184,6 +2182,7 @@ void dummylinks( void )
 int genspiral() {
 
 	FILE *fID_ktraj = fopen("ktraj.txt", "w");
+	FILE *fID_ktraj_all = fopen("ktraj_all.txt", "w");
 
 	/* declare waveform sizes */
 	int n_vds, n_rmp, n_rwd; /* spiral-out, ramp-down, rewind */
@@ -2272,19 +2271,6 @@ int genspiral() {
 
 	if (echo_mode == 2) { /* SPGR - spiral out */
 		/* calculate window lengths */
-		grad_len = 2*(n_rmp + n_rwd + n_vds) + nnav;
-		acq_len = 2*n_vds + nnav;
-		acq_offset = n_rwd + n_rmp;
-		
-		gx = (float *)malloc(grad_len*sizeof(float));
-		gy = (float *)malloc(grad_len*sizeof(float));
-		
-		/* concatenate and zero-pad the spiral in & out waveforms */
-		catArray(gx_sprli, n_sprl, gx_sprlo, n_sprl, nnav, gx);
-		catArray(gy_sprli, n_sprl, gy_sprlo, n_sprl, nnav, gy);
-	}
-	else { /* FSE & bSSFP - spiral in-out */
-		/* calculate window lengths */
 		grad_len = nnav + n_sprl;
 		acq_len = nnav + n_vds;
 		acq_offset = 0;
@@ -2296,6 +2282,20 @@ int genspiral() {
 		catArray(gx_sprlo, 0, gx_sprlo, n_sprl, nnav, gx);
 		catArray(gy_sprlo, 0, gy_sprlo, n_sprl, nnav, gy);
 	}
+	else { /* FSE & bSSFP - spiral in-out */
+		
+		/* calculate window lengths */
+		grad_len = 2*(n_rmp + n_rwd + n_vds) + nnav;
+		acq_len = 2*n_vds + nnav;
+		acq_offset = n_rwd + n_rmp;
+		
+		gx = (float *)malloc(grad_len*sizeof(float));
+		gy = (float *)malloc(grad_len*sizeof(float));
+		
+		/* concatenate and zero-pad the spiral in & out waveforms */
+		catArray(gx_sprli, n_sprl, gx_sprlo, n_sprl, nnav, gx);
+		catArray(gy_sprli, n_sprl, gy_sprlo, n_sprl, nnav, gy);
+	}
 
 	/* integrate gradients to calculate kspace */
 	kxn = 0.0;
@@ -2306,6 +2306,7 @@ int genspiral() {
 		kyn += gam * gy[n] * dt;
 		if (n > acq_offset-1 && n < acq_offset + acq_len)
 			fprintf(fID_ktraj, "%f \t%f \t%f\n", kxn, kyn, kzmax);
+		fprintf(fID_ktraj_all, "%f \t%f \t%f\n", kxn, kyn, kzmax);
 		
 		/* convert gradients to integer units */
 		Gx[n] = 2*round(MAX_PG_WAMP/XGRAD_max * gx[n] / 2.0);
@@ -2313,6 +2314,7 @@ int genspiral() {
 	}
 
 	fclose(fID_ktraj);
+	fclose(fID_ktraj_all);
 
 	return SUCCESS;
 }
@@ -2342,7 +2344,9 @@ int genviews() {
 				rotidx = armn*opnshots*opetl + shotn*opetl + echon;
 
 				/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
-				rz = 2.0*M_PI * (float)armn / (float)narms;
+				rz = M_PI / 2.0 * (float)armn / (float)narms;
+				if (echo_mode == 2)
+					rz *= 2.0;
 				dz = 2.0/(float)opetl * (center_out_idx(opetl,echon) - 1.0/(float)opnshots*center_out_idx(opnshots,shotn)) - 1.0;
 
 				/* Calculate the transformation matrices */
