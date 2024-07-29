@@ -440,13 +440,15 @@ STATUS cveval( void )
 	echo_mode = opuser0;
 
 	/* Add opuser fields to the Adv. pulse sequence parameters interface */	
-	piuset += use1;
-	cvdesc(opuser1, "SPGR/bSSFP short TR (ms)");
-	cvdef(opuser1, esp*1e-3);
-	opuser1 = esp*1e-3;
-	cvmin(opuser1, 0);
-	cvmax(opuser1, 1000);	
-	esp = opuser1*1e3;
+	if (echo_mode > 1) {
+		piuset += use1;
+		cvdesc(opuser1, "SPGR/bSSFP short TR (ms)");
+		cvdef(opuser1, esp*1e-3);
+		opuser1 = esp*1e-3;
+		cvmin(opuser1, 0);
+		cvmax(opuser1, 1000);	
+		esp = opuser1*1e3;
+	}
 
 	piuset += use2;
 	cvdesc(opuser2, "Number of frames to acquire");
@@ -1935,7 +1937,7 @@ STATUS prescanCore() {
 		setrotate( tmtx0, 0 );
 
 		fprintf(stderr, "prescanCore(): playing deadtime for prescan iteration %d...\n", view);
-		play_deadtime(3s);
+		play_deadtime(100ms);
 
 	}
 
@@ -2344,9 +2346,9 @@ int genviews() {
 				rotidx = armn*opnshots*opetl + shotn*opetl + echon;
 
 				/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
-				rz = M_PI / 2.0 * (float)armn / (float)narms;
-				if (echo_mode == 2)
-					rz *= 2.0;
+				rz = M_PI * (float)armn / (float)narms;
+				if (echo_mode == 2) /* spiral out */
+					rz *= 2;
 				dz = 2.0/(float)opetl * (center_out_idx(opetl,echon) - 1.0/(float)opnshots*center_out_idx(opnshots,shotn)) - 1.0;
 
 				/* Calculate the transformation matrices */
