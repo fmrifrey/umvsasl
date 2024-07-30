@@ -150,7 +150,7 @@ int ndisdaqechoes = 0 with {0, , 0, VIS, "number of disdaq echos at beginning of
 
 int echo_mode = 2 with {1, 3, 2, VIS, "FSE (1), SPGR (2), or bSSFP (3)",};
 int fatsat_mode = 1 with {0, 3, 1, VIS, "none (0), CHESS (1), or SPIR (2)",};
-int spir_fa = 110 with {0, 360, 1, VIS, "SPIR pulse flip angle (deg)",};
+float spir_fa = 110 with {0, 360, 1, VIS, "SPIR pulse flip angle (deg)",};
 int spir_ti = 52ms with {0, 1000ms, 52ms, VIS, "SPIR inversion time (us)",};
 int rfspoil_flag = 1 with {0, 1, 1, VIS, "option to do RF phase cycling (117deg increments to rf1 phase)",};
 int flowcomp_flag = 0 with {0, 1, 0, VIS, "option to use flow-compensated slice select gradients",};
@@ -159,8 +159,6 @@ int rf1_b1calib = 0 with {0, 1, 0, VIS, "option to sweep B1 amplitudes across fr
 int pgbuffertime = 248 with {100, , 248, INVIS, "gradient IPG buffer time (us)",};
 float crushfac = 3.0 with {0, 10, 0, VIS, "crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "option to turn off readout gradients",};
-
-int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* Trajectory cvs */
 int nnav = 250 with {0, 1000, 250, VIS, "number of navigator points in spiral",};
@@ -181,7 +179,6 @@ int zero_ctl_grads = 0 with {0, 1, 0, VIS, "option to zero out control gradients
 
 int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)",};
 int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
-int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
 float prep1_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 1: maximum RF amplitude",};
 float prep1_gmax = 1.5 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
 int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
@@ -192,7 +189,6 @@ int prep1_b1calib = 0 with {0, 1, 0, VIS, "ASL prep pulse 1: option to sweep B1 
 
 int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)",};
 int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
-int prep2_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 2: number of cycles",};
 float prep2_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 2: maximum RF amplitude",};
 float prep2_gmax = 1.5 with {0, , 1.5, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
 int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
@@ -214,6 +210,7 @@ int deadtime_fatsatcore = 0 with {0, , 0, INVIS, "deadtime at end of fatsat core
 int deadtime_rf0core = 0 with {0, , 0, INVIS, "post-tipdown deadtime for FSE (us)",};
 int deadtime1_seqcore = 0 with {0, , 0, INVIS, "pre-readout deadtime within core (us)",};
 int deadtime2_seqcore = 0 with {0, , 0, INVIS, "post-readout deadtime within core (us)",};
+int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* inhereted from grass.e, not sure if it's okay to delete: */
 float xmtaddScan;
@@ -279,6 +276,7 @@ int readprep(int id, int *len,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
 float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf);
 float calc_hard_B1(int pw_rf, float flip_rf);
+int write_scan_info();
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -494,7 +492,7 @@ STATUS cveval( void )
 	kz_acc = opuser7;
 
 	piuset += use8;
-	cvdesc(opuser8, "VD-spiral center oversampling factor");
+	cvdesc(opuser8, "VD-spiral center acceleration factor");
 	cvdef(opuser8, vds_acc0);
 	opuser8 = vds_acc0;
 	cvmin(opuser8, 0.001);
@@ -502,7 +500,7 @@ STATUS cveval( void )
 	vds_acc0 = opuser8;
 
 	piuset += use9;
-	cvdesc(opuser9, "VD-spiral edge oversampling factor");
+	cvdesc(opuser9, "VD-spiral edge acceleration factor");
 	cvdef(opuser9, vds_acc1);
 	opuser9 = vds_acc1;
 	cvmin(opuser9, 0.001);
@@ -1248,6 +1246,8 @@ STATUS predownload( void )
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
+
+	write_scan_info();
 
 @inline Prescan.e PSpredownload	
 
@@ -2276,8 +2276,8 @@ int genspiral() {
 	float kxn, kyn;
 	
 	/* calculate FOV coefficients */
-	F0 = 1.1*(vds_acc1 / (float)narms * (float)opfov / 10.0);
-	F1 = 1.1*(2*pow((float)opfov/10.0,2)/opxres *(vds_acc1 - vds_acc0)/(float)narms);
+	F0 = 1.1*(1.0/vds_acc1 / (float)narms * (float)opfov / 10.0);
+	F1 = 1.1*(2*pow((float)opfov/10.0,2)/opxres *(1.0/vds_acc1 - 1.0/vds_acc0)/(float)narms);
 	F2 = 0;
 	if (echo_mode == 1) { /* FSE and bSSFP - spiral in-out */
 		F0 /= 2;
@@ -2575,6 +2575,136 @@ float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 
 float calc_hard_B1(int pw_rf, float flip_rf) {
 	return (flip_rf / 180.0 * M_PI / GAMMA / (float)(pw_rf*1e-6));
+}
+
+int write_scan_info() {
+
+	FILE *finfo = fopen("scaninfo.txt","w");
+	fprintf(finfo, "Rx parameters:\n");
+	fprintf(finfo, "\t%-50s%20f %s\n", "X/Y FOV:", (float)opfov/10.0, "cm");
+	fprintf(finfo, "\t%-50s%20f %s\n", "3D slab thickness:", (float)opslquant*opslthick/10.0, "cm"); 	
+
+	fprintf(finfo, "Hardware limits:\n");
+	fprintf(finfo, "\t%-50s%20f %s\n", "Max gradient amplitude:", GMAX, "G/cm");
+	fprintf(finfo, "\t%-50s%20f %s\n", "Max slew rate:", SLEWMAX, "G/cm/s");
+
+	fprintf(finfo, "Readout parameters:\n");
+	switch (echo_mode) {
+		case 1: /* FSE */
+			fprintf(finfo, "\t%-50s%20s\n", "Readout type:", "FSE");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Flip (inversion) angle:", opflip, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Echo time:", (float)opte*1e-3, "ms");
+			break;
+		case 2: /* SPGR */
+			fprintf(finfo, "\t%-50s%20s\n", "Readout type:", "SPGR");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Flip angle:", opflip, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Echo time:", (float)opte*1e-3, "ms");
+			fprintf(finfo, "\t%-50s%20f %s\n", "ESP (short TR):", (float)esp*1e-3, "ms");
+			fprintf(finfo, "\t%-50s%20s\n", "RF phase spoiling:", (rfspoil_flag) ? ("on") : ("off"));	
+			break;
+		case 3: /* bSSFP */
+			fprintf(finfo, "\t%-50s%20s\n", "Readout type:", "bSSFP");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Flip angle:", opflip, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Echo time:", (float)opte*1e-3, "ms");
+			fprintf(finfo, "\t%-50s%20f %s\n", "ESP (short TR):", (float)esp*1e-3, "ms");
+			break;
+	}
+	fprintf(finfo, "\t%-50s%20f %s\n", "Shot interval (long TR):", (float)optr*1e-3, "ms");
+	fprintf(finfo, "\t%-50s%20d\n", "ETL:", opetl);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of frames:", nframes);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of shots:", opnshots);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of spiral arms:", narms);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of disdaq echo trains:", ndisdaqtrains);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of disdaq echoes:", ndisdaqechoes);
+	fprintf(finfo, "\t%-50s%20f %s\n", "Crusher area factor:", crushfac, "% kmax");
+	fprintf(finfo, "\t%-50s%20s\n", "Flow compensation:", (flowcomp_flag) ? ("on") : ("off"));	
+	if (kill_grads == 1)
+			fprintf(finfo, "\t%-50s%20s\n", "Spiral readout:", "off (FID only)");
+	else {
+		switch (spi_mode) {
+			case 0: /* SOS */
+				fprintf(finfo, "\t%-50s%20s\n", "Projection mode:", "SOS");
+				fprintf(finfo, "\t%-50s%20f\n", "kz acceleration (SENSE) factor:", kz_acc);
+				break;
+			case 1: /* 2DTGA */
+				fprintf(finfo, "\t%-50s%20s\n", "Projection mode:", "2DTGA");
+				break;
+			case 2: /* 3DTGA */
+				fprintf(finfo, "\t%-50s%20s\n", "Projection mode:", "3DTGA");
+				break;
+		}
+		fprintf(finfo, "\t%-50s%20f\n", "VDS center acceleration factor:", vds_acc0);
+		fprintf(finfo, "\t%-50s%20f\n", "VDS edge acceleration factor:", vds_acc1);
+		fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
+	}
+	fprintf(finfo, "\t%-50s%20f %s\n", "Acquisition window duration:", acq_len*4*1e-3, "ms");
+	fprintf(finfo, "Prep parameters:\n");
+	switch (fatsat_mode) {
+		case 0: /* Off */
+			fprintf(finfo, "\t%-50s%20s\n", "Fat suppression:", "off");
+			break;
+		case 1: /* CHESS */
+			fprintf(finfo, "\t%-50s%20s\n", "Fat suppression:", "CHESS");
+			break;
+		case 2: /* SPIR */
+			fprintf(finfo, "\t%-50s%20s\n", "Fat suppression:", "SPIR");
+			fprintf(finfo, "\t%-50s%20f %s\n", "SPIR flip angle:", spir_fa, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "SPIR inversion time:", (float)spir_ti*1e-3, "ms");
+			break;
+	}
+	if (prep1_id == 0)
+		fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse:", "off");
+	else {
+		fprintf(finfo, "\t%-50s%20d\n", "Prep 1 pulse id:", prep1_id);
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 post-labeling delay:", (float)prep1_pld*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 max B1 amplitude:", prep1_rfmax, "mG");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 max gradient amplitude:", prep1_gmax, "G/cm");
+		switch (prep1_mod) {
+			case 1:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "1 (LCLC)");
+				break;
+			case 2:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "2 (CLCL)");
+				break;
+			case 3:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "3 (LLLL)");
+				break;
+			case 4:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "4 (CCCC)");
+				break;
+		}
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 BGS 1 delay:", (float)prep1_tbgs1*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 BGS 2 delay:", (float)prep1_tbgs2*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 BGS 3 delay:", (float)prep1_tbgs3*1e-3, "ms");
+	}
+	if (prep2_id == 0)
+		fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse:", "off");
+	else {
+		fprintf(finfo, "\t%-50s%20d\n", "Prep 2 pulse id:", prep2_id);
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 post-labeling delay:", (float)prep2_pld*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 max B1 amplitude:", prep2_rfmax, "mG");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 max gradient amplitude:", prep2_gmax, "G/cm");
+		switch (prep2_mod) {
+			case 1:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "1 (LCLC)");
+				break;
+			case 2:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "2 (CLCL)");
+				break;
+			case 3:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "3 (LLLL)");
+				break;
+			case 4:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "4 (CCCC)");
+				break;
+		}
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 BGS 1 delay:", (float)prep2_tbgs1*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 BGS 2 delay:", (float)prep2_tbgs2*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 BGS 3 delay:", (float)prep2_tbgs3*1e-3, "ms");
+	}
+
+	fclose(finfo);
+	return 1;
 }
 
 /************************ END OF UMVSASL.E ******************************/
