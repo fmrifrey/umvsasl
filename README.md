@@ -41,7 +41,7 @@ The main sequence follows a looping structure over three readout dimensions: fra
 | - | - | - |
 | M | number of frames | cv: `nframes` |
 | N | number of shots | cv: `opnshots` |
-| K | number of arms | cv: `narms` |
+| P | number of arms | cv: `narms` |
 | Shot interval | - | cv: `optr` |
 | Sequence duration | - | n/a |
 
