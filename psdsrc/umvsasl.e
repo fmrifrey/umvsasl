@@ -148,11 +148,11 @@ int nframes = 2 with {1, , 2, VIS, "number of frames",};
 int ndisdaqtrains = 2 with {0, , 2, VIS, "number of disdaq echo trains at beginning of scan loop",};
 int ndisdaqechoes = 0 with {0, , 0, VIS, "number of disdaq echos at beginning of echo train",};
 
-int echo_mode = 2 with {1, 3, 2, VIS, "FSE (1), SPGR (2), or bSSFP (3)",};
+int ro_type = 2 with {1, 3, 2, VIS, "FSE (1), SPGR (2), or bSSFP (3)",};
 int fatsup_mode = 1 with {0, 3, 1, VIS, "none (0), CHESS (1), or SPIR (2)",};
-int fatsup_off = -520 with { , , -530, VIS, "fat suppression pulse frequency offset (Hz)",};
+int fatsup_off = -520 with { , , -520, VIS, "fat suppression pulse frequency offset (Hz)",};
 int fatsup_bw = 440 with { , , 440, VIS, "fat suppression bandwidth (Hz)",};
-int spir_fa = 110 with {0, 360, 1, VIS, "SPIR pulse flip angle (deg)",};
+float spir_fa = 110 with {0, 360, 1, VIS, "SPIR pulse flip angle (deg)",};
 int spir_ti = 52ms with {0, 1000ms, 52ms, VIS, "SPIR inversion time (us)",};
 int rfspoil_flag = 1 with {0, 1, 1, VIS, "option to do RF phase cycling (117deg increments to rf1 phase)",};
 int flowcomp_flag = 0 with {0, 1, 0, VIS, "option to use flow-compensated slice select gradients",};
@@ -161,8 +161,6 @@ int rf1_b1calib = 0 with {0, 1, 0, VIS, "option to sweep B1 amplitudes across fr
 int pgbuffertime = 248 with {100, , 248, INVIS, "gradient IPG buffer time (us)",};
 float crushfac = 3.0 with {0, 10, 0, VIS, "crusher amplitude factor (a.k.a. cycles of phase/vox; dk_crush = crushfac*kmax)",};
 int kill_grads = 0 with {0, 1, 0, VIS, "option to turn off readout gradients",};
-
-int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* Trajectory cvs */
 int nnav = 250 with {0, 1000, 250, VIS, "number of navigator points in spiral",};
@@ -183,7 +181,6 @@ int zero_ctl_grads = 0 with {0, 1, 0, VIS, "option to zero out control gradients
 
 int prep1_id = 0 with {0, , 0, VIS, "ASL prep pulse 1: ID number (0 = no pulse)",};
 int prep1_pld = 0 with {0, , 0, VIS, "ASL prep pulse 1: post-labeling delay (us; includes background suppression)",};
-int prep1_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 1: number of cycles",};
 float prep1_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 1: maximum RF amplitude",};
 float prep1_gmax = 1.5 with {0, , 3, VIS, "ASL prep pulse 1: maximum gradient amplitude",};
 int prep1_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 1: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
@@ -194,7 +191,6 @@ int prep1_b1calib = 0 with {0, 1, 0, VIS, "ASL prep pulse 1: option to sweep B1 
 
 int prep2_id = 0 with {0, , 0, VIS, "ASL prep pulse 2: ID number (0 = no pulse)",};
 int prep2_pld = 0 with {0, , 0, VIS, "ASL prep pulse 2: post-labeling delay (us; includes background suppression)",};
-int prep2_ncycles = 1 with {1, , 1, VIS, "ASL prep pulse 2: number of cycles",};
 float prep2_rfmax = 234 with {0, , 0, VIS, "ASL prep pulse 2: maximum RF amplitude",};
 float prep2_gmax = 1.5 with {0, , 1.5, VIS, "ASL prep pulse 2: maximum gradient amplitude",};
 int prep2_mod = 1 with {1, 4, 1, VIS, "ASL prep pulse 2: labeling modulation scheme (1 = label/control, 2 = control/label, 3 = always label, 4 = always control)",};
@@ -216,6 +212,7 @@ int deadtime_fatsupcore = 0 with {0, , 0, INVIS, "deadtime at end of fatsup core
 int deadtime_rf0core = 0 with {0, , 0, INVIS, "post-tipdown deadtime for FSE (us)",};
 int deadtime1_seqcore = 0 with {0, , 0, INVIS, "pre-readout deadtime within core (us)",};
 int deadtime2_seqcore = 0 with {0, , 0, INVIS, "post-readout deadtime within core (us)",};
+int tr_deadtime = 0 with {0, , 0, INVIS, "TR deadtime (us)",};
 
 /* inhereted from grass.e, not sure if it's okay to delete: */
 float xmtaddScan;
@@ -281,6 +278,7 @@ int readprep(int id, int *len,
 		int *rho_ctl, int *theta_ctl, int *grad_ctl); 
 float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf);
 float calc_hard_B1(int pw_rf, float flip_rf);
+int write_scan_info();
 
 @inline Prescan.e PShostVars            /* added with new filter calcs */
 
@@ -437,87 +435,300 @@ STATUS cveval( void )
 	
 	/* Add opuser fields to the Adv. pulse sequence parameters interface */	
 	piuset += use0;
-	cvdesc(opuser0, "Echo mode (1=FSE, 2=SPGR, 3=bSSFP)");
-	cvdef(opuser0, echo_mode);
-	opuser0 = echo_mode;
+	cvdesc(opuser0, "Readout type: (1) FSE, (2) SPGR, (3) bSSFP");
+	cvdef(opuser0, ro_type);
+	opuser0 = ro_type;
 	cvmin(opuser0, 1);
 	cvmax(opuser0, 3);	
-	echo_mode = opuser0;
+	ro_type = opuser0;
 
-	/* Add opuser fields to the Adv. pulse sequence parameters interface */	
-	if (echo_mode > 1) {
+	if (ro_type > 1) /* Not applicable for FSE */
 		piuset += use1;
-		cvdesc(opuser1, "SPGR/bSSFP short TR (ms)");
-		cvdef(opuser1, esp*1e-3);
-		opuser1 = esp*1e-3;
-		cvmin(opuser1, 0);
-		cvmax(opuser1, 1000);	
-		esp = opuser1*1e3;
-	}
-
-	piuset += use2;
-	cvdesc(opuser2, "Number of frames to acquire");
-	cvdef(opuser2, nframes);
-	opuser2 = nframes;
-	cvmin(opuser2, 1);
-	cvmax(opuser2, MAXNFRAMES);
-	nframes = opuser2;
+	cvdesc(opuser1, "ESP (short TR) (ms)");
+	cvdef(opuser1, esp*1e-3);
+	opuser1 = esp*1e-3;
+	cvmin(opuser1, 0);
+	cvmax(opuser1, 1000);	
+	esp = 4*round(opuser1*1e3/4);
 	
+	if (ro_type == 2) /* SPGR only */
+		piuset += use2;
+	cvdesc(opuser2, "RF spoiling: (0) off, (1) on");
+	cvdef(opuser2, 0);
+	opuser2 = rfspoil_flag;
+	cvmin(opuser2, 0);
+	cvmax(opuser2, 1);	
+	rfspoil_flag = opuser2;
+
 	piuset += use3;
-	cvdesc(opuser3, "Number of disdaq trains");
-	cvdef(opuser3, ndisdaqtrains);
-	opuser3 = ndisdaqtrains;
-	cvmin(opuser3, 0);
-	cvmax(opuser3, 100);
-	ndisdaqtrains = opuser3;
+	cvdesc(opuser3, "Number of frames");
+	cvdef(opuser3, nframes);
+	opuser3 = nframes;
+	cvmin(opuser3, 1);
+	cvmax(opuser3, MAXNFRAMES);
+	nframes = opuser3;
 	
 	piuset += use4;
-	cvdesc(opuser4, "Number of disdaq echoes");
-	cvdef(opuser4, ndisdaqechoes);
-	opuser4 = ndisdaqechoes;
-	cvmin(opuser4, 0);
-	cvmax(opuser4, 100);
-	ndisdaqechoes = opuser4;
+	cvdesc(opuser4, "Number of spiral arms");
+	cvdef(opuser4, narms);
+	opuser4 = narms;
+	cvmin(opuser4, 1);
+	cvmax(opuser4, 1000);
+	narms = opuser4;
 	
 	piuset += use5;
-	cvdesc(opuser5, "Number of spiral arms");
-	cvdef(opuser5, narms);
-	opuser5 = narms;
-	cvmin(opuser5, 1);
-	cvmax(opuser5, opxres);
-	narms = opuser5;
-
+	cvdesc(opuser5, "Number of disdaq echo trains");
+	cvdef(opuser5, ndisdaqtrains);
+	opuser5 = ndisdaqtrains;
+	cvmin(opuser5, 0);
+	cvmax(opuser5, 100);
+	ndisdaqtrains = opuser5;
+	
+	piuset += use6;
+	cvdesc(opuser6, "Number of disdaq echoes");
+	cvdef(opuser6, ndisdaqechoes);
+	opuser6 = ndisdaqechoes;
+	cvmin(opuser6, 0);
+	cvmax(opuser6, 100);
+	ndisdaqechoes = opuser6;
+	
 	piuset += use7;
-	cvdesc(opuser7, "kz acceleration factor (SOS only)");
-	cvdef(opuser7, kz_acc);
-	opuser7 = kz_acc;
-	cvmin(opuser7, 1.0);
-	cvmax(opuser7, 100.0);
-	kz_acc = opuser7;
-
+	cvdesc(opuser7, "Crusher area factor (% kmax)");
+	cvdef(opuser7, crushfac);
+	opuser7 = crushfac;
+	cvmin(opuser7, 0);
+	cvmax(opuser7, 10);
+	crushfac = opuser7;
+	
 	piuset += use8;
-	cvdesc(opuser8, "VD-spiral center oversampling factor");
-	cvdef(opuser8, vds_acc0);
-	opuser8 = vds_acc0;
-	cvmin(opuser8, 0.001);
-	cvmax(opuser8, 50.0);
-	vds_acc0 = opuser8;
-
+	cvdesc(opuser8, "Flow comp: (0) off, (1) on");
+	cvdef(opuser8, 0);
+	opuser8 = flowcomp_flag;
+	cvmin(opuser8, 0);
+	cvmax(opuser8, 1);	
+	flowcomp_flag = opuser8;
+	
 	piuset += use9;
-	cvdesc(opuser9, "VD-spiral edge oversampling factor");
-	cvdef(opuser9, vds_acc1);
-	opuser9 = vds_acc1;
-	cvmin(opuser9, 0.001);
-	cvmax(opuser9, 50.0);
-	vds_acc1 = opuser9;
+	cvdesc(opuser9, "FID mode (no spiral): (0) off, (1) on");
+	cvdef(opuser9, 0);
+	opuser9 = kill_grads;
+	cvmin(opuser9, 0);
+	cvmax(opuser9, 1);	
+	kill_grads = opuser9;
 
-	piuset += use10;
-	cvdesc(opuser10, "Recon script ID #");
-	cvdef(opuser10, rhrecon);
-	opuser10 = rhrecon;
+	if (kill_grads == 0) /* only if spirals are on */
+		piuset += use10;
+	cvdesc(opuser10, "SPI mode: (0) SOS, (1) 2DTGA, (2) 3DTGA");
+	cvdef(opuser10, 0);
+	opuser10 = spi_mode;
 	cvmin(opuser10, 0);
-	cvmax(opuser10, 9999);
-	rhrecon = opuser10;
+	cvmax(opuser10, 2);	
+	spi_mode = opuser10;
+	
+	if (kill_grads == 0 && spi_mode == 0) /* only if spirals are on & SOS*/
+		piuset += use11;
+	cvdesc(opuser11, "kz acceleration (SENSE) factor");
+	cvdef(opuser11, 0);
+	opuser11 = kz_acc;
+	cvmin(opuser11, 0);
+	cvmax(opuser11, 10);	
+	kz_acc = opuser11;
+	
+	if (kill_grads == 0) /* only if spirals are on*/
+		piuset += use12;
+	cvdesc(opuser12, "VDS center acceleration factor");
+	cvdef(opuser12, 0);
+	opuser12 = vds_acc0;
+	cvmin(opuser12, 0);
+	cvmax(opuser12, 100);	
+	vds_acc0 = opuser12;
+	
+	if (kill_grads == 0) /* only if spirals are on*/
+		piuset += use13;
+	cvdesc(opuser13, "VDS edge acceleration factor");
+	cvdef(opuser13, 0);
+	opuser13 = vds_acc1;
+	cvmin(opuser13, 0);
+	cvmax(opuser13, 100);	
+	vds_acc1 = opuser13;
+	
+	if (kill_grads == 0) /* only if spirals are on*/
+		piuset += use14;
+	cvdesc(opuser14, "Number of navigator points");
+	cvdef(opuser14, 0);
+	opuser14 = nnav;
+	cvmin(opuser14, 0);
+	cvmax(opuser14, 2000);	
+	nnav = opuser14;
+	
+	piuset += use15;
+	cvdesc(opuser15, "Fat supppresion mode: (0) off, (1) CHESS, (2) SPIR");
+	cvdef(opuser15, 0);
+	opuser15 = fatsup_mode;
+	cvmin(opuser15, 0);
+	cvmax(opuser15, 2);	
+	fatsup_mode = opuser15;
+	
+	if (fatsup_mode == 2) /* only for SPIR */
+		piuset += use16;
+	cvdesc(opuser16, "SPIR flip angle (deg)");
+	cvdef(opuser16, 0);
+	opuser16 = spir_fa;
+	cvmin(opuser16, 0);
+	cvmax(opuser16, 360);	
+	spir_fa = opuser16;
+	
+	if (fatsup_mode == 2) /* only for SPIR */
+		piuset += use17;
+	cvdesc(opuser17, "SPIR inversion time (ms)");
+	cvdef(opuser17, 0);
+	opuser17 = spir_ti*1e-3;
+	cvmin(opuser17, 0);
+	cvmax(opuser17, 5000);	
+	spir_ti = 4*round(opuser17*1e3/4);
+
+	piuset += use18;
+	cvdesc(opuser18, "Prep 1 pulse id (0=off)");
+	cvdef(opuser18, 0);
+	opuser18 = prep1_id;
+	cvmin(opuser18, 0);
+	cvmax(opuser18, 99999);	
+	prep1_id = opuser18;
+		
+	if (prep1_id > 0)
+		piuset += use19;
+	cvdesc(opuser19, "Prep 1 PLD (ms)");
+	cvdef(opuser19, 0);
+	opuser19 = prep1_pld*1e-3;
+	cvmin(opuser19, 0);
+	cvmax(opuser19, 99999);	
+	prep1_pld = 4*round(opuser19*1e3/4);
+	
+	if (prep1_id > 0)
+		piuset += use20;
+	cvdesc(opuser20, "Prep 1 max B1 amp (mG)");
+	cvdef(opuser20, 0);
+	opuser20 = prep1_rfmax;
+	cvmin(opuser20, 0);
+	cvmax(opuser20, 500);	
+	prep1_rfmax = opuser20;
+	
+	if (prep1_id > 0)
+		piuset += use21;
+	cvdesc(opuser21, "Prep 1 max G amp (G/cm)");
+	cvdef(opuser21, 0);
+	opuser21 = prep1_gmax;
+	cvmin(opuser21, 0);
+	cvmax(opuser21, GMAX);	
+	prep1_gmax = opuser21;
+	
+	if (prep1_id > 0)
+		piuset += use22;
+	cvdesc(opuser22, "Prep 1 mod pattern: (1) LC, (2) CL, (3) L, (4), C");
+	cvdef(opuser22, 1);
+	opuser22 = prep1_mod;
+	cvmin(opuser22, 1);
+	cvmax(opuser22, 4);	
+	prep1_mod = opuser22;
+	
+	if (prep1_id > 0)
+		piuset += use23;
+	cvdesc(opuser23, "Prep 1 BGS 1 delay (0=off) (ms)");
+	cvdef(opuser23, 0);
+	opuser23 = prep1_tbgs1*1e-3;
+	cvmin(opuser23, 0);
+	cvmax(opuser23, 20000);	
+	prep1_tbgs1 = 4*round(opuser23*1e3/4);
+	
+	if (prep1_id > 0)
+		piuset += use24;
+	cvdesc(opuser24, "Prep 1 BGS 2 delay (0=off) (ms)");
+	cvdef(opuser24, 0);
+	opuser24 = prep1_tbgs2*1e-3;
+	cvmin(opuser24, 0);
+	cvmax(opuser24, 20000);	
+	prep1_tbgs2 = 4*round(opuser24*1e3/4);
+	
+	if (prep1_id > 0)
+		piuset += use25;
+	cvdesc(opuser25, "Prep 1 BGS 3 delay (0=off) (ms)");
+	cvdef(opuser25, 0);
+	opuser25 = prep1_tbgs3*1e-3;
+	cvmin(opuser25, 0);
+	cvmax(opuser25, 20000);	
+	prep1_tbgs3= 4*round(opuser25*1e3/4);
+	
+	piuset += use26;
+	cvdesc(opuser26, "Prep 2 pulse id (0=off)");
+	cvdef(opuser26, 0);
+	opuser26 = prep2_id;
+	cvmin(opuser26, 0);
+	cvmax(opuser26, 99999);	
+	prep2_id = opuser26;
+		
+	if (prep2_id > 0)
+		piuset += use27;
+	cvdesc(opuser27, "Prep 2 PLD (ms)");
+	cvdef(opuser27, 0);
+	opuser27 = prep2_pld*1e-3;
+	cvmin(opuser27, 0);
+	cvmax(opuser27, 99999);	
+	prep2_pld = 4*round(opuser27*1e3/4);
+	
+	if (prep2_id > 0)
+		piuset += use28;
+	cvdesc(opuser28, "Prep 2 max B1 amp (mG)");
+	cvdef(opuser28, 0);
+	opuser28 = prep2_rfmax;
+	cvmin(opuser28, 0);
+	cvmax(opuser28, 500);	
+	prep2_rfmax = opuser28;
+	
+	if (prep2_id > 0)
+		piuset += use29;
+	cvdesc(opuser29, "Prep 2 max G amp (G/cm)");
+	cvdef(opuser29, 0);
+	opuser29 = prep2_gmax;
+	cvmin(opuser29, 0);
+	cvmax(opuser29, GMAX);	
+	prep2_gmax = opuser29;
+	
+	if (prep2_id > 0)
+		piuset += use30;
+	cvdesc(opuser30, "Prep 2 mod pattern: (1) LC, (2) CL, (3) L, (4), C");
+	cvdef(opuser30, 1);
+	opuser30 = prep2_mod;
+	cvmin(opuser30, 1);
+	cvmax(opuser30, 4);	
+	prep2_mod = opuser30;
+	
+	if (prep2_id > 0)
+		piuset += use31;
+	cvdesc(opuser31, "Prep 2 BGS 1 delay (0=off) (ms)");
+	cvdef(opuser31, 0);
+	opuser31 = prep2_tbgs1*1e-3;
+	cvmin(opuser31, 0);
+	cvmax(opuser31, 20000);	
+	prep2_tbgs1 = 4*round(opuser31*1e3/4);
+	
+	if (prep2_id > 0)
+		piuset += use32;
+	cvdesc(opuser32, "Prep 2 BGS 2 delay (0=off) (ms)");
+	cvdef(opuser32, 0);
+	opuser32 = prep2_tbgs2*1e-3;
+	cvmin(opuser32, 0);
+	cvmax(opuser32, 20000);	
+	prep2_tbgs2 = 4*round(opuser32*1e3/4);
+	
+	if (prep2_id > 0)
+		piuset += use33;
+	cvdesc(opuser33, "Prep 2 BGS 3 delay (0=off) (ms)");
+	cvdef(opuser33, 0);
+	opuser33 = prep2_tbgs3*1e-3;
+	cvmin(opuser33, 0);
+	cvmax(opuser33, 20000);	
+	prep2_tbgs3= 4*round(opuser33*1e3/4);
+
 
 @inline Prescan.e PScveval
 
@@ -806,7 +1017,7 @@ STATUS predownload( void )
 	pw_gzrf0rd = tmp_pwd;
 	a_gzrf0r = tmp_a;
 	
-	if (echo_mode > 1) { /* GRE modes - make trap2 a slice selct refocuser */
+	if (ro_type > 1) { /* GRE modes - make trap2 a slice selct refocuser */
 		pw_gzrf1trap2 = tmp_pw;
 		pw_gzrf1trap2a = tmp_pwa;
 		pw_gzrf1trap2d = tmp_pwd;
@@ -863,7 +1074,7 @@ STATUS predownload( void )
 	/* calculate minimum echo time and esp, and corresponding deadtimes */
 	minesp = 0;
 	minte = 0;
-	switch (echo_mode) {
+	switch (ro_type) {
 		case 1: /* FSE */
 			
 			/* calculate minimum esp (time from rf1 to next rf1) */
@@ -1014,7 +1225,7 @@ STATUS predownload( void )
 		deadtime_fatsupcore -= pgbuffertime;
 		deadtime_fatsupcore -= TIMESSI;
 		deadtime_fatsupcore -= pgbuffertime;
-		switch (echo_mode) {
+		switch (ro_type) {
 			case 1: /* FSE */
 				deadtime_fatsupcore -= (pw_gzrf0a + pw_gzrf0/2); /* first half of tipdown */
 				break;
@@ -1112,7 +1323,7 @@ STATUS predownload( void )
 	absmintr += (prep1_id > 0)*(dur_prep1core + TIMESSI + prep1_pld + TIMESSI);
 	absmintr += (prep2_id > 0)*(dur_prep2core + TIMESSI + prep2_pld + TIMESSI);
 	absmintr += (fatsup_mode > 0)*(dur_fatsupcore + TIMESSI);
-	if (echo_mode == 1) /* FSE - add the rf0 pulse */
+	if (ro_type == 1) /* FSE - add the rf0 pulse */
 		absmintr += dur_rf0core + TIMESSI;
 	absmintr += (opetl + ndisdaqechoes) * (dur_rf1core + TIMESSI + dur_seqcore + TIMESSI);
 	if (exist(opautotr) == PSD_MINIMUMTR)
@@ -1253,6 +1464,8 @@ STATUS predownload( void )
 	
 	rhrcctrl = 1; /* bit 7 (2^7 = 128) skips all recon */
 	rhexecctrl = 2; /* bit 1 (2^1 = 2) sets autolock of raw files + bit 3 (2^3 = 8) transfers images to disk */
+
+	write_scan_info();
 
 @inline Prescan.e PSpredownload	
 
@@ -1569,7 +1782,7 @@ STATUS pulsegen( void )
 	fprintf(stderr, "pulsegen(): beginning pulse generation of rf1 core\n");
 	tmploc = 0;
 
-	if (echo_mode != 3) { /* bSSFP - do not use trap1 */
+	if (ro_type != 3) { /* bSSFP - do not use trap1 */
 		fprintf(stderr, "pulsegen(): generating gzrf1trap1 (pre-rf1 gradient trapezoid)...\n");
 		tmploc += pgbuffertime; /* start time for gzrf1trap1 */
 		TRAPEZOID(ZGRAD, gzrf1trap1, tmploc + pw_gzrf1trap1a, 3200, 0, loggrd);
@@ -1978,13 +2191,13 @@ STATUS prescanCore() {
 	
 	for (view = 1 - rspdda; view < rspvus + 1; view++) {
 
-		if (echo_mode == 1) { /* FSE - play 90 */
+		if (ro_type == 1) { /* FSE - play 90 */
 			fprintf(stderr, "prescanCore(): playing 90deg FSE tipdown for prescan iteration %d...\n", view);
 			play_rf0(0);
 		}	
 
 		fprintf(stderr, "prescanCore(): Playing flip pulse for prescan iteration %d...\n", view);
-		play_rf1(90*(echo_mode == 1));
+		play_rf1(90*(ro_type == 1));
 			
 		/* Load the DAB */	
 		if (view < 1 || n < ndisdaqechoes) {
@@ -2082,7 +2295,7 @@ STATUS scan( void )
 		fprintf(stderr, "scan(): playing TR deadtime for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
 		ttotal += play_deadtime(optr - opetl * (dur_rf1core + TIMESSI + dur_seqcore + TIMESSI));
 		
-		if (echo_mode == 1) { /* FSE - play 90 */
+		if (ro_type == 1) { /* FSE - play 90 */
 			fprintf(stderr, "scan(): playing 90deg FSE tipdown for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
 			play_rf0(0);
 		}	
@@ -2090,7 +2303,7 @@ STATUS scan( void )
 		/* Loop through echoes */
 		for (echon = 0; echon < opetl+ndisdaqechoes; echon++) {
 			fprintf(stderr, "scan(): playing flip pulse for disdaq train %d (t = %d / %.0f us)...\n", disdaqn, ttotal, pitscan);
-			if (echo_mode == 1) /* FSE - CPMG */
+			if (ro_type == 1) /* FSE - CPMG */
 				ttotal += play_rf1(90);
 			else
 				ttotal += play_rf1(0);
@@ -2167,7 +2380,7 @@ STATUS scan( void )
 					ttotal += play_fatsup();
 				}
 				
-				if (echo_mode == 1) { /* FSE - play 90 */
+				if (ro_type == 1) { /* FSE - play 90 */
 					fprintf(stderr, "scan(): playing 90deg FSE tipdown for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
 					play_rf0(0);
 				}	
@@ -2175,7 +2388,7 @@ STATUS scan( void )
 				/* play disdaq echoes */
 				for (echon = 0; echon < ndisdaqechoes; echon++) {
 					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, disdaq echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-					if (echo_mode == 1) /* FSE - CPMG */
+					if (ro_type == 1) /* FSE - CPMG */
 						ttotal += play_rf1(90);
 					else
 						ttotal += play_rf1(rfspoil_flag*117*echon);
@@ -2186,7 +2399,7 @@ STATUS scan( void )
 
 				for (echon = 0; echon < opetl; echon++) {
 					fprintf(stderr, "scan(): playing flip pulse for frame %d, shot %d, echo %d (t = %d / %.0f us)...\n", framen, shotn, echon, ttotal, pitscan);
-					if (echo_mode == 1) /* FSE - CPMG */
+					if (ro_type == 1) /* FSE - CPMG */
 						ttotal += play_rf1(90);
 					else {
 						ttotal += play_rf1(rfspoil_flag*117*(echon + ndisdaqechoes));
@@ -2281,10 +2494,10 @@ int genspiral() {
 	float kxn, kyn;
 	
 	/* calculate FOV coefficients */
-	F0 = 1.1*(vds_acc1 / (float)narms * (float)opfov / 10.0);
-	F1 = 1.1*(2*pow((float)opfov/10.0,2)/opxres *(vds_acc1 - vds_acc0)/(float)narms);
+	F0 = 1.1*(1.0/vds_acc1 / (float)narms * (float)opfov / 10.0);
+	F1 = 1.1*(2*pow((float)opfov/10.0,2)/opxres *(1.0/vds_acc1 - 1.0/vds_acc0)/(float)narms);
 	F2 = 0;
-	if (echo_mode == 1) { /* FSE and bSSFP - spiral in-out */
+	if (ro_type == 1) { /* FSE and bSSFP - spiral in-out */
 		F0 /= 2;
 		F1 /= 2;
 		F2 /= 2;
@@ -2340,7 +2553,7 @@ int genspiral() {
 	reverseArray(gx_sprlo, n_sprl, gx_sprli);
 	reverseArray(gy_sprlo, n_sprl, gy_sprli);
 
-	if (echo_mode == 2) { /* SPGR - spiral out */
+	if (ro_type == 2) { /* SPGR - spiral out */
 		/* calculate window lengths */
 		grad_len = nnav + n_sprl;
 		acq_len = nnav + n_vds;
@@ -2416,7 +2629,7 @@ int genviews() {
 
 				/* Set the rotation angle and kz step (as a fraction of kzmax) */ 
 				rz = M_PI * (float)armn / (float)narms;
-				if (echo_mode == 2) /* spiral out */
+				if (ro_type == 2) /* spiral out */
 					rz *= 2;
 				dz = 2.0/(float)opetl * (center_out_idx(opetl,echon) - 1.0/(float)opnshots*center_out_idx(opnshots,shotn)) - 1.0;
 
@@ -2580,6 +2793,136 @@ float calc_sinc_B1(float cyc_rf, int pw_rf, float flip_rf) {
 
 float calc_hard_B1(int pw_rf, float flip_rf) {
 	return (flip_rf / 180.0 * M_PI / GAMMA / (float)(pw_rf*1e-6));
+}
+
+int write_scan_info() {
+
+	FILE *finfo = fopen("scaninfo.txt","w");
+	fprintf(finfo, "Rx parameters:\n");
+	fprintf(finfo, "\t%-50s%20f %s\n", "X/Y FOV:", (float)opfov/10.0, "cm");
+	fprintf(finfo, "\t%-50s%20f %s\n", "3D slab thickness:", (float)opslquant*opslthick/10.0, "cm"); 	
+
+	fprintf(finfo, "Hardware limits:\n");
+	fprintf(finfo, "\t%-50s%20f %s\n", "Max gradient amplitude:", GMAX, "G/cm");
+	fprintf(finfo, "\t%-50s%20f %s\n", "Max slew rate:", SLEWMAX, "G/cm/s");
+
+	fprintf(finfo, "Readout parameters:\n");
+	switch (ro_type) {
+		case 1: /* FSE */
+			fprintf(finfo, "\t%-50s%20s\n", "Readout type:", "FSE");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Flip (inversion) angle:", opflip, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Echo time:", (float)opte*1e-3, "ms");
+			break;
+		case 2: /* SPGR */
+			fprintf(finfo, "\t%-50s%20s\n", "Readout type:", "SPGR");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Flip angle:", opflip, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Echo time:", (float)opte*1e-3, "ms");
+			fprintf(finfo, "\t%-50s%20f %s\n", "ESP (short TR):", (float)esp*1e-3, "ms");
+			fprintf(finfo, "\t%-50s%20s\n", "RF phase spoiling:", (rfspoil_flag) ? ("on") : ("off"));	
+			break;
+		case 3: /* bSSFP */
+			fprintf(finfo, "\t%-50s%20s\n", "Readout type:", "bSSFP");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Flip angle:", opflip, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "Echo time:", (float)opte*1e-3, "ms");
+			fprintf(finfo, "\t%-50s%20f %s\n", "ESP (short TR):", (float)esp*1e-3, "ms");
+			break;
+	}
+	fprintf(finfo, "\t%-50s%20f %s\n", "Shot interval (long TR):", (float)optr*1e-3, "ms");
+	fprintf(finfo, "\t%-50s%20d\n", "ETL:", opetl);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of frames:", nframes);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of shots:", opnshots);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of spiral arms:", narms);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of disdaq echo trains:", ndisdaqtrains);
+	fprintf(finfo, "\t%-50s%20d\n", "Number of disdaq echoes:", ndisdaqechoes);
+	fprintf(finfo, "\t%-50s%20f %s\n", "Crusher area factor:", crushfac, "% kmax");
+	fprintf(finfo, "\t%-50s%20s\n", "Flow compensation:", (flowcomp_flag) ? ("on") : ("off"));	
+	if (kill_grads == 1)
+			fprintf(finfo, "\t%-50s%20s\n", "Spiral readout:", "off (FID only)");
+	else {
+		switch (spi_mode) {
+			case 0: /* SOS */
+				fprintf(finfo, "\t%-50s%20s\n", "Projection mode:", "SOS");
+				fprintf(finfo, "\t%-50s%20f\n", "kz acceleration (SENSE) factor:", kz_acc);
+				break;
+			case 1: /* 2DTGA */
+				fprintf(finfo, "\t%-50s%20s\n", "Projection mode:", "2DTGA");
+				break;
+			case 2: /* 3DTGA */
+				fprintf(finfo, "\t%-50s%20s\n", "Projection mode:", "3DTGA");
+				break;
+		}
+		fprintf(finfo, "\t%-50s%20f\n", "VDS center acceleration factor:", vds_acc0);
+		fprintf(finfo, "\t%-50s%20f\n", "VDS edge acceleration factor:", vds_acc1);
+		fprintf(finfo, "\t%-50s%20d\n", "Number of navigator points:", nnav);
+	}
+	fprintf(finfo, "\t%-50s%20f %s\n", "Acquisition window duration:", acq_len*4*1e-3, "ms");
+	fprintf(finfo, "Prep parameters:\n");
+	switch (fatsup_mode) {
+		case 0: /* Off */
+			fprintf(finfo, "\t%-50s%20s\n", "Fat suppression:", "off");
+			break;
+		case 1: /* CHESS */
+			fprintf(finfo, "\t%-50s%20s\n", "Fat suppression:", "CHESS");
+			break;
+		case 2: /* SPIR */
+			fprintf(finfo, "\t%-50s%20s\n", "Fat suppression:", "SPIR");
+			fprintf(finfo, "\t%-50s%20f %s\n", "SPIR flip angle:", spir_fa, "deg");
+			fprintf(finfo, "\t%-50s%20f %s\n", "SPIR inversion time:", (float)spir_ti*1e-3, "ms");
+			break;
+	}
+	if (prep1_id == 0)
+		fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse:", "off");
+	else {
+		fprintf(finfo, "\t%-50s%20d\n", "Prep 1 pulse id:", prep1_id);
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 post-labeling delay:", (float)prep1_pld*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 max B1 amplitude:", prep1_rfmax, "mG");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 max gradient amplitude:", prep1_gmax, "G/cm");
+		switch (prep1_mod) {
+			case 1:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "1 (LCLC)");
+				break;
+			case 2:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "2 (CLCL)");
+				break;
+			case 3:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "3 (LLLL)");
+				break;
+			case 4:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 1 pulse modulation:", "4 (CCCC)");
+				break;
+		}
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 BGS 1 delay:", (float)prep1_tbgs1*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 BGS 2 delay:", (float)prep1_tbgs2*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 1 BGS 3 delay:", (float)prep1_tbgs3*1e-3, "ms");
+	}
+	if (prep2_id == 0)
+		fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse:", "off");
+	else {
+		fprintf(finfo, "\t%-50s%20d\n", "Prep 2 pulse id:", prep2_id);
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 post-labeling delay:", (float)prep2_pld*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 max B1 amplitude:", prep2_rfmax, "mG");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 max gradient amplitude:", prep2_gmax, "G/cm");
+		switch (prep2_mod) {
+			case 1:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "1 (LCLC)");
+				break;
+			case 2:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "2 (CLCL)");
+				break;
+			case 3:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "3 (LLLL)");
+				break;
+			case 4:
+				fprintf(finfo, "\t%-50s%20s\n", "Prep 2 pulse modulation:", "4 (CCCC)");
+				break;
+		}
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 BGS 1 delay:", (float)prep2_tbgs1*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 BGS 2 delay:", (float)prep2_tbgs2*1e-3, "ms");
+		fprintf(finfo, "\t%-50s%20f %s\n", "Prep 2 BGS 3 delay:", (float)prep2_tbgs3*1e-3, "ms");
+	}
+
+	fclose(finfo);
+	return 1;
 }
 
 /************************ END OF UMVSASL.E ******************************/
