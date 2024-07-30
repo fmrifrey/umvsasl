@@ -149,7 +149,9 @@ int ndisdaqtrains = 2 with {0, , 2, VIS, "number of disdaq echo trains at beginn
 int ndisdaqechoes = 0 with {0, , 0, VIS, "number of disdaq echos at beginning of echo train",};
 
 int echo_mode = 2 with {1, 3, 2, VIS, "FSE (1), SPGR (2), or bSSFP (3)",};
-int fatsat_mode = 1 with {0, 3, 1, VIS, "none (0), CHESS (1), or SPIR (2)",};
+int fatsup_mode = 1 with {0, 3, 1, VIS, "none (0), CHESS (1), or SPIR (2)",};
+int fatsup_off = -520 with { , , -530, VIS, "fat suppression pulse frequency offset (Hz)",};
+int fatsup_bw = 440 with { , , 440, VIS, "fat suppression bandwidth (Hz)",};
 int spir_fa = 110 with {0, 360, 1, VIS, "SPIR pulse flip angle (deg)",};
 int spir_ti = 52ms with {0, 1000ms, 52ms, VIS, "SPIR inversion time (us)",};
 int rfspoil_flag = 1 with {0, 1, 1, VIS, "option to do RF phase cycling (117deg increments to rf1 phase)",};
@@ -206,11 +208,11 @@ int dur_presatcore = 0 with {0, , 0, INVIS, "duration of the ASL pre-saturation 
 int dur_prep1core = 0 with {0, , 0, INVIS, "duration of the ASL prep 1 cores (us)",};
 int dur_prep2core = 0 with {0, , 0, INVIS, "duration of the ASL prep 2 cores (us)",};
 int dur_bkgsupcore = 0 with {0, , 0, INVIS, "duration of the background suppression core (us)",};
-int dur_fatsatcore = 0 with {0, , 0, INVIS, "duration of the fat saturation core (us)",};
+int dur_fatsupcore = 0 with {0, , 0, INVIS, "duration of the fat suppression core (us)",};
 int dur_rf0core = 0 with {0, , 0, INVIS, "duration of the slice selective rf0 core (us)",};
 int dur_rf1core = 0 with {0, , 0, INVIS, "duration of the slice selective rf1 core (us)",};
 int dur_seqcore = 0 with {0, , 0, INVIS, "duration of the spiral readout core (us)",};
-int deadtime_fatsatcore = 0 with {0, , 0, INVIS, "deadtime at end of fatsat core (us)",};
+int deadtime_fatsupcore = 0 with {0, , 0, INVIS, "deadtime at end of fatsup core (us)",};
 int deadtime_rf0core = 0 with {0, , 0, INVIS, "post-tipdown deadtime for FSE (us)",};
 int deadtime1_seqcore = 0 with {0, , 0, INVIS, "pre-readout deadtime within core (us)",};
 int deadtime2_seqcore = 0 with {0, , 0, INVIS, "post-readout deadtime within core (us)",};
@@ -610,7 +612,10 @@ STATUS predownload( void )
 	/* update sinc pulse parameters */
 	pw_rf0 = 3200;
 	pw_rf1 = 3200;
-	pw_rffs = 3200;
+	
+	/* adjust fat sup pw s.t. desired bandwidth is achieved */
+	pw_rffs = 3200; /* nominal SINC1 pulse width */
+	pw_rffs *= (int)round(NOM_BW_SINC1_90 / (float)fatsup_bw); /* adjust bandwidth */
 
 	/* Update the background suppression pulse parameters */
 	res_rfbs_rho = 500;
@@ -658,11 +663,11 @@ STATUS predownload( void )
 	fprintf(stderr, "predownload(): maximum B1 for background suppression prep pulse: %f Gauss \n", rfbs_b1);
 	if (rfbs_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rfbs_b1;
 	
-	if (fatsat_mode < 3)
+	if (fatsup_mode < 2)
 		rffs_b1 = calc_sinc_B1(cyc_rffs, pw_rffs, 90.0);
 	else
 		rffs_b1 = calc_sinc_B1(cyc_rffs, pw_rffs, spir_fa);
-	fprintf(stderr, "predownload(): maximum B1 for fatsat pulse: %f Gauss\n", rffs_b1);
+	fprintf(stderr, "predownload(): maximum B1 for fatsup pulse: %f Gauss\n", rffs_b1);
 	if (rffs_b1 > maxB1[L_SCAN]) maxB1[L_SCAN] = rffs_b1;
 	
 	prep1_b1 = (prep1_id > 0) ? (prep1_rfmax*1e-3) : (0);
@@ -998,31 +1003,31 @@ STATUS predownload( void )
 	cvmin(esp, minesp);
 	cvmin(opte, minte);
 
-	/* set fatsat deadtime */
-	if (fatsat_mode == 2) { /* SPIR */
-		deadtime_fatsatcore = spir_ti;
-		deadtime_fatsatcore -= pw_rffs/2; /* 2nd half of rf pulse */
-		deadtime_fatsatcore -= pgbuffertime;
-		deadtime_fatsatcore -= (pw_gzrffsspoila + pw_gzrffsspoil + pw_gzrffsspoild); /* crusher */
-		deadtime_fatsatcore -= pgbuffertime;
-		deadtime_fatsatcore -= TIMESSI;
-		deadtime_fatsatcore -= pgbuffertime;
+	/* set fatsup deadtime */
+	if (fatsup_mode < 2) /* CHESS/none */
+		deadtime_fatsupcore = 0;
+	else { /* SPIR */
+		deadtime_fatsupcore = spir_ti;
+		deadtime_fatsupcore -= pw_rffs/2; /* 2nd half of rf pulse */
+		deadtime_fatsupcore -= pgbuffertime;
+		deadtime_fatsupcore -= (pw_gzrffsspoila + pw_gzrffsspoil + pw_gzrffsspoild); /* crusher */
+		deadtime_fatsupcore -= pgbuffertime;
+		deadtime_fatsupcore -= TIMESSI;
+		deadtime_fatsupcore -= pgbuffertime;
 		switch (echo_mode) {
 			case 1: /* FSE */
-				deadtime_fatsatcore -= (pw_gzrf0a + pw_gzrf0/2); /* first half of tipdown */
+				deadtime_fatsupcore -= (pw_gzrf0a + pw_gzrf0/2); /* first half of tipdown */
 				break;
 			case 2: /* SPGR */
-				deadtime_fatsatcore -= (pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap2);
-				deadtime_fatsatcore -= pgbuffertime;
-				deadtime_fatsatcore -= (pw_gzrf1a + pw_gzrf1/2);
+				deadtime_fatsupcore -= (pw_gzrf1trap1a + pw_gzrf1trap1 + pw_gzrf1trap2);
+				deadtime_fatsupcore -= pgbuffertime;
+				deadtime_fatsupcore -= (pw_gzrf1a + pw_gzrf1/2);
 				break;
 			case 3: /* bSSFP */
-				deadtime_fatsatcore -= (pw_gzrf1a + pw_gzrf1/2);
+				deadtime_fatsupcore -= (pw_gzrf1a + pw_gzrf1/2);
 				break;
 		}
 	}
-	else /* CHESS/none */
-		deadtime_fatsatcore = 0;
 
 	/* Calculate the duration of presatcore */
 	dur_presatcore = 0;
@@ -1062,14 +1067,14 @@ STATUS predownload( void )
 	dur_bkgsupcore += pw_rfbs_rho;
 	dur_bkgsupcore += pgbuffertime;	
 
-	/* Calculate the duration of fatsatcore */
-	dur_fatsatcore = 0;
-	dur_fatsatcore += pgbuffertime;
-	dur_fatsatcore += pw_rffs;
-	dur_fatsatcore += pgbuffertime;
-	dur_fatsatcore += pw_gzrffsspoila + pw_gzrffsspoil + pw_gzrffsspoild;
-	dur_fatsatcore += pgbuffertime;
-	dur_fatsatcore += deadtime_fatsatcore;
+	/* Calculate the duration of fatsupcore */
+	dur_fatsupcore = 0;
+	dur_fatsupcore += pgbuffertime;
+	dur_fatsupcore += pw_rffs;
+	dur_fatsupcore += pgbuffertime;
+	dur_fatsupcore += pw_gzrffsspoila + pw_gzrffsspoil + pw_gzrffsspoild;
+	dur_fatsupcore += pgbuffertime;
+	dur_fatsupcore += deadtime_fatsupcore;
 	
 	/* calculate duration of rf0core */
 	dur_rf0core = 0;
@@ -1106,7 +1111,7 @@ STATUS predownload( void )
 	absmintr = presat_flag*(dur_presatcore + TIMESSI + presat_delay);
 	absmintr += (prep1_id > 0)*(dur_prep1core + TIMESSI + prep1_pld + TIMESSI);
 	absmintr += (prep2_id > 0)*(dur_prep2core + TIMESSI + prep2_pld + TIMESSI);
-	absmintr += (fatsat_mode > 0)*(dur_fatsatcore + TIMESSI);
+	absmintr += (fatsup_mode > 0)*(dur_fatsupcore + TIMESSI);
 	if (echo_mode == 1) /* FSE - add the rf0 pulse */
 		absmintr += dur_rf0core + TIMESSI;
 	absmintr += (opetl + ndisdaqechoes) * (dur_rf1core + TIMESSI + dur_seqcore + TIMESSI);
@@ -1503,19 +1508,19 @@ STATUS pulsegen( void )
 
 
 	/************************/
-	/* generate fatsat core */
+	/* generate fatsup core */
 	/************************/
-	fprintf(stderr, "pulsegen(): beginning pulse generation of fatsatcore\n");	
+	fprintf(stderr, "pulsegen(): beginning pulse generation of fatsupcore\n");	
 	tmploc = 0;
 	
-	fprintf(stderr, "pulsegen(): generating rffs (fat saturation rf pulse)...\n");
+	fprintf(stderr, "pulsegen(): generating rffs (fat suppresion rf pulse)...\n");
 	tmploc += pgbuffertime; /* start time for rffs */
-	SINC2(RHO, rffs, tmploc + psd_rf_wait, 3200, 1.0, ,0.5, , , loggrd);
+	SINC(RHO, rffs, tmploc + psd_rf_wait, 3200, 1.0, ,0.5, , , loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
 	tmploc += pw_rffs; /* end time for rffs */
 	fprintf(stderr, " end: %dus\n", tmploc);	
  
-	fprintf(stderr, "pulsegen(): generating gzrffsspoil (fat saturation crusher gradients)...\n");
+	fprintf(stderr, "pulsegen(): generating gzrffsspoil (fat suppression crusher gradients)...\n");
 	tmploc += pgbuffertime; /* start time for gzrffsspoil */
 	TRAPEZOID(ZGRAD, gzrffsspoil, tmploc + pw_gzrffsspoila, GRAD_UPDATE_TIME*1000, 0, loggrd);
 	fprintf(stderr, "\tstart: %dus, ", tmploc);
@@ -1523,9 +1528,9 @@ STATUS pulsegen( void )
 	fprintf(stderr, " end: %dus\n", tmploc);
 	tmploc += pgbuffertime; /* add some buffer */
 
-	fprintf(stderr, "pulsegen(): finalizing fatsatcore...\n");
-	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_fatsatcore, tmploc);
-	SEQLENGTH(fatsatcore, dur_fatsatcore, fatsatcore);
+	fprintf(stderr, "pulsegen(): finalizing fatsupcore...\n");
+	fprintf(stderr, "\ttotal time: %dus (tmploc = %dus)\n", dur_fatsupcore, tmploc);
+	SEQLENGTH(fatsupcore, dur_fatsupcore, fatsupcore);
 	fprintf(stderr, "\tDone.\n");
 	
 
@@ -1715,8 +1720,8 @@ STATUS psdinit( void )
 	setfrequency((int)xmitfreq, &rf1, 0);
 	setfrequency((int)recfreq, &echo1, 0);
 
-	/* Set fat sat frequency */
-	setfrequency( (int)(-520 / TARDIS_FREQ_RES), &rffs, 0);
+	/* Set fat sup frequency */
+	setfrequency( (int)(fatsup_off / TARDIS_FREQ_RES), &rffs, 0);
 	
 	/* Get the original rotation matrix */
 	getrotate( tmtx0, 0 );
@@ -1887,18 +1892,18 @@ int play_aslprep(s32* off_ctlcore, s32* off_lblcore, int mod, int dur, int pld, 
 	return ttotal;
 }
 
-/* function for playing fat sat pulse */
-int play_fatsat() {
+/* function for playing fat sup pulse */
+int play_fatsup() {
 	int ttotal = 0;
-	fprintf(stderr, "\tplay_fatsat(): playing fat sat pulse (%d us)...\n", dur_fatsatcore + TIMESSI);
+	fprintf(stderr, "\tplay_fatsup(): playing fat sup pulse (%d us)...\n", dur_fatsupcore + TIMESSI);
 
-	/* Play fatsat core */
-	boffset(off_fatsatcore);
+	/* Play fatsup core */
+	boffset(off_fatsupcore);
 	startseq(0, MAY_PAUSE);
 	settrigger(TRIG_INTERN, 0);
-	ttotal += dur_fatsatcore + TIMESSI;
+	ttotal += dur_fatsupcore + TIMESSI;
 
-	fprintf(stderr, "\tplay_fatsat(): Done.\n");
+	fprintf(stderr, "\tplay_fatsup(): Done.\n");
 	return ttotal;
 }
 
@@ -2156,10 +2161,10 @@ STATUS scan( void )
 					ttotal += play_aslprep(off_prep2ctlcore, off_prep2lblcore, prep2_mod, dur_prep2core, prep2_pld, prep2_tbgs1, prep2_tbgs2, prep2_tbgs3);
 				}
 
-				/* fat sat pulse */
-				if (fatsat_mode > 0) {
-					fprintf(stderr, "scan(): playing fat sat pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
-					ttotal += play_fatsat();
+				/* fat sup pulse */
+				if (fatsup_mode > 0) {
+					fprintf(stderr, "scan(): playing fat sup pulse for frame %d, shot %d (t = %d / %.0f us)...\n", framen, shotn, ttotal, pitscan);
+					ttotal += play_fatsup();
 				}
 				
 				if (echo_mode == 1) { /* FSE - play 90 */
