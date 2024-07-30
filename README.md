@@ -56,12 +56,14 @@ Each shot interleaves the projected spiral volume acquired in a single echo echo
 
 | Variable | Description | Controlled by |
 | - | - | - |
-| R_center | VDS center acceleration (undersampling) factor | cv: `vds_acc0` |
-| R_edge | VDS edge acceleration (undersampling) factor | cv: `vds_acc1` |
-| R_z | kz acceleration (undersampling) factor (SOS only) | cv: `kz_acc1` |
+| N<sub>nav</sub> | number of points sampled at center of kspace | cv: `nnav` |
+| R<sub>center</sub> | VDS center acceleration (undersampling) factor | cv: `vds_acc0` |
+| R<sub>edge</sub> | VDS edge acceleration (undersampling) factor | cv: `vds_acc1` |
+| R<sub>z</sub> | kz acceleration (undersampling) factor (SOS only) | cv: `kz_acc1` |
 | Projection mode | (1) Stack of spirals, (2) TGA-SPI, (3), 3DTGA-SPI | cv: `spi_mode` |
 
 #### Controlling the Readout
+The following variables control all types of readouts:
 | Variable | Description | Controlled by |
 | - | - | - |
 | ETL | echo train length | cv: `opetl` |
