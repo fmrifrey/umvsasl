@@ -33,3 +33,4 @@ Welcome to our umvsasl project repository. This project implements an end-to-end
 #### Basic Sequence Control
 
 ##### Looping Structure
+The main sequence follows a looping structure over three readout dimensions: frames, shots (through-plane interleaves), and arms (in-plane interleaves), ordered from fastest to slowest, respectively. Each 'frame' contains all preparation pulses, delay times, and the readout echo train. [The entire kspace volume is encoded](#kspace-encoding-scheme) between the echo train, shots, and arms dimensions.
