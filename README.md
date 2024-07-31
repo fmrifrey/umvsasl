@@ -33,7 +33,7 @@ Welcome to our umvsasl project repository. This project implements an end-to-end
 #### Basic Sequence Control
 
 ##### Looping Structure
-The main sequence follows a looping structure over three readout dimensions: frames, shots (through-plane interleaves), and arms (in-plane interleaves), ordered from fastest to slowest, respectively. Each frame contains all preparation pulses, delay times, and the readout echo train. [The entire kspace volume is encoded](#kspace-encoding-scheme) between the echo train, shots, and arms dimensions.
+The main sequence follows a looping structure over three readout dimensions: frames, shots (through-plane interleaves), and arms (in-plane interleaves), ordered from fastest to slowest, respectively. Each TR (shot interval) contains all preparation pulses & delay times as well as the readout echo train. [The entire kspace volume is encoded](#kspace-encoding-scheme) between the echo train, shots, and arms dimensions. Each frame contains information from one volume in kspace.
 
  <img width="500" src="https://github.com/user-attachments/assets/3e301dd8-2dc4-4241-bfb1-1efa7e5062d6">
 
@@ -48,11 +48,12 @@ The main sequence follows a looping structure over three readout dimensions: fra
 ##### Kspace sampling scheme
 This sequence uses 3D stack of spirals and spiral projection imaging (SPI) to encode kspace.
 An initial 2D [variable-density spiral](https://www.researchgate.net/publication/5925197_Fast_3D_imaging_using_variable-density_spiral_trajectories_with_applications_to_limb_perfusion) is generated and then transformed in 3D using rotation matrices.
-Each readout dimension also transforms the kspace trajectory such that each frame contains all information for a single volume in kspace.
-Each arm interleaves the initial 2D spiral in-plane by uniform rotations as shown on the left of the figure below.
-Each shot interleaves the projected spiral volume acquired in a single echo echo train. For stack of spirals, this looks like through-plane interleaving along z as shown in the top right of the figure below. For spiral projection imaging, this will interleave the 3D rotations as shown in the bottom right of the figure below.
+
+Each arm interleaves the initial 2D spiral in-plane by uniform rotations as shown on the left of the figure below. Each shot interleaves the projected spiral volume acquired in a single echo echo train. For stack of spirals, this looks like through-plane interleaving along z as shown in the top right of the figure below. For spiral projection imaging, this will interleave the 3D rotations as shown in the bottom right of the figure below.
 
 <img width="600" src="https://github.com/user-attachments/assets/7e6ae57e-08ae-4ccd-9616-3332802ce290">
+
+The following parameters control the kspace trajectory:
 
 | Parameter | Controlled by |
 | - | - |
@@ -65,7 +66,7 @@ Each shot interleaves the projected spiral volume acquired in a single echo echo
 | Maximum gradient amplitude (G/cm) | cv: `GMAX` |
 
 #### Controlling the Readout
-The following variables control all types of readouts:
+This sequence has the ability to run fast spin echo (FSE), spoiled GRE (SPGR), and balanced steady-state free precession (bSSFP) readouts. The following parameters control all types of readouts:
 
 | Parameter | Controlled by |
 | - | - |
@@ -79,6 +80,8 @@ The following variables control all types of readouts:
 
 ##### FSE mode
 <img width="600" src="https://github.com/user-attachments/assets/77e34722-0bd2-45ab-a37b-f20061b934b1">
+
+The following 
 
 | Parameter | Controlled by |
 | - | - |
