@@ -729,23 +729,6 @@ STATUS cveval( void )
 	cvmax(opuser33, 20000);	
 	prep2_tbgs3= 4*round(opuser33*1e3/4);
 
-	piuset += use34;
-	cvdesc(opuser34, "Presaturation pulse: (0) off, (1) on");
-	cvdef(opuser34, 0);
-	opuser34 = presat_flag;
-	cvmin(opuser34, 0);
-	cvmax(opuser34, 1);	
-	presat_flag= opuser34;
-	
-	if (presat_flag == 1)
-		piuset += use35;
-	cvdesc(opuser35, "Presaturation delay (ms)");
-	cvdef(opuser35, 0);
-	opuser35 = presat_delay*1e-3;
-	cvmin(opuser35, 0);
-	cvmax(opuser35, 1);	
-	presat_delay= 4*round(opuser35*1e3/4);
-
 @inline Prescan.e PScveval
 
 	return SUCCESS;
@@ -2674,8 +2657,8 @@ int genviews() {
 				/* Multiply the transformation matrices */
 				multmat(3,3,3,T_0,Tz,T); /* kz scale T = T_0 * Tz */
 				multmat(3,3,3,Rz,T,T); /* z rotation (arm-to-arm) T = Rz * T */
-				multmat(3,3,3,Rphi,T,T); /* azimuthal angle rotation T = Rphi * T */
 				multmat(3,3,3,Rtheta,T,T); /* polar angle rotation T = Rtheta * T */
+				multmat(3,3,3,Rphi,T,T); /* azimuthal angle rotation T = Rphi * T */
 
 				/* Save the matrix to the table of matrices */
 				fprintf(fID_kviews, "%d \t%d \t%d \t%f \t%f \t", armn, shotn, echon, rz, dz);	
