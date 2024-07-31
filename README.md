@@ -5,22 +5,22 @@ Welcome to our umvsasl project repository. This project implements an end-to-end
 
 ## Table of Contents
 1. [Introduction](#introduction)
-    - [Directory Structure](#directory-structure)
+    - [Directory structure](#directory-structure)
 2. [Usage](#usage)
-    - [Pulse Sequence](#pulse-sequence)
-        - [Basic Sequence Control](#basic-sequence-control)
-            - [Looping Structure](#looping-structure)
-            - [K-space Sampling Scheme](#kspace-sampling-scheme)
-        - [Controlling the Readout](#controlling-the-readout)
-            - [Fast Spin Echo (FSE) Mode](#fse-mode)
-            - [Spoiled Gradient Echo (SPGR) Mode](#spgr-mode)
-            - [Balanced Steady State Free Precession (bSSFP) Mode](#bssfp-mode)
-            - [EPIC Readout Structure](#epic-readout-structure)
-        - [Controlling the Preparation Pulses](#prep-pulses)
-            - [Fat Suppression](#fat-suppression)
-            - [Custom Prep Pulses](#custom-prep-pulses)
-            - [PCASL Pulse](#pcasl-pulse)
-            - [Pre-saturation Pulse](#pre-saturation-pulse)
+    - [Pulse sequence](#pulse-sequence)
+        - [Basic sequence control](#basic-sequence-control)
+            - [Looping structure](#looping-structure)
+            - [K-space sampling scheme](#kspace-sampling-scheme)
+        - [Controlling the readout](#controlling-the-readout)
+            - [Fast spin echo (FSE) mode](#fse-mode)
+            - [Spoiled gradient echo (SPGR) Mode](#spgr-mode)
+            - [Balanced steady state free precession (bSSFP) Mode](#bssfp-mode)
+            - [EPIC readout structure](#epic-readout-structure)
+        - [Controlling the preparation pulses](#prep-pulses)
+            - [Fat suppression](#fat-suppression)
+            - [Custom prep pulses](#custom-prep-pulses)
+            - [PCASL pulse](#pcasl-pulse)
+            - [Pre-saturation pulse](#pre-saturation-pulse)
 3. [License](#license)
 4. [Contact](#contact)
 
@@ -28,11 +28,11 @@ Welcome to our umvsasl project repository. This project implements an end-to-end
 
 ## Usage
 
-### Pulse Sequence
+### Pulse sequence
 
-#### Basic Sequence Control
+#### Basic sequence control
 
-##### Looping Structure
+##### Looping structure
 The main sequence follows a looping structure over three readout dimensions: frames, shots (through-plane interleaves), and arms (in-plane interleaves), ordered from fastest to slowest, respectively. Each TR (shot interval) contains all preparation pulses & delay times as well as the readout echo train. [The entire kspace volume is encoded](#kspace-encoding-scheme) between the echo train, shots, and arms dimensions. Each frame contains information from one volume in kspace.
 
  <img width="500" src="https://github.com/user-attachments/assets/3e301dd8-2dc4-4241-bfb1-1efa7e5062d6">
@@ -65,7 +65,7 @@ The following parameters control the kspace trajectory:
 | Maximum slew rate (G/cm/s) | cv: `SLEWMAX` |
 | Maximum gradient amplitude (G/cm) | cv: `GMAX` |
 
-#### Controlling the Readout
+#### Controlling the readout
 This sequence has the ability to run fast spin echo (FSE), spoiled GRE (SPGR), and balanced steady-state free precession (bSSFP) readouts. The following parameters control all types of readouts:
 
 | Parameter | Controlled by |
@@ -78,10 +78,10 @@ This sequence has the ability to run fast spin echo (FSE), spoiled GRE (SPGR), a
 | Flow compensation | cv: `flowcomp_flag` = (0) off, (1) on |
 | FID mode (no gradients) | cv: `kill_grads` = (0) off, (1) on |
 
+Readout type-specific diagrams and parameters are as follows:
+
 ##### FSE mode
 <img width="600" src="https://github.com/user-attachments/assets/77e34722-0bd2-45ab-a37b-f20061b934b1">
-
-The following 
 
 | Parameter | Controlled by |
 | - | - |
@@ -107,9 +107,11 @@ The following
 | Echo time (TE) (us) | cv: `opte` |
 | Tipdown flip angle (α) (deg) | cv: `opflip` |
 
-##### EPIC Readout Structure
+##### EPIC readout structure
 The following pulse sequence diagram shows how the readout is structured in the EPIC sequence code:
 
 <img width="800" src="https://github.com/user-attachments/assets/45684af3-7832-4e64-a7a8-24c5d8a39dd5">
 
-note: (fixing any of these variables without care will likely cause the sequence to crash)
+note: (fixing any of the values without care will likely cause the sequence to crash)
+
+#### Controlling the preparation pulses
