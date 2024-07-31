@@ -60,36 +60,53 @@ Each shot interleaves the projected spiral volume acquired in a single echo echo
 | VDS center acceleration (undersampling) factor (R<sub>center</sub>) | cv: `vds_acc0` |
 | VDS edge acceleration (undersampling) factor (R<sub>edge</sub>) | cv: `vds_acc1` |
 | kz acceleration (undersampling) factor (SOS only) (R<sub>z</sub>) | cv: `kz_acc1` |
-| 3D projection mode | cv: `spi_mode` = (1) Stack of spirals, (2) TGA-SPI, (3), 3DTGA-SPI |
+| 3D projection mode | cv: `spi_mode` = (1) Stack of spirals, (2) Tiny Golden Angle, (3), 3D Tiny Golden Angle |
+| Maximum slew rate (G/cm/s) | cv: `SLEWMAX` |
+| Maximum gradient amplitude (G/cm) | cv: `GMAX` |
 
 #### Controlling the Readout
 The following variables control all types of readouts:
 
 | Parameter | Controlled by |
 | - | - |
-| Echo train length (ETL) | cv: `opetl` |
 | Readout type | cv: `ro_type` = (1) FSE, (2) SPGR, or (3) bSSFP |
+| Echo train length (ETL) | cv: `opetl` |
+| Number of disdaq echoes | cv: `ndisdaqechoes` |
+| Number of disdaq echo trains | cv: `ndisdaqtrains` |
 | Area under each gradient spoiler (as % of kmax) | cv: `crushfac` |
+| Flow compensation | cv: `flowcomp_flag` = (0) off, (1) on |
+| FID mode (no gradients) | cv: `kill_grads` = (0) off, (1) on |
 
 ##### FSE mode
 <img width="600" src="https://github.com/user-attachments/assets/77e34722-0bd2-45ab-a37b-f20061b934b1">
 
 | Parameter | Controlled by |
 | - | - |
-| Echo time (TE: time from 90 to center of spiral in/out) (us) | cv: `opte` |
-| flip angle (α: refocuser angle) (deg) | cv: `opflip` |
+| Echo time (TE) (us) | cv: `opte` |
+| Refocuser flip angle (α) (deg) | cv: `opflip` |
 
 ##### SPGR mode
+<img width="600" src="https://github.com/user-attachments/assets/d4ccecf0-994f-450e-b598-fdba2a4aaf68">
 
 | Parameter | Controlled by |
 | - | - |
+| Echo spacing (ESP, Short TR) (us) | cv: `esp` |
+| Echo time (TE) (us) | cv: `opte` |
+| Tipdown flip angle (α) (deg) | cv: `opflip` |
 | RF spoiling (117deg phase cycling | cv: `rfspoil_flag` |
 
 ##### bSSFP mode
 <img width="600" src="https://github.com/user-attachments/assets/1707c63b-604d-4255-bd45-f4bdc5737dee">
 
+| Parameter | Controlled by |
+| - | - |
+| Echo spacing (ESP, Short TR) (us) | cv: `esp` |
+| Echo time (TE) (us) | cv: `opte` |
+| Tipdown flip angle (α) (deg) | cv: `opflip` |
 
 ##### EPIC Readout Structure
 The following pulse sequence diagram shows how the readout is structured in the EPIC sequence code:
 
 <img width="800" src="https://github.com/user-attachments/assets/45684af3-7832-4e64-a7a8-24c5d8a39dd5">
+
+note: (fixing any of these variables without care will likely cause the sequence to crash)
